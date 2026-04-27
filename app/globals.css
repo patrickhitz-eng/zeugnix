@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: #FFFFFF;
+    --foreground: #0E1014;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "ss01", "cv11", "calt";
+  }
+
+  /* Sehr feine, hochwertige Bordertrennung */
+  hr {
+    border: none;
+    border-top: 1px solid theme("colors.ink.200");
+  }
+
+  ::selection {
+    background-color: theme("colors.petrol.100");
+    color: theme("colors.petrol.800");
+  }
+
+  /* Scrollbar dezent halten */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: theme("colors.ink.50");
+  }
+  ::-webkit-scrollbar-thumb {
+    background: theme("colors.ink.300");
+    border-radius: 9999px;
+    border: 2px solid theme("colors.ink.50");
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: theme("colors.ink.400");
+  }
+}
+
+@layer components {
+  .container-zx {
+    @apply mx-auto w-full max-w-container px-6 sm:px-8 lg:px-12;
+  }
+
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' /%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' /%3E%3C/svg%3E");
+  }
+
+  /* Eyebrow-Label: feine Caps, klassischer LegalTech-Look */
+  .eyebrow {
+    @apply text-[11px] font-medium uppercase tracking-[0.18em] text-petrol-600;
+  }
+  .eyebrow-light {
+    @apply text-[11px] font-medium uppercase tracking-[0.18em] text-petrol-300;
+  }
+
+  /* Headline-Stile */
+  .headline-display {
+    @apply font-display font-light tracking-tightest text-ink-900;
+  }
+
+  /* Hochwertiger Button */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-ink-900 px-5 py-3 text-sm font-medium text-white transition-all hover:bg-petrol-700 active:scale-[0.985];
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-ink-200 bg-white px-5 py-3 text-sm font-medium text-ink-800 transition-all hover:border-ink-300 hover:bg-ink-50 active:scale-[0.985];
+  }
+  .btn-ghost {
+    @apply inline-flex items-center gap-1.5 text-sm font-medium text-ink-700 transition-colors hover:text-petrol-700;
+  }
+
+  /* Card-Basis */
+  .card {
+    @apply rounded-xl border border-ink-200 bg-white;
+  }
+
+  /* Feine, strukturierte Tabellen-Linie */
+  .hairline {
+    border-top: 1px solid theme("colors.ink.200");
+  }
+}
