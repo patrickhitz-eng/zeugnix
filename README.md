@@ -1,125 +1,176 @@
-# zeugnix.ch
+# zeugnix.ch – MVP
 
-> Schweizer Arbeitszeugnisse erstellen, mit kryptografischem Hash absichern,
-> später überprüfbar und verständlich machen.
+> Schweizer Arbeitszeugnis-Plattform: erstellen, mit kryptografischem Hash
+> absichern, später prüfbar und verständlich machen.
 
-Dies ist die **Landingpage** der Plattform zeugnix.ch – als produktionsreifes
-Next.js 15 Projekt mit App Router, TypeScript und Tailwind CSS.
-
-## Setup
-
-```bash
-# Abhängigkeiten installieren
-npm install
-
-# Entwicklungsserver starten (http://localhost:3000)
-npm run dev
-
-# Production-Build prüfen
-npm run build
-npm run start
-
-# Type-Check ohne Emit
-npm run typecheck
-```
-
-Node.js 20 LTS oder neuer empfohlen.
-
-## Projektstruktur
-
-```
-zeugnix/
-├── app/
-│   ├── layout.tsx              # Root Layout mit Header/Footer & Metadata
-│   ├── page.tsx                # Landingpage (komponiert alle Sektionen)
-│   ├── globals.css             # Tailwind + CSS-Variablen
-│   ├── verify/                 # /verify – Echtheitsprüfung & Analyse
-│   ├── pricing/                # /pricing
-│   ├── how-it-works/           # /how-it-works
-│   ├── for-employers/          # /for-employers
-│   ├── for-candidates/         # /for-candidates
-│   ├── for-recruiters/         # /for-recruiters
-│   ├── legal/                  # Impressum, Datenschutz, AGB
-│   └── api/verify/             # API-Stub (für spätere Hash-Logik)
-│
-├── components/
-│   ├── marketing/              # Header, Footer, Mockups, Stub-Pages
-│   │   ├── header.tsx
-│   │   ├── footer.tsx
-│   │   ├── certificate-mockup.tsx   # PDF-Visual mit Hash & QR-Code
-│   │   ├── analysis-card.tsx        # Schwebende Score-Karte
-│   │   └── stub-page.tsx
-│   ├── sections/               # Landingpage-Sektionen
-│   │   ├── hero.tsx
-│   │   ├── problem.tsx
-│   │   ├── solution.tsx        # Dunkler Block, vier Säulen
-│   │   ├── workflow.tsx        # 5-Schritte-Erstellung
-│   │   ├── verify.tsx          # Mock-UI der /verify-Seite
-│   │   ├── audience.tsx        # Vier Zielgruppen
-│   │   ├── pricing.tsx         # Vier Preiskarten + Firmenpaket
-│   │   ├── badge.tsx           # Verified Certificate Employer
-│   │   └── cta.tsx             # Final-CTA mit Hash-Hintergrund
-│   └── ui/
-│       └── logo.tsx            # SVG-Schild mit Häkchen
-│
-├── lib/
-│   ├── utils.ts                # cn() für Tailwind class merging
-│   └── site-config.ts          # Zentrale Konstanten (Preise, Domain, Texte)
-│
-├── tailwind.config.ts          # Schweizer Farbpalette (ink, petrol, navy)
-├── tsconfig.json
-├── next.config.mjs
-└── package.json
-```
-
-## Designsystem
-
-**Farben** (definiert in `tailwind.config.ts`):
-
-- `ink` — Neutrale Skala von Off-White bis Anthrazit (Hauptpalette)
-- `petrol` — Akzentfarbe für CTAs, Trust-Signale, Hervorhebungen
-- `navy` — Dunkelblau für das Arbeitgeber-Siegel
-
-**Typografie** (via Google Fonts):
-
-- Inter Tight für Body-Text und UI (klar, bürotauglich)
-- Fraunces für Display-Headlines (seriös, mit kursivem Akzent für Subhead-Phrasen)
-- JetBrains Mono für Hash-Werte und Monospaced-Details
-
-**Designprinzipien**:
-
-- Viel Weissraum, klare Hierarchie
-- Feine Hairlines (`border-ink-200`) statt schwerer Linien
-- Eine Dark-Sektion (Solution) für visuellen Rhythmus
-- Schweizer Rechtschreibung durchgehend (ss statt ß)
-
-## Was als Nächstes ansteht
-
-Diese Landingpage ist **vollständig** und produktionsreif. Damit aus zeugnix.ch
-ein Produkt wird, sind folgende Bausteine zu ergänzen (in Reihenfolge der
-Priorität):
-
-1. **Supabase-Schema** – Users, Companies, Certificates, Phrase Blocks,
-   Verifications, Analyses, Payments
-2. **Auth-Flow** – Magic-Link via Supabase Auth + Resend
-3. **Hash-Engine** (`lib/hash.ts`) – Kanonisierung des Zeugnisinhalts und
-   SHA-256-Berechnung
-4. **PDF-Generierung** – via `@react-pdf/renderer` oder Puppeteer-Service
-5. **Baustein-Engine** – Datenbank + Renderer für die Zeugnistext-Generierung
-6. **Stripe-Integration** – Checkout für die vier Preisstufen
-7. **App-Bereich** (`/app/...`) – Dashboard, Zeugnis-Editor, Beurteilungsformular
-8. **Verify-Logik** – Upload, Text-Extraktion, Hash-Vergleich, Analyse
-
-## Rechtlicher Hinweis
-
-Das Spec sieht klare Disclaimer vor (unter Verifikation, Analyse und
-allgemein). Diese sind im Footer und auf der `/verify`-Seite bereits
-integriert.
-
-Vor dem Live-Gang sollte ein arbeitsrechtlich versierter Anwalt die
-Datenschutzerklärung und insbesondere die Speicherung von `canonical_content`
-prüfen (revDSG-Anforderungen an Personendaten).
+Dieses Repository enthält das **MVP-Skelett** der Plattform: Landingpage,
+Auth, Dashboard, Zeugnis-Erstellungs-Workflow, Hash-Engine, Verify-Endpoint,
+Analyse-Engine (Stub) und Stripe-Stubs.
 
 ---
 
-© zeugnix.ch · Alle Rechte vorbehalten.
+## Was lauffähig ist
+
+- Landingpage (`/`)
+- Magic-Link-Login via Supabase (`/login`, `/auth/callback`)
+- Geschützter App-Bereich (`/app/*`)
+- Firmenverwaltung
+- Zeugnis-Erstellung (Mitarbeiterdaten, Aufgaben, Typ)
+- Manager-Beurteilung über Token-Link (kein Account nötig)
+- Baustein-basierte Zeugnistext-Generierung
+- SHA-256-Finalisierung mit kanonisiertem Inhalt
+- PDF-Generierung mit Hash-Block und QR-Code
+- Verify-Seite mit Browser-seitiger PDF-Text-Extraktion und Hash-Vergleich
+- Klartext-Analyse (regelbasiert, MVP-Stub)
+- Stripe-Routen als Stub (echte Bezahlung muss konfiguriert werden)
+
+## Was bewusst NICHT enthalten ist
+
+- Vollständige Bausteinbibliothek (aktuell ~45 Bausteine als Beispiel –
+  produktiv sollten 300–500 von einem HR-Profi/Arbeitsrechtler stammen)
+- E-Mail-Versand für Manager-Einladungen (Resend ist vorbereitet, aber im
+  MVP wird der Einladungslink stattdessen als API-Antwort zurückgegeben)
+- LLM-basierte Zeugnis-Analyse (aktuell nur regelbasiert)
+- OCR für gescannte Zeugnis-PDFs
+- Live-Stripe-Checkout
+
+---
+
+## Setup
+
+### Schritt 1 – Abhängigkeiten installieren
+
+```bash
+npm install
+```
+
+### Schritt 2 – Supabase-Projekt anlegen
+
+1. Auf <https://supabase.com> ein neues Projekt erstellen (Region Frankfurt
+   `eu-central-1` empfohlen für DSG-Konformität).
+2. SQL-Editor öffnen und die zwei Migrationen nacheinander ausführen:
+   - `supabase/001_initial_schema.sql` – legt alle Tabellen, Enums,
+     Trigger und RLS-Policies an.
+   - `supabase/002_seed_phrases.sql` – seed der Bausteinbibliothek.
+3. **Storage Buckets** anlegen (Dashboard → Storage → "New bucket"):
+   - `company-logos` (public)
+   - `certificates` (private)
+   - `uploads` (private)
+   - `reports` (private)
+
+### Schritt 3 – Environment Variables setzen
+
+`.env.example` zu `.env.local` kopieren und ausfüllen:
+
+```bash
+cp .env.example .env.local
+```
+
+Mindestens diese drei Variablen sind Pflicht:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+Die Werte stehen in Supabase unter **Project Settings → API**.
+
+### Schritt 4 – Lokal starten
+
+```bash
+npm run dev
+# → http://localhost:3000
+```
+
+### Schritt 5 – Hash-Engine-Tests
+
+```bash
+npm run test:hash
+```
+
+Es laufen 21 Tests gegen die Kanonisierung und SHA-256-Erzeugung.
+Diese sollten bei jedem Code-Change grün bleiben.
+
+---
+
+## Vercel-Deployment
+
+1. GitHub-Repository pushen.
+2. Auf Vercel → "Add New Project" → Repo auswählen.
+3. Im Vercel-Dashboard unter **Settings → Environment Variables** alle
+   Werte aus `.env.local` setzen, plus `NEXT_PUBLIC_SITE_URL` auf die
+   Vercel-Domain (z.B. `https://zeugnix.vercel.app` oder `https://zeugnix.ch`).
+4. **Wichtig**: In Supabase unter **Authentication → URL Configuration**
+   die Vercel-URL als **Site URL** und **Redirect URLs** eintragen.
+5. Deploy starten.
+
+---
+
+## Workflow im Bild
+
+```
+┌──────────┐     ┌──────────────┐     ┌───────────────┐     ┌─────────┐
+│ HR legt  │────▶│ Manager wird │────▶│ HR generiert  │────▶│ Zeugnis │
+│ Zeugnis  │     │ eingeladen,  │     │ Text aus      │     │ wird    │
+│ an       │     │ beurteilt    │     │ Beurteilungen │     │ final.  │
+└──────────┘     └──────────────┘     └───────────────┘     └────┬────┘
+                                                                 │
+                                                                 ▼
+                                                       ┌─────────────────┐
+                                                       │ SHA-256-Hash +  │
+                                                       │ PDF + QR-Code   │
+                                                       └─────────────────┘
+```
+
+---
+
+## Architektur
+
+- **Next.js 15** App Router, Server Components als Default
+- **Supabase** für Auth, Postgres und Storage
+- **Row-Level-Security** auf allen Tabellen
+- **Token-basierte Manager-Einladungen** (kein Account für Führungskräfte)
+- **Hash-Engine**: deterministische Kanonisierung → SHA-256 (Web Crypto API)
+- **PDF**: `@react-pdf/renderer` server-seitig
+- **Verify**: PDF-Text-Extraktion mit `pdfjs-dist` im Browser, Hash-Vergleich
+  in API-Route gegen `certificates.hash`
+
+---
+
+## Roadmap zum Production-Launch
+
+### Kritisch (vor Live-Schaltung)
+
+- Bausteinbibliothek auf 300+ professionelle Schweizer Formulierungen
+  ausbauen (Empfehlung: HR-Profi oder Arbeitsrechtler beauftragen)
+- Resend-E-Mail-Templates für Manager-Einladungen
+- Stripe-Live-Konfiguration für die vier Bezahlstufen
+- DSG-konforme Datenschutzerklärung und AGB (Anwalt einbeziehen)
+- Realistische Bewertungs-Tonalitäten (sehr_gut/gut/genuegend/ungenuegend
+  je Kategorie und Geschlecht müssen konsistent sein)
+
+### Wichtig
+
+- Logo-Upload mit Storage-Anbindung
+- Mehrbenutzer-Verwaltung pro Firma (HR-Team)
+- E-Mail-Versand bei finalen Zeugnissen an Mitarbeitende
+- LLM-basierte Klartext-Analyse statt Regel-Heuristik
+- OCR für gescannte Zeugnisse (Tesseract oder cloud OCR)
+
+### Nice-to-have
+
+- Verified Certificate Employer Badge auf der Webseite des Arbeitgebers
+- Recruiter-Bulk-Verifikation
+- Auswertungs-Dashboard für HR (Zeugnisse pro Quartal, durchschnittliche
+  Bewertungs-Verteilung etc.)
+- Mehrsprachigkeit (FR, IT, EN)
+
+---
+
+## Lizenzen / Drittanbieter
+
+- Schriftarten Inter Tight, Fraunces, JetBrains Mono via Google Fonts
+- Icons: Inline-SVG, eigene Implementierung
+- pdfjs-dist (Apache 2.0), @react-pdf/renderer (MIT), Supabase (Apache 2.0)
