@@ -1,42 +1,24 @@
-# Patch: Logo-Upload + PDF-Generierung Fixes
+# Patch: PDF-Generierung robust gemacht
 
-Behebt zwei Probleme aus dem letzten Test:
+## Problem
+React Error #31 beim PDF-Download – tritt sofort auf, auch ohne Signaturen.
 
-## 1. Logo-Upload schlug fehl
-**Fehler:** "new row violates row-level security policy"
-**Ursache:** Storage-Bucket "company-logos" hatte keine RLS-Policy für Upload
-**Fix:** SQL 006_storage_policies.sql in Supabase ausführen (siehe unten)
+## Ursache
+@react-pdf/renderer ist sehr intolerant gegenüber:
+- null/undefined Werten in <Text>
+- Verschachtelten JSX-Expressions
+- Conditional Rendering mit && (rendert "false" als String)
 
-## 2. PDF-Generierung scheiterte mit React Error #31
-**Ursache:** @react-pdf/renderer ist intolerant gegenüber zusammengesetzten
-JSX-Expressions in Text-Komponenten (z.B. `<Text>Hallo {x} Welt</Text>` mit
-mehreren Variablen). Solche Stellen wurden in saubere Strings umgewandelt.
-**Fix:** Datei lib/pdf/certificate.tsx ersetzen
+## Fix
+Komplette PDF-Datei defensiv neu geschrieben:
+- Alle Werte werden vorab zu Strings konvertiert (Helper s())
+- Alle Bedingungen sind explizite .length > 0 Checks
+- Kein && Shortcut mehr
+- Bullet-/Datums-Sonderlogik entfernt (war potentiell der Übeltäter)
 
 ## Vorgehen
-
-### Schritt 1: SQL für Storage-Policies
-
-1. `006_storage_policies.sql` öffnen, Inhalt kopieren
-2. Supabase Dashboard → SQL Editor → + New query
-3. Einfügen → Run
-4. Erwartet: "Success. No rows returned"
-
-WICHTIG: Bevor das SQL läuft, muss der Bucket "company-logos" existieren.
-Falls er noch nicht da ist:
-- Supabase Dashboard → Storage → New bucket
-- Name: company-logos
-- Public: ON  (wichtig: muss public sein, damit der PDF-Renderer das Logo laden kann)
-
-### Schritt 2: PDF-Datei ersetzen
-
-1. Im Repo: `lib/pdf/certificate.tsx` durch die Version aus diesem Patch ersetzen
-2. Commit: `fix: pdf-rendering und logo-upload`
+1. Datei lib/pdf/certificate.tsx im Repo durch diese ersetzen
+2. Commit: "fix: pdf rendering defensiv"  
 3. Push origin
-
-Vercel deployt automatisch.
-
-### Schritt 3: Test
-
-1. Logo nochmal hochladen → sollte funktionieren
-2. Zeugnis finalisieren (mit Signatur-Bestätigung) → PDF herunterladen → öffnet sich ohne Fehler
+4. Vercel deployt
+5. Test: Bei einem finalisierten Zeugnis "PDF herunterladen" klicken

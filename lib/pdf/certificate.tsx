@@ -1,14 +1,9 @@
 /**
- * zeugnix.ch – PDF-Generator
+ * zeugnix.ch – PDF-Generator (robust)
  * ----------------------------------------------------------------------------
- * Erzeugt ein professionelles Arbeitszeugnis als PDF:
- *   - Briefkopf mit Logo und Firmenadresse
- *   - Titel (Arbeitszeugnis / Zwischenzeugnis)
- *   - Body-Text (justified)
- *   - Unterschriftsblock mit zwei Unterzeichnenden
- *   - Hash-Block + QR-Code in der Fusszeile (bei finalisierten Zeugnissen)
- *
- * Verwendet @react-pdf/renderer (server-seitig).
+ * Erzeugt ein professionelles Arbeitszeugnis als PDF.
+ * Defensiv geschrieben: alle Texte werden vorher zu sauberen Strings
+ * konvertiert, bevor sie an <Text> gegeben werden.
  */
 
 import {
@@ -36,7 +31,7 @@ interface RenderInput {
   employeeFirstName: string;
   employeeLastName: string;
 
-  certificateTitle: string; // "Arbeitszeugnis" oder "Zwischenzeugnis"
+  certificateTitle: string;
   bodyText: string;
 
   signatory1Name?: string;
@@ -63,7 +58,6 @@ const styles = StyleSheet.create({
     color: "#1a1d22",
   },
 
-  // Letterhead
   letterhead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -73,24 +67,18 @@ const styles = StyleSheet.create({
     borderBottomColor: "#d4d8dd",
     marginBottom: 28,
   },
-  letterheadLeft: {
-    flex: 1,
-  },
-  logo: {
-    maxWidth: 140,
-    maxHeight: 48,
-    objectFit: "contain",
-  },
+  letterheadLeft: { flex: 1 },
+  logo: { maxWidth: 140, maxHeight: 48, objectFit: "contain" },
   companyNameNoLogo: {
     fontSize: 14,
     fontFamily: "Helvetica-Bold",
-    color: "#1a1d22",
   },
   letterheadRight: {
     textAlign: "right",
     fontSize: 8.5,
     color: "#6b7178",
     lineHeight: 1.45,
+    width: 200,
   },
   letterheadCompanyName: {
     fontFamily: "Helvetica-Bold",
@@ -98,7 +86,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  // Title
   title: {
     fontSize: 18,
     fontFamily: "Helvetica-Bold",
@@ -108,17 +95,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Body
   bodyParagraph: {
     fontSize: 11,
     lineHeight: 1.6,
     textAlign: "justify",
     marginBottom: 11,
-  },
-  dateLine: {
-    fontSize: 11,
-    marginTop: 24,
-    marginBottom: 6,
   },
   bullet: {
     fontSize: 11,
@@ -126,7 +107,6 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
 
-  // Signatures
   signaturesHeader: {
     fontFamily: "Helvetica-Bold",
     fontSize: 8,
@@ -147,22 +127,10 @@ const styles = StyleSheet.create({
     borderTopColor: "#1a1d22",
     fontSize: 10,
   },
-  signatureSpacer: {
-    width: 20,
-  },
-  signatureName: {
-    fontFamily: "Helvetica-Bold",
-  },
-  signatureRole: {
-    color: "#3a3f46",
-    marginTop: 1,
-    fontSize: 9,
-  },
-  signatureEmail: {
-    color: "#6b7178",
-    marginTop: 1,
-    fontSize: 8,
-  },
+  signatureSpacer: { width: 20 },
+  signatureName: { fontFamily: "Helvetica-Bold" },
+  signatureRole: { color: "#3a3f46", marginTop: 1, fontSize: 9 },
+  signatureEmail: { color: "#6b7178", marginTop: 1, fontSize: 8 },
   signatureConfirmed: {
     color: "#0f7a6b",
     marginTop: 3,
@@ -170,14 +138,12 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
 
-  // Hash block
   hashBlock: {
     marginTop: 36,
     paddingTop: 12,
     borderTopWidth: 0.5,
     borderTopColor: "#d4d8dd",
     flexDirection: "row",
-    alignItems: "flex-start",
   },
   hashText: {
     flex: 1,
@@ -199,59 +165,86 @@ const styles = StyleSheet.create({
     fontSize: 7.5,
     marginBottom: 4,
   },
-  qrCode: {
-    width: 56,
-    height: 56,
+  hashLink: {
+    marginTop: 3,
+    color: "#0f7a6b",
   },
+  qrCode: { width: 56, height: 56 },
 });
 
-interface CertificateDocumentProps extends RenderInput {
-  qrDataUrl: string;
+// ============================================================================
+// Defensiv-Helper: garantiert String
+// ============================================================================
+function s(v: any): string {
+  if (v === null || v === undefined) return "";
+  return String(v);
 }
 
 function formatConfirmation(iso: string): string {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString("de-CH");
-  const time = d.toLocaleTimeString("de-CH", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return `\u2713 Bestätigt am ${date} um ${time}`;
+  try {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("de-CH");
+    const time = d.toLocaleTimeString("de-CH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return "\u2713 Bestaetigt am " + date + " um " + time;
+  } catch {
+    return "\u2713 Bestaetigt";
+  }
 }
 
-function CertificateDocument(props: CertificateDocumentProps) {
-  const {
-    companyName,
-    companyAddress,
-    companyPostalCode,
-    companyCity,
-    companyPhone,
-    companyEmail,
-    companyWebsite,
-    companyLogoDataUrl,
-    certificateTitle,
-    bodyText,
-    signatory1Name,
-    signatory1Role,
-    signatory1Email,
-    signatory1ConfirmedAt,
-    signatory2Name,
-    signatory2Role,
-    signatory2Email,
-    signatory2ConfirmedAt,
-    hash,
-    baseUrl,
-    qrDataUrl,
-  } = props;
+// ============================================================================
+// Document
+// ============================================================================
+interface DocProps extends RenderInput {
+  qrDataUrl: string;
+}
+
+function CertificateDocument(props: DocProps) {
+  // Defensive Konversion ALLER Strings vorab
+  const companyName = s(props.companyName);
+  const companyAddress = s(props.companyAddress);
+  const companyPostalCode = s(props.companyPostalCode);
+  const companyCity = s(props.companyCity);
+  const companyPhone = s(props.companyPhone);
+  const companyEmail = s(props.companyEmail);
+  const companyWebsite = s(props.companyWebsite);
+  const companyLogoDataUrl = props.companyLogoDataUrl;
+  const certificateTitle = s(props.certificateTitle);
+  const bodyText = s(props.bodyText);
+  const signatory1Name = s(props.signatory1Name);
+  const signatory1Role = s(props.signatory1Role);
+  const signatory1Email = s(props.signatory1Email);
+  const signatory1Confirmed = props.signatory1ConfirmedAt
+    ? formatConfirmation(props.signatory1ConfirmedAt)
+    : "";
+  const signatory2Name = s(props.signatory2Name);
+  const signatory2Role = s(props.signatory2Role);
+  const signatory2Email = s(props.signatory2Email);
+  const signatory2Confirmed = props.signatory2ConfirmedAt
+    ? formatConfirmation(props.signatory2ConfirmedAt)
+    : "";
+  const hash = s(props.hash);
+  const baseUrl = s(props.baseUrl);
+  const qrDataUrl = s(props.qrDataUrl);
+
+  const cityLine = [companyPostalCode, companyCity]
+    .filter((x) => x.length > 0)
+    .join(" ");
+
+  const verifyLink = "Echtheit pruefen: " + baseUrl.replace(/^https?:\/\//, "") + "/verify";
 
   // Body in Paragraphen splitten
-  const paragraphs = bodyText
+  const paragraphs: string[] = bodyText
     .split(/\n\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+    .map((p: string) => p.trim())
+    .filter((p: string) => p.length > 0);
+
+  const docTitle = certificateTitle + " - " + s(props.employeeFirstName) + " " + s(props.employeeLastName);
 
   return (
-    <Document title={`${certificateTitle} - ${props.employeeFirstName} ${props.employeeLastName}`}>
+    <Document title={docTitle}>
       <Page size="A4" style={styles.page}>
         {/* Letterhead */}
         <View style={styles.letterhead}>
@@ -263,16 +256,14 @@ function CertificateDocument(props: CertificateDocumentProps) {
             )}
           </View>
           <View style={styles.letterheadRight}>
-            {companyLogoDataUrl && (
+            {companyLogoDataUrl ? (
               <Text style={styles.letterheadCompanyName}>{companyName}</Text>
-            )}
-            {companyAddress ? <Text>{companyAddress}</Text> : null}
-            {(companyPostalCode || companyCity) ? (
-              <Text>{[companyPostalCode, companyCity].filter(Boolean).join(" ")}</Text>
             ) : null}
-            {companyPhone ? <Text>{companyPhone}</Text> : null}
-            {companyEmail ? <Text>{companyEmail}</Text> : null}
-            {companyWebsite ? <Text>{companyWebsite}</Text> : null}
+            {companyAddress.length > 0 ? <Text>{companyAddress}</Text> : null}
+            {cityLine.length > 0 ? <Text>{cityLine}</Text> : null}
+            {companyPhone.length > 0 ? <Text>{companyPhone}</Text> : null}
+            {companyEmail.length > 0 ? <Text>{companyEmail}</Text> : null}
+            {companyWebsite.length > 0 ? <Text>{companyWebsite}</Text> : null}
           </View>
         </View>
 
@@ -281,113 +272,74 @@ function CertificateDocument(props: CertificateDocumentProps) {
 
         {/* Body */}
         <View>
-          {paragraphs.map((p, i) => {
-            // Bullet-Liste
-            if (p.includes("•")) {
-              return (
-                <View key={i} style={{ marginBottom: 11 }}>
-                  {p.split("\n").map((line, j) => {
-                    const isBullet = line.trim().startsWith("•");
-                    return (
-                      <Text
-                        key={`${i}-${j}`}
-                        style={isBullet ? styles.bullet : styles.bodyParagraph}
-                      >
-                        {line}
-                      </Text>
-                    );
-                  })}
-                </View>
-              );
-            }
-            // Datum am Ende erkennen
-            const isDateLine = i === paragraphs.length - 1 && /^[A-ZÄÖÜ][a-zäöü]+,\s*\d{2}\.\d{2}\.\d{4}/.test(p);
-            return (
-              <Text
-                key={i}
-                style={isDateLine ? styles.dateLine : styles.bodyParagraph}
-              >
-                {p}
-              </Text>
-            );
-          })}
+          {paragraphs.map((p: string, i: number) => (
+            <Text key={"p-" + i} style={styles.bodyParagraph}>
+              {p}
+            </Text>
+          ))}
         </View>
 
         {/* Signatures */}
-        {(signatory1Name || signatory2Name) && (
+        {signatory1Name.length > 0 || signatory2Name.length > 0 ? (
           <View>
-            <Text style={styles.signaturesHeader}>
-              Digital ausgestellt durch
-            </Text>
+            <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
             <View style={styles.signatures}>
-              {signatory1Name ? (
-                <View style={styles.signatureCell}>
+              <View style={styles.signatureCell}>
+                {signatory1Name.length > 0 ? (
                   <Text style={styles.signatureName}>{signatory1Name}</Text>
-                  {signatory1Role ? (
-                    <Text style={styles.signatureRole}>{signatory1Role}</Text>
-                  ) : null}
-                  {signatory1Email ? (
-                    <Text style={styles.signatureEmail}>{signatory1Email}</Text>
-                  ) : null}
-                  {signatory1ConfirmedAt ? (
-                    <Text style={styles.signatureConfirmed}>
-                      {formatConfirmation(signatory1ConfirmedAt)}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : (
-                <View style={styles.signatureCell} />
-              )}
+                ) : null}
+                {signatory1Role.length > 0 ? (
+                  <Text style={styles.signatureRole}>{signatory1Role}</Text>
+                ) : null}
+                {signatory1Email.length > 0 ? (
+                  <Text style={styles.signatureEmail}>{signatory1Email}</Text>
+                ) : null}
+                {signatory1Confirmed.length > 0 ? (
+                  <Text style={styles.signatureConfirmed}>{signatory1Confirmed}</Text>
+                ) : null}
+              </View>
               <View style={styles.signatureSpacer} />
-              {signatory2Name ? (
-                <View style={styles.signatureCell}>
+              <View style={styles.signatureCell}>
+                {signatory2Name.length > 0 ? (
                   <Text style={styles.signatureName}>{signatory2Name}</Text>
-                  {signatory2Role ? (
-                    <Text style={styles.signatureRole}>{signatory2Role}</Text>
-                  ) : null}
-                  {signatory2Email ? (
-                    <Text style={styles.signatureEmail}>{signatory2Email}</Text>
-                  ) : null}
-                  {signatory2ConfirmedAt ? (
-                    <Text style={styles.signatureConfirmed}>
-                      {formatConfirmation(signatory2ConfirmedAt)}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : (
-                <View style={{ flex: 1 }} />
-              )}
+                ) : null}
+                {signatory2Role.length > 0 ? (
+                  <Text style={styles.signatureRole}>{signatory2Role}</Text>
+                ) : null}
+                {signatory2Email.length > 0 ? (
+                  <Text style={styles.signatureEmail}>{signatory2Email}</Text>
+                ) : null}
+                {signatory2Confirmed.length > 0 ? (
+                  <Text style={styles.signatureConfirmed}>{signatory2Confirmed}</Text>
+                ) : null}
+              </View>
             </View>
           </View>
-        )}
+        ) : null}
 
-        {/* Hash-Block + QR */}
+        {/* Hash + QR */}
         <View style={styles.hashBlock}>
           <View style={styles.hashText}>
             <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
             <Text style={styles.hashValue}>{hash}</Text>
             <Text>
-              Dieses Arbeitszeugnis wurde mit zeugnix.ch erstellt und mit
-              einem kryptografischen Echtheitsnachweis versehen. Jede
-              nachträgliche Veränderung des Inhalts führt zu einem
-              abweichenden Hash.
+              Dieses Arbeitszeugnis wurde mit zeugnix.ch erstellt und mit einem
+              kryptografischen Echtheitsnachweis versehen. Jede nachtraegliche
+              Veraenderung des Inhalts fuehrt zu einem abweichenden Hash.
             </Text>
-            <Text style={{ marginTop: 3, color: "#0f7a6b" }}>
-              {`Echtheit prüfen: ${baseUrl.replace(/^https?:\/\//, "")}/verify`}
-            </Text>
+            <Text style={styles.hashLink}>{verifyLink}</Text>
           </View>
-          {qrDataUrl ? <Image src={qrDataUrl} style={styles.qrCode} /> : null}
+          {qrDataUrl.length > 0 ? (
+            <Image src={qrDataUrl} style={styles.qrCode} />
+          ) : null}
         </View>
       </Page>
     </Document>
   );
 }
 
-/**
- * Hauptfunktion: rendert PDF zu Buffer.
- */
 export async function renderCertificatePdf(input: RenderInput): Promise<Buffer> {
-  const verifyUrl = `${input.baseUrl}/verify?hash=${input.hash}`;
+  const verifyUrl = input.baseUrl + "/verify?hash=" + input.hash;
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
     margin: 0,
     width: 200,
