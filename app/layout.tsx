@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { siteConfig } from "@/lib/site-config";
-import { Header } from "@/components/marketing/header";
-import { Footer } from "@/components/marketing/footer";
+import { MarketingChrome } from "@/components/marketing/marketing-chrome";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
@@ -65,9 +64,7 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-white font-sans text-ink-900 antialiased">
-        <Header />
-        <main className="min-h-[60vh]">{children}</main>
-        <Footer />
+        <MarketingChrome>{children}</MarketingChrome>
       </body>
     </html>
   );
