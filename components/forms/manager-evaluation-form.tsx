@@ -22,12 +22,19 @@ const RATINGS = [
 ];
 
 interface Props {
-  token: string;
   certificateId: string;
   isManager: boolean;
+  // Genau eines von beiden muss gesetzt sein:
+  token?: string; // Manager-Einladung über E-Mail-Link
+  selfMode?: boolean; // Eingeloggter HR/Inhaber beurteilt selbst
 }
 
-export function ManagerEvaluationForm({ token, certificateId, isManager }: Props) {
+export function ManagerEvaluationForm({
+  token,
+  certificateId,
+  isManager,
+  selfMode,
+}: Props) {
   const categories = isManager ? [...CATEGORIES_BASE, ...MANAGER_EXTRA] : CATEGORIES_BASE;
 
   const [ratings, setRatings] = useState<Record<string, string>>({});
@@ -49,20 +56,28 @@ export function ManagerEvaluationForm({ token, certificateId, isManager }: Props
       return;
     }
 
-    const payload = {
-      token,
-      evaluations: categories.map((c) => ({
-        category: c.key,
-        rating: ratings[c.key],
-        free_text: freeTexts[c.key] ?? null,
-      })),
-    };
+    const evaluations = categories.map((c) => ({
+      category: c.key,
+      rating: ratings[c.key],
+      free_text: freeTexts[c.key] ?? null,
+    }));
 
-    const res = await fetch("/api/evaluations/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    let res: Response;
+    if (selfMode) {
+      // Eingeloggter User beurteilt direkt
+      res = await fetch(`/api/certificates/${certificateId}/evaluate-self`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ evaluations }),
+      });
+    } else {
+      // Manager über Token-Link
+      res = await fetch("/api/evaluations/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, evaluations }),
+      });
+    }
 
     if (!res.ok) {
       const data = await res.json();
@@ -94,9 +109,18 @@ export function ManagerEvaluationForm({ token, certificateId, isManager }: Props
         </div>
         <h2 className="mt-4 text-[16px] font-medium">Beurteilung gespeichert</h2>
         <p className="mt-2 text-[13.5px] text-ink-600">
-          Vielen Dank. Der Arbeitgeber kann nun den Zeugnistext generieren.
-          Sie können dieses Fenster schliessen.
+          {selfMode
+            ? "Sie können jetzt den Zeugnistext generieren."
+            : "Vielen Dank. Der Arbeitgeber kann nun den Zeugnistext generieren. Sie können dieses Fenster schliessen."}
         </p>
+        {selfMode && (
+          <a
+            href={`/app/certificates/${certificateId}`}
+            className="btn-primary mt-6 inline-flex"
+          >
+            Zurück zum Zeugnis
+          </a>
+        )}
       </div>
     );
   }

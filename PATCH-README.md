@@ -1,29 +1,39 @@
-# Patch: Route Groups + HR-Benachrichtigung
+# Combined Patch: Selbst-Beurteilung + Route Groups + HR-Notification
 
-## Zwei Bug-Fixes / Verbesserungen
+Dieser Patch kombiniert drei Verbesserungen in einem einzigen Push:
 
-### 1. Loop bei Manager-Beurteilungslink GELÖST
-Der Link in der Mail führte zu einem Login-Loop, weil die Invitations-Seite
-fälschlicherweise das Auth-geschützte App-Layout geerbt hat. Lösung: Route
-Groups – authenticated und public Bereiche sind jetzt strukturell getrennt.
+## 1. Selbst-Beurteilung für KMU-Inhaber
+Bei "Schritt 1" gibt es jetzt zwei Buttons:
+- "Selbst beurteilen" → direkt im Dashboard ausfüllen
+- "Per E-Mail einladen" → wie bisher mit Resend-Mail
 
-### 2. HR-Benachrichtigung nach Manager-Beurteilung
-Wenn die Führungskraft die Beurteilung abgibt, geht jetzt automatisch eine
-Mail an HR (den Ersteller des Zeugnisses), dass es weiter geht.
+Workflow reduziert von 4 auf 3 Schritte.
+
+## 2. Beurteilungs-Loop GELÖST (Route Groups)
+Manager-Beurteilungslink in der Mail führte vorher zu einem Login-Loop.
+Jetzt strukturell getrennt:
+- (authed) Route Group: Auth-pflichtige Bereiche (Dashboard, Zeugnisse)
+- (public) Route Group: Token-basierte Invitations
+
+URLs bleiben identisch.
+
+## 3. HR-Benachrichtigung
+Wenn Führungskraft die Beurteilung abgibt, geht automatisch eine Mail
+an HR (Zeugnis-Ersteller) mit Link zum Generieren.
 
 ## STRUKTURÄNDERUNG (wichtig!)
 
-Das `app/`-Verzeichnis wurde umstrukturiert. **Bitte den gesamten alten
-`app/`-Ordner LÖSCHEN und durch den neuen ersetzen**:
+Der `app/`-Ordner wurde umstrukturiert. Bitte den **gesamten alten
+`app/`-Ordner LÖSCHEN und durch den neuen ersetzen**.
 
 Alte Struktur:
 ```
 app/
-├── app/                    ← alles unter einem Layout
+├── app/              ← alles unter einem Layout
 │   ├── dashboard/
 │   ├── certificates/
 │   ├── company/
-│   ├── invitations/        ← bekam fälschlicherweise Auth-Layout
+│   ├── invitations/  ← bekam fälschlicherweise Auth-Layout
 │   └── layout.tsx
 └── api/, login/, ...
 ```
@@ -31,43 +41,63 @@ app/
 Neue Struktur:
 ```
 app/
-├── (authed)/               ← Route Group: NUR auth-pflichtig
+├── (authed)/
 │   └── app/
 │       ├── dashboard/
 │       ├── certificates/
+│       │   └── [id]/
+│       │       ├── evaluate/    ← NEU: Selbst-Beurteilung
+│       │       ├── new/
+│       │       └── page.tsx
 │       ├── company/
-│       └── layout.tsx      ← mit Auth-Check, Sidebar
-├── (public)/               ← Route Group: KEIN Auth
+│       └── layout.tsx
+├── (public)/
 │   └── app/
 │       ├── invitations/    ← Token-basiert
-│       └── layout.tsx      ← minimal pass-through
-└── api/, login/, ...       ← unverändert
+│       └── layout.tsx
+└── api/, login/, ...
 ```
 
 URLs bleiben identisch:
 - /app/dashboard → (authed)
-- /app/invitations/abc → (public)
+- /app/certificates/[id]/evaluate → (authed)
+- /app/invitations/[token] → (public)
 
 ## Vorgehen
 
-### Variante A: Sicher (empfohlen)
+### Schritt 1: Backup-Sicherheit
+
+Vor dem Push: Sie sind auf main, Ihr aktueller Stand ist auf GitHub gesichert.
+Falls etwas schiefgeht, können Sie jederzeit zurück.
+
+### Schritt 2: Patch einspielen
 
 1. ZIP entpacken
-2. Im Repo: **Den ganzen `app/`-Ordner löschen** (vorher Backup machen, falls unsicher)
-3. Den `app/`-Ordner aus dem Patch in den Repo-Root kopieren
-4. Auch die geänderte Datei `lib/email/templates.ts` drüberkopieren
-5. GitHub Desktop sollte zeigen: einige Dateien gelöscht, einige neu, einige geändert
-6. Commit "fix: route groups + hr-notification" → Push
+2. Im File Explorer in den Repo-Ordner gehen
+3. **Den ganzen `app/`-Ordner LÖSCHEN**
+4. Den `app/`-Ordner aus dem entpackten Patch reinkopieren
+5. `components/app/certificate-actions.tsx` überschreiben
+6. `components/forms/manager-evaluation-form.tsx` überschreiben
+7. `lib/email/templates.ts` überschreiben
 
-### Variante B: Manuell
+### Schritt 3: Commit & Push
 
-Falls Sie keine Verzeichnisse löschen wollen:
+GitHub Desktop sollte zeigen: viele Änderungen (Verschiebungen + Updates).
 
-1. Im Repo `app/app/` umbenennen zu `app/(authed)/app/` (mit den runden Klammern)
-2. Den Inhalt von `app/(authed)/app/invitations` verschieben nach `app/(public)/app/invitations`
-3. `app/(public)/app/layout.tsx` aus dem Patch hinzufügen
-4. `lib/email/templates.ts` überschreiben
-5. `app/api/evaluations/submit/route.ts` überschreiben
-6. Commit + Push
+Commit-Message:
+```
+feat: selbst-beurteilung, route-groups, hr-notification
+```
 
-Variante A ist robuster.
+Commit to main → Push origin → Vercel deployt in ~2 Min.
+
+## Test nach Deploy
+
+1. Login mit Gmail (im Browser, nicht Outlook)
+2. Bei einem Zeugnis: Schritt 1 zeigt zwei Buttons
+3. "Selbst beurteilen" klicken → Beurteilungsformular
+4. Ausfüllen → "Beurteilung absenden"
+5. Zurück zum Zeugnis → Schritt 2 "Generieren" sollte aktiv sein
+6. Generieren → Text erscheint
+7. Finalisieren → Hash wird berechnet
+8. Manager-Mail testen (mit anderer Adresse): Link aus Mail klicken → Beurteilungsformular ohne Login-Loop

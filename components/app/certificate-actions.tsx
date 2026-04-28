@@ -126,24 +126,42 @@ export function CertificateActions({
       )}
 
       <div className="space-y-3">
-        {/* Schritt 1: Manager einladen */}
+        {/* Schritt 1: Beurteilung erfassen – selbst oder per Einladung */}
         <ActionRow
           step="1"
-          title="Führungskraft einladen"
+          title="Beurteilung der Führungskraft"
           desc={
-            invitationCount > 0
-              ? `${invitationCount} Einladung(en) verschickt`
-              : "E-Mail-Einladung mit Beurteilungsformular"
+            evaluationCount > 0
+              ? `${evaluationCount} Kategorien beurteilt`
+              : invitationCount > 0
+                ? `${invitationCount} Einladung(en) verschickt – Antwort ausstehend`
+                : "Bewertung in 5 Kategorien (Selbst oder per E-Mail-Einladung)"
           }
-          done={invitationCount > 0}
+          done={evaluationCount >= 5}
         >
-          {!showInvite && (
-            <button
-              onClick={() => setShowInvite(true)}
+          {!showInvite && evaluationCount === 0 && (
+            <div className="flex flex-col gap-1.5 sm:flex-row sm:gap-2">
+              <a
+                href={`/app/certificates/${certificate.id}/evaluate`}
+                className="btn-primary py-2 text-[12px] text-center"
+              >
+                Selbst beurteilen
+              </a>
+              <button
+                onClick={() => setShowInvite(true)}
+                className="btn-secondary py-2 text-[12px]"
+              >
+                Per E-Mail einladen
+              </button>
+            </div>
+          )}
+          {!showInvite && evaluationCount > 0 && (
+            <a
+              href={`/app/certificates/${certificate.id}/evaluate`}
               className="btn-secondary py-2 text-[12px]"
             >
-              {invitationCount > 0 ? "Erneut einladen" : "Einladen"}
-            </button>
+              Beurteilung anpassen
+            </a>
           )}
         </ActionRow>
 
@@ -264,17 +282,9 @@ export function CertificateActions({
         )}
 
 
-        {/* Schritt 2: Beurteilungen erhalten */}
+        {/* Schritt 2: Zeugnis generieren */}
         <ActionRow
           step="2"
-          title="Beurteilung der Führungskraft"
-          desc={`${evaluationCount} Kategorien beurteilt`}
-          done={evaluationCount >= 5}
-        />
-
-        {/* Schritt 3: Zeugnis generieren */}
-        <ActionRow
-          step="3"
           title="Zeugnistext generieren"
           desc="Aus Beurteilungen und Bausteinen"
           done={!!certificate.generated_text}
@@ -290,9 +300,9 @@ export function CertificateActions({
           )}
         </ActionRow>
 
-        {/* Schritt 4: Finalisieren */}
+        {/* Schritt 3: Finalisieren */}
         <ActionRow
-          step="4"
+          step="3"
           title="Finalisieren mit Hash"
           desc="SHA-256-Hash berechnen, PDF generieren, unveränderlich speichern"
           done={certificate.status === "final"}
