@@ -41,8 +41,12 @@ interface RenderInput {
 
   signatory1Name?: string;
   signatory1Role?: string;
+  signatory1Email?: string;
+  signatory1ConfirmedAt?: string;
   signatory2Name?: string;
   signatory2Role?: string;
+  signatory2Email?: string;
+  signatory2ConfirmedAt?: string;
 
   hash: string;
   baseUrl: string;
@@ -123,9 +127,18 @@ const styles = StyleSheet.create({
   },
 
   // Signatures
+  signaturesHeader: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 8,
+    color: "#0f7a6b",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    marginTop: 36,
+    marginBottom: 8,
+  },
   signatures: {
     flexDirection: "row",
-    marginTop: 44,
+    marginTop: 4,
   },
   signatureCell: {
     flex: 1,
@@ -141,8 +154,20 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica-Bold",
   },
   signatureRole: {
+    color: "#3a3f46",
+    marginTop: 1,
+    fontSize: 9,
+  },
+  signatureEmail: {
     color: "#6b7178",
     marginTop: 1,
+    fontSize: 8,
+  },
+  signatureConfirmed: {
+    color: "#0f7a6b",
+    marginTop: 3,
+    fontSize: 7.5,
+    fontFamily: "Helvetica-Bold",
   },
 
   // Hash block
@@ -184,6 +209,16 @@ interface CertificateDocumentProps extends RenderInput {
   qrDataUrl: string;
 }
 
+function formatConfirmation(iso: string): string {
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("de-CH");
+  const time = d.toLocaleTimeString("de-CH", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `\u2713 Bestätigt am ${date} um ${time}`;
+}
+
 function CertificateDocument(props: CertificateDocumentProps) {
   const {
     companyName,
@@ -198,8 +233,12 @@ function CertificateDocument(props: CertificateDocumentProps) {
     bodyText,
     signatory1Name,
     signatory1Role,
+    signatory1Email,
+    signatory1ConfirmedAt,
     signatory2Name,
     signatory2Role,
+    signatory2Email,
+    signatory2ConfirmedAt,
     hash,
     baseUrl,
     qrDataUrl,
@@ -228,11 +267,9 @@ function CertificateDocument(props: CertificateDocumentProps) {
               <Text style={styles.letterheadCompanyName}>{companyName}</Text>
             )}
             {companyAddress ? <Text>{companyAddress}</Text> : null}
-            {(companyPostalCode || companyCity) && (
-              <Text>
-                {companyPostalCode} {companyCity}
-              </Text>
-            )}
+            {(companyPostalCode || companyCity) ? (
+              <Text>{[companyPostalCode, companyCity].filter(Boolean).join(" ")}</Text>
+            ) : null}
             {companyPhone ? <Text>{companyPhone}</Text> : null}
             {companyEmail ? <Text>{companyEmail}</Text> : null}
             {companyWebsite ? <Text>{companyWebsite}</Text> : null}
@@ -278,28 +315,49 @@ function CertificateDocument(props: CertificateDocumentProps) {
 
         {/* Signatures */}
         {(signatory1Name || signatory2Name) && (
-          <View style={styles.signatures}>
-            {signatory1Name ? (
-              <View style={styles.signatureCell}>
-                <Text style={styles.signatureName}>{signatory1Name}</Text>
-                {signatory1Role ? (
-                  <Text style={styles.signatureRole}>{signatory1Role}</Text>
-                ) : null}
-              </View>
-            ) : (
-              <View style={styles.signatureCell} />
-            )}
-            <View style={styles.signatureSpacer} />
-            {signatory2Name ? (
-              <View style={styles.signatureCell}>
-                <Text style={styles.signatureName}>{signatory2Name}</Text>
-                {signatory2Role ? (
-                  <Text style={styles.signatureRole}>{signatory2Role}</Text>
-                ) : null}
-              </View>
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
+          <View>
+            <Text style={styles.signaturesHeader}>
+              Digital ausgestellt durch
+            </Text>
+            <View style={styles.signatures}>
+              {signatory1Name ? (
+                <View style={styles.signatureCell}>
+                  <Text style={styles.signatureName}>{signatory1Name}</Text>
+                  {signatory1Role ? (
+                    <Text style={styles.signatureRole}>{signatory1Role}</Text>
+                  ) : null}
+                  {signatory1Email ? (
+                    <Text style={styles.signatureEmail}>{signatory1Email}</Text>
+                  ) : null}
+                  {signatory1ConfirmedAt ? (
+                    <Text style={styles.signatureConfirmed}>
+                      {formatConfirmation(signatory1ConfirmedAt)}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={styles.signatureCell} />
+              )}
+              <View style={styles.signatureSpacer} />
+              {signatory2Name ? (
+                <View style={styles.signatureCell}>
+                  <Text style={styles.signatureName}>{signatory2Name}</Text>
+                  {signatory2Role ? (
+                    <Text style={styles.signatureRole}>{signatory2Role}</Text>
+                  ) : null}
+                  {signatory2Email ? (
+                    <Text style={styles.signatureEmail}>{signatory2Email}</Text>
+                  ) : null}
+                  {signatory2ConfirmedAt ? (
+                    <Text style={styles.signatureConfirmed}>
+                      {formatConfirmation(signatory2ConfirmedAt)}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <View style={{ flex: 1 }} />
+              )}
+            </View>
           </View>
         )}
 
@@ -315,7 +373,7 @@ function CertificateDocument(props: CertificateDocumentProps) {
               abweichenden Hash.
             </Text>
             <Text style={{ marginTop: 3, color: "#0f7a6b" }}>
-              Echtheit prüfen: {baseUrl.replace(/^https?:\/\//, "")}/verify
+              {`Echtheit prüfen: ${baseUrl.replace(/^https?:\/\//, "")}/verify`}
             </Text>
           </View>
           {qrDataUrl ? <Image src={qrDataUrl} style={styles.qrCode} /> : null}
