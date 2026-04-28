@@ -56,6 +56,7 @@ export async function POST(
     functionTitle: employee.function_title,
     entryDate: employee.entry_date,
     exitDate: employee.exit_date,
+    dateOfBirth: employee.date_of_birth,
     employmentPercentage: employee.employment_percentage,
     isManager: employee.is_manager,
   };

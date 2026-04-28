@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { notFound } from "next/navigation";
 import { CertificateActions } from "@/components/app/certificate-actions";
+import { CertificateEditor } from "@/components/app/certificate-editor";
+import { CertificatePreview } from "@/components/app/certificate-preview";
+import Link from "next/link";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -31,18 +34,39 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   const evaluations = cert.evaluations ?? [];
   const invitations = cert.manager_invitations ?? [];
 
+  const displayText = cert.edited_text || cert.generated_text || "";
+  const isFinal = cert.status === "final";
+  const hasText = !!cert.generated_text;
+
   return (
     <div className="space-y-6">
-      <div>
-        <div className="text-[11px] font-medium uppercase tracking-wider text-petrol-600">
-          {typeLabel(cert.type)}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-wider text-petrol-600">
+            {typeLabel(cert.type)}
+          </div>
+          <h1 className="headline-display mt-1 text-[28px] leading-tight">
+            {employee.first_name} {employee.last_name}
+          </h1>
+          <p className="mt-1 text-[13.5px] text-ink-600">
+            {employee.function_title} · {company.name}
+          </p>
         </div>
-        <h1 className="headline-display mt-1 text-[28px] leading-tight">
-          {employee.first_name} {employee.last_name}
-        </h1>
-        <p className="mt-1 text-[13.5px] text-ink-600">
-          {employee.function_title} · {company.name}
-        </p>
+        {isFinal && cert.hash && (
+          <a
+            href={`/api/certificates/${cert.id}/pdf`}
+            target="_blank"
+            rel="noopener"
+            className="btn-primary flex shrink-0 items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            PDF herunterladen
+          </a>
+        )}
       </div>
 
       {/* Status-Fortschritt */}
@@ -55,17 +79,17 @@ export default async function CertificateDetailPage({ params }: PageProps) {
           <Connector />
           <StepBadge
             label="Beurteilung"
-            active={cert.status !== "draft"}
+            active={evaluations.length > 0 || cert.status !== "draft"}
             current={cert.status === "pending_manager"}
           />
           <Connector />
           <StepBadge
             label="Generiert"
-            active={cert.status === "final" || cert.status === "manager_submitted"}
-            current={cert.status === "manager_submitted"}
+            active={!!cert.generated_text}
+            current={cert.status === "manager_submitted" && !cert.hash}
           />
           <Connector />
-          <StepBadge label="Final" active={cert.status === "final"} />
+          <StepBadge label="Final" active={isFinal} />
         </div>
       </div>
 
@@ -76,24 +100,80 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         invitationCount={invitations.length}
       />
 
-      {/* Generierter Text */}
-      {cert.generated_text && (
-        <div className="card p-6">
-          <h2 className="mb-4 text-[14px] font-medium tracking-tight">
-            Generierter Zeugnistext
+      {/* Editor + Preview Split-View */}
+      {hasText && (
+        <div>
+          <h2 className="mb-3 text-[15px] font-medium tracking-tight">
+            Zeugnistext bearbeiten und Vorschau
           </h2>
-          <div className="whitespace-pre-wrap font-display text-[14px] leading-relaxed text-ink-800">
-            {cert.generated_text}
+          <div className="grid gap-6 xl:grid-cols-2">
+            {/* Editor */}
+            <div className="space-y-3">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-ink-500">
+                Editor
+              </div>
+              <CertificateEditor
+                certificateId={cert.id}
+                generatedText={cert.generated_text ?? ""}
+                initialEditedText={cert.edited_text}
+                finalized={isFinal}
+              />
+            </div>
+
+            {/* Preview */}
+            <div className="space-y-3">
+              <div className="text-[11px] font-medium uppercase tracking-wider text-ink-500">
+                Vorschau (so wird das PDF aussehen)
+              </div>
+              <div className="overflow-x-auto">
+                <CertificatePreview
+                  company={company}
+                  employee={employee}
+                  type={cert.type}
+                  text={displayText}
+                  hash={cert.hash}
+                />
+              </div>
+            </div>
           </div>
 
-          {cert.hash && (
-            <div className="mt-6 rounded-md border border-ink-200 bg-ink-50/60 p-4">
-              <div className="text-[10px] font-medium uppercase tracking-wider text-petrol-700">
-                SHA-256 Hash
+          {/* Hinweise */}
+          {(!company.logo_url ||
+            !company.signatory_1_name ||
+            !employee.date_of_birth) && (
+            <div className="mt-6 rounded-md border border-amber-200 bg-amber-50/50 p-4">
+              <div className="text-[12px] font-medium text-amber-900">
+                Empfehlungen für ein professionelleres Zeugnis:
               </div>
-              <div className="mt-1 break-all font-mono text-[11px] text-ink-700">
-                {cert.hash}
-              </div>
+              <ul className="mt-2 space-y-1 text-[12px] text-amber-800">
+                {!company.logo_url && (
+                  <li>
+                    •{" "}
+                    <Link
+                      href="/app/company"
+                      className="underline hover:text-amber-900"
+                    >
+                      Firmenlogo hochladen
+                    </Link>
+                  </li>
+                )}
+                {!company.signatory_1_name && (
+                  <li>
+                    •{" "}
+                    <Link
+                      href="/app/company"
+                      className="underline hover:text-amber-900"
+                    >
+                      Unterzeichnende Personen erfassen
+                    </Link>
+                  </li>
+                )}
+                {!employee.date_of_birth && (
+                  <li>
+                    • Geburtsdatum der Mitarbeiterin / des Mitarbeiters fehlt
+                  </li>
+                )}
+              </ul>
             </div>
           )}
         </div>

@@ -1,14 +1,14 @@
 /**
  * zeugnix.ch – PDF-Generator
  * ----------------------------------------------------------------------------
- * Erzeugt ein Arbeitszeugnis als PDF mit Briefkopf, Volltext, Schlussformel,
- * Hash-Block und QR-Code zur Verifikation.
+ * Erzeugt ein professionelles Arbeitszeugnis als PDF:
+ *   - Briefkopf mit Logo und Firmenadresse
+ *   - Titel (Arbeitszeugnis / Zwischenzeugnis)
+ *   - Body-Text (justified)
+ *   - Unterschriftsblock mit zwei Unterzeichnenden
+ *   - Hash-Block + QR-Code in der Fusszeile (bei finalisierten Zeugnissen)
  *
- * Verwendet @react-pdf/renderer (server-seitig). Der QR-Code wird über
- * 'qrcode' als Data-URL erzeugt und ins PDF eingebettet.
- *
- * Aufruf:
- *   const buffer = await renderCertificatePdf({ ... });
+ * Verwendet @react-pdf/renderer (server-seitig).
  */
 
 import {
@@ -18,181 +18,329 @@ import {
   View,
   Image,
   StyleSheet,
-  pdf,
+  renderToBuffer,
 } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import React from "react";
-import { buildHashBlockText, buildVerifyUrl } from "@/lib/hash/canonicalize";
 
 interface RenderInput {
   companyName: string;
   companyAddress?: string;
+  companyPostalCode?: string;
+  companyCity?: string;
+  companyPhone?: string;
+  companyEmail?: string;
+  companyWebsite?: string;
   companyLogoDataUrl?: string;
+
   employeeFirstName: string;
   employeeLastName: string;
-  bodyText: string; // generierter Volltext
+
+  certificateTitle: string; // "Arbeitszeugnis" oder "Zwischenzeugnis"
+  bodyText: string;
+
+  signatory1Name?: string;
+  signatory1Role?: string;
+  signatory2Name?: string;
+  signatory2Role?: string;
+
   hash: string;
-  baseUrl: string; // z.B. https://zeugnix.ch
-  location: string;
-  date: string; // ISO YYYY-MM-DD
+  baseUrl: string;
 }
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 50,
+    paddingTop: 56,
     paddingBottom: 60,
     paddingHorizontal: 60,
     fontFamily: "Helvetica",
     fontSize: 11,
     lineHeight: 1.55,
-    color: "#15191E",
+    color: "#1a1d22",
   },
+
+  // Letterhead
   letterhead: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 40,
     paddingBottom: 14,
-    borderBottomWidth: 0.6,
-    borderBottomColor: "#D5D8DD",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#d4d8dd",
+    marginBottom: 28,
   },
-  companyName: {
-    fontSize: 13,
+  letterheadLeft: {
+    flex: 1,
+  },
+  logo: {
+    maxWidth: 140,
+    maxHeight: 48,
+    objectFit: "contain",
+  },
+  companyNameNoLogo: {
+    fontSize: 14,
     fontFamily: "Helvetica-Bold",
+    color: "#1a1d22",
   },
-  companyAddress: {
-    fontSize: 9,
-    color: "#6B7280",
-    marginTop: 2,
+  letterheadRight: {
+    textAlign: "right",
+    fontSize: 8.5,
+    color: "#6b7178",
+    lineHeight: 1.45,
   },
-  logo: { width: 60, height: 30, objectFit: "contain" },
+  letterheadCompanyName: {
+    fontFamily: "Helvetica-Bold",
+    color: "#1a1d22",
+    marginBottom: 2,
+  },
+
+  // Title
   title: {
     fontSize: 18,
     fontFamily: "Helvetica-Bold",
-    marginBottom: 24,
     textAlign: "center",
+    marginTop: 24,
+    marginBottom: 32,
     letterSpacing: 0.5,
   },
-  body: {
+
+  // Body
+  bodyParagraph: {
     fontSize: 11,
     lineHeight: 1.6,
-    color: "#1F2328",
+    textAlign: "justify",
+    marginBottom: 11,
   },
-  paragraph: {
-    marginBottom: 10,
+  dateLine: {
+    fontSize: 11,
+    marginTop: 24,
+    marginBottom: 6,
   },
-  hashBlock: {
-    marginTop: 32,
-    paddingTop: 14,
-    borderTopWidth: 0.6,
-    borderTopColor: "#D5D8DD",
+  bullet: {
+    fontSize: 11,
+    marginLeft: 14,
+    marginBottom: 3,
+  },
+
+  // Signatures
+  signatures: {
     flexDirection: "row",
-    gap: 14,
+    marginTop: 44,
+  },
+  signatureCell: {
+    flex: 1,
+    paddingTop: 6,
+    borderTopWidth: 0.6,
+    borderTopColor: "#1a1d22",
+    fontSize: 10,
+  },
+  signatureSpacer: {
+    width: 20,
+  },
+  signatureName: {
+    fontFamily: "Helvetica-Bold",
+  },
+  signatureRole: {
+    color: "#6b7178",
+    marginTop: 1,
+  },
+
+  // Hash block
+  hashBlock: {
+    marginTop: 36,
+    paddingTop: 12,
+    borderTopWidth: 0.5,
+    borderTopColor: "#d4d8dd",
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   hashText: {
     flex: 1,
-    fontSize: 8.5,
-    color: "#6B7280",
-    lineHeight: 1.55,
+    paddingRight: 16,
+    fontSize: 7.5,
+    color: "#6b7178",
+    lineHeight: 1.5,
+  },
+  hashLabel: {
+    fontFamily: "Helvetica-Bold",
+    color: "#0f7a6b",
+    fontSize: 7,
+    letterSpacing: 0.6,
+    marginBottom: 3,
   },
   hashValue: {
     fontFamily: "Courier",
+    color: "#1a1d22",
     fontSize: 7.5,
-    color: "#0F7A6B",
-    marginTop: 4,
+    marginBottom: 4,
   },
-  qrBox: {
-    width: 70,
-    height: 70,
-  },
-  footerNote: {
-    position: "absolute",
-    bottom: 30,
-    left: 60,
-    right: 60,
-    fontSize: 7.5,
-    color: "#9CA3AF",
-    textAlign: "center",
+  qrCode: {
+    width: 56,
+    height: 56,
   },
 });
 
-export async function renderCertificatePdf(input: RenderInput): Promise<Buffer> {
-  const verifyUrl = buildVerifyUrl(input.baseUrl, input.hash);
-  const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-    margin: 0,
-    width: 200,
-    color: { dark: "#15191E", light: "#FFFFFF" },
-  });
+interface CertificateDocumentProps extends RenderInput {
+  qrDataUrl: string;
+}
 
-  const hashBlockText = buildHashBlockText(input.hash, input.baseUrl);
+function CertificateDocument(props: CertificateDocumentProps) {
+  const {
+    companyName,
+    companyAddress,
+    companyPostalCode,
+    companyCity,
+    companyPhone,
+    companyEmail,
+    companyWebsite,
+    companyLogoDataUrl,
+    certificateTitle,
+    bodyText,
+    signatory1Name,
+    signatory1Role,
+    signatory2Name,
+    signatory2Role,
+    hash,
+    baseUrl,
+    qrDataUrl,
+  } = props;
 
-  // Zeugnistext in Absätze splitten
-  const paragraphs = input.bodyText
+  // Body in Paragraphen splitten
+  const paragraphs = bodyText
     .split(/\n\n+/)
     .map((p) => p.trim())
     .filter(Boolean);
 
-  const doc = React.createElement(
-    Document,
-    {},
-    React.createElement(
-      Page,
-      { size: "A4", style: styles.page },
-      // Briefkopf
-      React.createElement(
-        View,
-        { style: styles.letterhead },
-        React.createElement(
-          View,
-          {},
-          React.createElement(Text, { style: styles.companyName }, input.companyName),
-          input.companyAddress
-            ? React.createElement(
-                Text,
-                { style: styles.companyAddress },
-                input.companyAddress,
-              )
-            : null,
-        ),
-        input.companyLogoDataUrl
-          ? React.createElement(Image, {
-              src: input.companyLogoDataUrl,
-              style: styles.logo,
-            })
-          : null,
-      ),
-      // Titel
-      React.createElement(Text, { style: styles.title }, "ARBEITSZEUGNIS"),
-      // Body
-      React.createElement(
-        View,
-        { style: styles.body },
-        ...paragraphs.map((p, i) =>
-          React.createElement(Text, { key: i, style: styles.paragraph }, p),
-        ),
-      ),
-      // Hash-Block + QR
-      React.createElement(
-        View,
-        { style: styles.hashBlock },
-        React.createElement(
-          View,
-          { style: { flex: 1 } },
-          React.createElement(Text, { style: styles.hashText }, hashBlockText),
-          React.createElement(Text, { style: styles.hashValue }, input.hash),
-        ),
-        React.createElement(Image, { src: qrDataUrl, style: styles.qrBox }),
-      ),
-      // Footer
-      React.createElement(
-        Text,
-        { style: styles.footerNote, fixed: true },
-        `Erstellt mit zeugnix.ch · Echtheit prüfbar unter ${input.baseUrl}/verify`,
-      ),
-    ),
-  );
+  return (
+    <Document title={`${certificateTitle} - ${props.employeeFirstName} ${props.employeeLastName}`}>
+      <Page size="A4" style={styles.page}>
+        {/* Letterhead */}
+        <View style={styles.letterhead}>
+          <View style={styles.letterheadLeft}>
+            {companyLogoDataUrl ? (
+              <Image src={companyLogoDataUrl} style={styles.logo} />
+            ) : (
+              <Text style={styles.companyNameNoLogo}>{companyName}</Text>
+            )}
+          </View>
+          <View style={styles.letterheadRight}>
+            {companyLogoDataUrl && (
+              <Text style={styles.letterheadCompanyName}>{companyName}</Text>
+            )}
+            {companyAddress ? <Text>{companyAddress}</Text> : null}
+            {(companyPostalCode || companyCity) && (
+              <Text>
+                {companyPostalCode} {companyCity}
+              </Text>
+            )}
+            {companyPhone ? <Text>{companyPhone}</Text> : null}
+            {companyEmail ? <Text>{companyEmail}</Text> : null}
+            {companyWebsite ? <Text>{companyWebsite}</Text> : null}
+          </View>
+        </View>
 
-  // @ts-ignore – Document ist ein React-Element
-  const blob = await pdf(doc).toBuffer();
-  return blob as unknown as Buffer;
+        {/* Title */}
+        <Text style={styles.title}>{certificateTitle}</Text>
+
+        {/* Body */}
+        <View>
+          {paragraphs.map((p, i) => {
+            // Bullet-Liste
+            if (p.includes("•")) {
+              return (
+                <View key={i} style={{ marginBottom: 11 }}>
+                  {p.split("\n").map((line, j) => {
+                    const isBullet = line.trim().startsWith("•");
+                    return (
+                      <Text
+                        key={`${i}-${j}`}
+                        style={isBullet ? styles.bullet : styles.bodyParagraph}
+                      >
+                        {line}
+                      </Text>
+                    );
+                  })}
+                </View>
+              );
+            }
+            // Datum am Ende erkennen
+            const isDateLine = i === paragraphs.length - 1 && /^[A-ZÄÖÜ][a-zäöü]+,\s*\d{2}\.\d{2}\.\d{4}/.test(p);
+            return (
+              <Text
+                key={i}
+                style={isDateLine ? styles.dateLine : styles.bodyParagraph}
+              >
+                {p}
+              </Text>
+            );
+          })}
+        </View>
+
+        {/* Signatures */}
+        {(signatory1Name || signatory2Name) && (
+          <View style={styles.signatures}>
+            {signatory1Name ? (
+              <View style={styles.signatureCell}>
+                <Text style={styles.signatureName}>{signatory1Name}</Text>
+                {signatory1Role ? (
+                  <Text style={styles.signatureRole}>{signatory1Role}</Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={styles.signatureCell} />
+            )}
+            <View style={styles.signatureSpacer} />
+            {signatory2Name ? (
+              <View style={styles.signatureCell}>
+                <Text style={styles.signatureName}>{signatory2Name}</Text>
+                {signatory2Role ? (
+                  <Text style={styles.signatureRole}>{signatory2Role}</Text>
+                ) : null}
+              </View>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+          </View>
+        )}
+
+        {/* Hash-Block + QR */}
+        <View style={styles.hashBlock}>
+          <View style={styles.hashText}>
+            <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
+            <Text style={styles.hashValue}>{hash}</Text>
+            <Text>
+              Dieses Arbeitszeugnis wurde mit zeugnix.ch erstellt und mit
+              einem kryptografischen Echtheitsnachweis versehen. Jede
+              nachträgliche Veränderung des Inhalts führt zu einem
+              abweichenden Hash.
+            </Text>
+            <Text style={{ marginTop: 3, color: "#0f7a6b" }}>
+              Echtheit prüfen: {baseUrl.replace(/^https?:\/\//, "")}/verify
+            </Text>
+          </View>
+          {qrDataUrl ? <Image src={qrDataUrl} style={styles.qrCode} /> : null}
+        </View>
+      </Page>
+    </Document>
+  );
+}
+
+/**
+ * Hauptfunktion: rendert PDF zu Buffer.
+ */
+export async function renderCertificatePdf(input: RenderInput): Promise<Buffer> {
+  const verifyUrl = `${input.baseUrl}/verify?hash=${input.hash}`;
+  const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+    margin: 0,
+    width: 200,
+    color: { dark: "#0f7a6b", light: "#ffffff" },
+  });
+
+  const buffer = await renderToBuffer(
+    React.createElement(CertificateDocument, {
+      ...input,
+      qrDataUrl,
+    }) as any,
+  );
+  return buffer as unknown as Buffer;
 }

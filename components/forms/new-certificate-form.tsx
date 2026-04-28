@@ -38,6 +38,7 @@ export function NewCertificateForm({ companies }: Props) {
         first_name: fd.get("first_name") as string,
         last_name: fd.get("last_name") as string,
         gender: fd.get("gender") as string,
+        date_of_birth: (fd.get("date_of_birth") as string) || null,
         function_title: fd.get("function_title") as string,
         entry_date: fd.get("entry_date"),
         exit_date: (fd.get("exit_date") as string) || null,
@@ -115,10 +116,13 @@ export function NewCertificateForm({ companies }: Props) {
               <option value="d">Neutral</option>
             </select>
           </Field>
-          <Field label="Funktion">
-            <input name="function_title" required className="input" />
+          <Field label="Geburtsdatum">
+            <input name="date_of_birth" type="date" className="input" />
           </Field>
         </div>
+        <Field label="Funktion">
+          <input name="function_title" required className="input" />
+        </Field>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Eintrittsdatum">
             <input name="entry_date" type="date" required className="input" />

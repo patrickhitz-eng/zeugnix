@@ -45,6 +45,7 @@ export interface EmployeeData {
   functionTitle: string;
   entryDate: string;
   exitDate?: string;
+  dateOfBirth?: string;
   employmentPercentage?: number;
   isManager: boolean;
 }
@@ -85,7 +86,10 @@ function substitute(template: string, employee: EmployeeData): string {
     .replace(/\{funktion\}/g, employee.functionTitle)
     .replace(/\{eintritt\}/g, formatDate(employee.entryDate))
     .replace(/\{austritt\}/g, employee.exitDate ? formatDate(employee.exitDate) : "")
-    .replace(/\{geburtsdatum\}/g, ""); // optional, falls vorhanden
+    .replace(
+      /\{geburtsdatum\}/g,
+      employee.dateOfBirth ? formatDate(employee.dateOfBirth) : "",
+    );
 }
 
 function formatDate(iso: string): string {
