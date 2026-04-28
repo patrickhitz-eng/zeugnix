@@ -179,3 +179,113 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+// ============================================================================
+// HR-Benachrichtigung: Beurteilung wurde abgegeben
+// ============================================================================
+interface EvaluationSubmittedProps {
+  hrName?: string;
+  employeeName: string;
+  managerEmail: string;
+  managerName?: string;
+  certificateUrl: string;
+}
+
+export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { hrName, employeeName, managerEmail, managerName, certificateUrl } = props;
+
+  const greeting = hrName ? `Guten Tag ${hrName}` : "Guten Tag";
+  const beurteiler = managerName ? `${managerName} (${managerEmail})` : managerEmail;
+
+  const subject = `Beurteilung erhalten für ${employeeName}`;
+
+  const text = [
+    greeting + ",",
+    "",
+    `${beurteiler} hat die Beurteilung für das Arbeitszeugnis von ${employeeName} abgegeben.`,
+    "",
+    "Sie können nun den Zeugnistext generieren und finalisieren:",
+    certificateUrl,
+    "",
+    "Mit freundlichen Grüssen",
+    "zeugnix.ch",
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1d22;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:8px;border:1px solid #e4e6ea;">
+
+        <tr>
+          <td style="padding:28px 32px 20px 32px;border-bottom:1px solid #e4e6ea;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="font-size:16px;font-weight:600;color:#1a1d22;letter-spacing:-0.01em;">
+                  zeugnix<span style="color:#0f7a6b;">.ch</span>
+                </td>
+                <td align="right" style="font-size:11px;color:#6b7178;text-transform:uppercase;letter-spacing:0.06em;">
+                  Beurteilung eingegangen
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px;">
+            <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;letter-spacing:-0.01em;">
+              Beurteilung erhalten für<br>
+              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(employeeName)}</span>
+            </h1>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              ${escapeHtml(greeting)},
+            </p>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              <strong>${escapeHtml(beurteiler)}</strong> hat die Beurteilung
+              für das Arbeitszeugnis von <strong>${escapeHtml(employeeName)}</strong>
+              abgegeben.
+            </p>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              Sie können nun den Zeugnistext generieren, prüfen und mit
+              kryptografischem Echtheitsnachweis finalisieren.
+            </p>
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;">
+              <tr>
+                <td style="border-radius:6px;background:#0f7a6b;">
+                  <a href="${certificateUrl}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:500;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
+                    Zum Zeugnis →
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:20px 32px 28px 32px;border-top:1px solid #e4e6ea;font-size:11.5px;line-height:1.55;color:#8a8f96;">
+            zeugnix.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return { subject, html, text };
+}

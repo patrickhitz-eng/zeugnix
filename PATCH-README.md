@@ -1,50 +1,73 @@
-# Patch: Marketing-Chrome + Resend-Integration
+# Patch: Route Groups + HR-Benachrichtigung
 
-Diese Patch enthält zwei Verbesserungen:
+## Zwei Bug-Fixes / Verbesserungen
 
-## 1. Marketing-Chrome auf App-Routen ausblenden
-Doppelter Header (Marketing + App) wird gefixt. Auf /app/*, /login, /auth ist
-nun nur noch der jeweilige eigene Header sichtbar.
+### 1. Loop bei Manager-Beurteilungslink GELÖST
+Der Link in der Mail führte zu einem Login-Loop, weil die Invitations-Seite
+fälschlicherweise das Auth-geschützte App-Layout geerbt hat. Lösung: Route
+Groups – authenticated und public Bereiche sind jetzt strukturell getrennt.
 
-## 2. Resend-Integration für Manager-Einladungen
-- Neue Datei: lib/email/send.ts (Mail-Versand via Resend API)
-- Neue Datei: lib/email/templates.ts (HTML/Text-Vorlage in DE)
-- Geänderte Datei: app/api/certificates/[id]/invite/route.ts
-- Geänderte Datei: components/app/certificate-actions.tsx (zeigt Status nach Einladung)
+### 2. HR-Benachrichtigung nach Manager-Beurteilung
+Wenn die Führungskraft die Beurteilung abgibt, geht jetzt automatisch eine
+Mail an HR (den Ersteller des Zeugnisses), dass es weiter geht.
 
-## Dateien
+## STRUKTURÄNDERUNG (wichtig!)
 
+Das `app/`-Verzeichnis wurde umstrukturiert. **Bitte den gesamten alten
+`app/`-Ordner LÖSCHEN und durch den neuen ersetzen**:
+
+Alte Struktur:
 ```
-patch-resend/
-├── app/
-│   ├── layout.tsx                                    [ÜBERSCHREIBEN]
-│   └── api/certificates/[id]/invite/route.ts         [ÜBERSCHREIBEN]
-├── components/
-│   ├── app/certificate-actions.tsx                   [ÜBERSCHREIBEN]
-│   └── marketing/marketing-chrome.tsx                [NEU]
-└── lib/
-    └── email/
-        ├── send.ts                                   [NEU]
-        └── templates.ts                              [NEU]
+app/
+├── app/                    ← alles unter einem Layout
+│   ├── dashboard/
+│   ├── certificates/
+│   ├── company/
+│   ├── invitations/        ← bekam fälschlicherweise Auth-Layout
+│   └── layout.tsx
+└── api/, login/, ...
 ```
+
+Neue Struktur:
+```
+app/
+├── (authed)/               ← Route Group: NUR auth-pflichtig
+│   └── app/
+│       ├── dashboard/
+│       ├── certificates/
+│       ├── company/
+│       └── layout.tsx      ← mit Auth-Check, Sidebar
+├── (public)/               ← Route Group: KEIN Auth
+│   └── app/
+│       ├── invitations/    ← Token-basiert
+│       └── layout.tsx      ← minimal pass-through
+└── api/, login/, ...       ← unverändert
+```
+
+URLs bleiben identisch:
+- /app/dashboard → (authed)
+- /app/invitations/abc → (public)
 
 ## Vorgehen
 
+### Variante A: Sicher (empfohlen)
+
 1. ZIP entpacken
-2. Alle Dateien über bestehenden zeugnix-Repo-Inhalt drüberkopieren
-3. GitHub Desktop: Commit "feat: resend-integration + marketing-chrome fix" → Push
-4. Vercel deployt automatisch
+2. Im Repo: **Den ganzen `app/`-Ordner löschen** (vorher Backup machen, falls unsicher)
+3. Den `app/`-Ordner aus dem Patch in den Repo-Root kopieren
+4. Auch die geänderte Datei `lib/email/templates.ts` drüberkopieren
+5. GitHub Desktop sollte zeigen: einige Dateien gelöscht, einige neu, einige geändert
+6. Commit "fix: route groups + hr-notification" → Push
 
-## Vor dem Push noch zu erledigen: ENV-Variablen in Vercel
+### Variante B: Manuell
 
-Folgende drei neue ENV-Variablen anlegen:
+Falls Sie keine Verzeichnisse löschen wollen:
 
-| Name | Wert |
-|---|---|
-| RESEND_API_KEY | re_xxxxx (aus Resend Dashboard, sobald Domain verifiziert) |
-| EMAIL_FROM | noreply@zeugnix.ch |
-| EMAIL_REPLY_TO | (optional, z.B. support@zeugnix.ch) |
+1. Im Repo `app/app/` umbenennen zu `app/(authed)/app/` (mit den runden Klammern)
+2. Den Inhalt von `app/(authed)/app/invitations` verschieben nach `app/(public)/app/invitations`
+3. `app/(public)/app/layout.tsx` aus dem Patch hinzufügen
+4. `lib/email/templates.ts` überschreiben
+5. `app/api/evaluations/submit/route.ts` überschreiben
+6. Commit + Push
 
-Solange RESEND_API_KEY fehlt, läuft alles wie bisher: Einladung wird in DB
-erstellt, der Link erscheint im UI zum Kopieren. Sobald Key da ist, geht
-zusätzlich eine Mail raus.
+Variante A ist robuster.
