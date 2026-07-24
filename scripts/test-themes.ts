@@ -165,7 +165,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     marginBottom: 3,
   });
   eq("hashValue", s.hashValue, {
-    fontFamily: "Courier",
+    fontFamily: "Inter",
     color: "#1a1d22",
     fontSize: 7.5,
     marginBottom: 4,

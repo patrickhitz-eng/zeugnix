@@ -179,9 +179,9 @@ export const BUILTIN_THEMES: Record<string, DocumentTheme> = {
   "zeugnix-standard": {
     id: "zeugnix-standard",
     label: "Zeugnix Standard (Inter)",
-    // Hausschrift Inter für Titel + Fliesstext; der Prüf-Hash bleibt bewusst
-    // Courier (Monospace) für saubere Ziffern-Ausrichtung.
-    fonts: { heading: "inter", body: "inter", mono: "courier" },
+    // Durchgängig Inter (Titel, Fliesstext UND Prüf-Hash) für ein einheitliches
+    // Schriftbild – bewusste Entscheidung gegen Monospace beim Hash.
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: BASE_COLORS,
   },
   "zeugnix-serif": {
@@ -210,31 +210,31 @@ export const BUILTIN_THEMES: Record<string, DocumentTheme> = {
  * Header, Bestätigungshäkchen, Hash-Label/Verify-Link, QR-Code). Der Fliesstext
  * bleibt neutral-schwarz für maximale Lesbarkeit. Farbwerte: Christoph Senn,
  * 2026-07-20; alle ≥ 4.5:1 gegen Papierweiss (WCAG AA, per test-themes.ts geprüft).
- * Titel + Fliesstext nutzen die eingebettete Hausschrift Inter (mono = Courier).
+ * Durchgängig Inter (Titel, Fliesstext, Hash) für ein einheitliches Schriftbild.
  */
 export const BRAND_THEMES: Record<string, DocumentTheme> = {
   "brand-first": {
     id: "brand-first",
     label: "First Advisory",
-    fonts: { heading: "inter", body: "inter", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#003867" },
   },
   "brand-csl": {
     id: "brand-csl",
     label: "CSL",
-    fonts: { heading: "inter", body: "inter", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#A44A52" },
   },
   "brand-c2g": {
     id: "brand-c2g",
     label: "Comply2gether",
-    fonts: { heading: "inter", body: "inter", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#D10800" },
   },
   "brand-iab": {
     id: "brand-iab",
     label: "IAB",
-    fonts: { heading: "inter", body: "inter", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#002D53" },
   },
 };
