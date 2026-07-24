@@ -4,16 +4,17 @@
  * Eine einzige Quelle der Wahrheit für die wählbaren Schriftarten, geteilt von
  * Editor-Toolbar, HTML-Vorschau (CSS) und PDF (@react-pdf-Fontnamen).
  *
- * Phase 1: nur die in @react-pdf eingebauten Standard-Fonts (Helvetica/Times/
- * Courier) – kein Font-Embedding nötig, Vorschau ≈ PDF. "Echte" Word-Fonts
- * (Arimo/Tinos/Carlito/Cousine) sind ein späterer Schritt (dann hier ergänzen
- * + Font.register in certificate.tsx + @font-face in der Vorschau).
+ * "inter" ist die eingebettete Hausschrift (Inter, OFL-lizenziert): TTFs in
+ * public/fonts/, registriert via Font.register in certificate.tsx (PDF) und als
+ * @font-face in app/globals.css (Vorschau). Die drei @react-pdf-Standardfonts
+ * (Helvetica/Times/Courier) bleiben als eingebaute Fallbacks bestehen – für sie
+ * ist kein Embedding nötig.
  *
  * Im Tiptap-JSON wird als fontFamily der stabile `key` gespeichert (nicht der
  * CSS- oder PDF-Name), damit Vorschau und PDF deterministisch daraus ableiten.
  */
 
-export type FontKey = "helvetica" | "times" | "courier";
+export type FontKey = "inter" | "helvetica" | "times" | "courier";
 
 export interface FontConfig {
   key: FontKey;
@@ -25,6 +26,21 @@ export interface FontConfig {
 }
 
 export const CERTIFICATE_FONTS: FontConfig[] = [
+  {
+    key: "inter",
+    label: "Inter",
+    // Eingebettet: family-Namen müssen mit Font.register in certificate.tsx
+    // übereinstimmen. Zwei getrennte Familien (Inter / Inter-Bold) – analog zum
+    // Helvetica/Helvetica-Bold-Muster. Kursiv ist im Zeugnis unzulässig, daher
+    // fallen italic/boldItalic bewusst auf die aufrechten Schnitte zurück.
+    pdf: {
+      regular: "Inter",
+      bold: "Inter-Bold",
+      italic: "Inter",
+      boldItalic: "Inter-Bold",
+    },
+    css: '"Inter", Arial, Helvetica, sans-serif',
+  },
   {
     key: "helvetica",
     label: "Helvetica / Arial",
@@ -60,7 +76,7 @@ export const CERTIFICATE_FONTS: FontConfig[] = [
   },
 ];
 
-export const DEFAULT_FONT_KEY: FontKey = "helvetica";
+export const DEFAULT_FONT_KEY: FontKey = "inter";
 export const DEFAULT_TEXT_COLOR = "#1a1d22";
 
 /**

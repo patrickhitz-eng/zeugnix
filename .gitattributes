@@ -1,0 +1,5 @@
+# Schriftdateien sind binär – nie Zeilenenden normalisieren (sonst korrupt).
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
