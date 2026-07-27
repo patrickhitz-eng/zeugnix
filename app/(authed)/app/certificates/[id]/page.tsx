@@ -2,7 +2,9 @@ import { createClient } from "@/lib/db/supabase-server";
 import { notFound } from "next/navigation";
 import { CertificateActions } from "@/components/app/certificate-actions";
 import { SchlusssatzControls } from "@/components/forms/schlusssatz-controls";
+import { SignatoryControls } from "@/components/forms/signatory-controls";
 import { CertificateRichWorkspace } from "@/components/app/certificate-rich-workspace";
+import { resolveSignatories } from "@/lib/certificate/signatories";
 import { CertificateWorkspace } from "@/components/app/certificate-workspace";
 import { CertificateManage } from "@/components/app/certificate-manage";
 import Link from "next/link";
@@ -65,6 +67,11 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   const isFinal = cert.status === "final";
   const hasText = !!cert.generated_text;
   const isArchived = !!cert.archived_at;
+
+  // Effektive Unterzeichnende: Zeugnis-Override ⟶ Firmenvorgabe (pro Slot).
+  // Speist Vorschau (previewCompany) und den Empfehlungs-Hinweis unten.
+  const effectiveSignatories = resolveSignatories(cert, company);
+  const previewCompany = { ...company, ...effectiveSignatories };
 
   return (
     <div className="space-y-6">
@@ -164,6 +171,25 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         />
       )}
 
+      {/* Unterzeichnende pro Zeugnis: direkt unter dem Schlusssatz. Überschreibt
+          die Firmenvorgabe nur für dieses Zeugnis (leer = Firmenvorgabe). */}
+      <SignatoryControls
+        certificateId={cert.id}
+        finalized={isFinal}
+        companyDefaults={{
+          signatory1Name: company.signatory_1_name ?? "",
+          signatory1Role: company.signatory_1_role ?? "",
+          signatory2Name: company.signatory_2_name ?? "",
+          signatory2Role: company.signatory_2_role ?? "",
+        }}
+        initial={{
+          signatory1Name: cert.signatory_1_name ?? "",
+          signatory1Role: cert.signatory_1_role ?? "",
+          signatory2Name: cert.signatory_2_name ?? "",
+          signatory2Role: cert.signatory_2_role ?? "",
+        }}
+      />
+
       {/* Editor + Preview Split-View */}
       {hasText && (
         <div className="mt-6">
@@ -176,7 +202,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             initialFormattedContent={cert.formatted_content ?? null}
             finalized={isFinal}
             themeId={company.default_certificate_font_family}
-            company={company}
+            company={previewCompany}
             employee={employee}
             type={cert.type}
             hash={cert.hash}
@@ -184,7 +210,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
 
           {/* Hinweise */}
           {(!company.logo_url ||
-            !company.signatory_1_name ||
+            !effectiveSignatories.signatory_1_name ||
             !employee.date_of_birth) && (
             <div className="mt-6 rounded-md border border-amber-200 bg-amber-50/50 p-4">
               <div className="text-[12px] font-medium text-amber-900">
@@ -202,7 +228,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
                     </Link>
                   </li>
                 )}
-                {!company.signatory_1_name && (
+                {!effectiveSignatories.signatory_1_name && (
                   <li>
                     •{" "}
                     <Link
@@ -210,7 +236,8 @@ export default async function CertificateDetailPage({ params }: PageProps) {
                       className="underline hover:text-amber-900"
                     >
                       Unterzeichnende Personen erfassen
-                    </Link>
+                    </Link>{" "}
+                    (oder pro Zeugnis oben festlegen)
                   </li>
                 )}
                 {!employee.date_of_birth && (

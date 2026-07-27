@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
+import { resolveSignatories } from "@/lib/certificate/signatories";
 
 // @react-pdf/renderer braucht die Node-Runtime (nicht Edge). Die Antwort darf
 // nicht statisch gecacht werden, und die PDF-Erzeugung kann etwas dauern.
@@ -105,6 +106,9 @@ export async function GET(
     );
   }
 
+  // Unterzeichnende: zeugnis-spezifischer Override vor Firmenvorgabe.
+  const signatories = resolveSignatories(cert, company);
+
   // Logo als Data-URL laden, falls Logo-URL vorhanden. SSRF-gehärtet:
   // nur erlaubte (Supabase-Storage-)URLs, mit Timeout und Grössenlimit. Ein
   // Problem beim Logo überspringt nur das Logo, bricht aber nicht den PDF-Build.
@@ -196,10 +200,11 @@ export async function GET(
       formattedContent: cert.formatted_content ?? null,
       themeId: company.default_certificate_font_family ?? undefined,
 
-      signatory1Name: company.signatory_1_name ?? undefined,
-      signatory1Role: company.signatory_1_role ?? undefined,
-      signatory2Name: company.signatory_2_name ?? undefined,
-      signatory2Role: company.signatory_2_role ?? undefined,
+      // Zeugnis-Override ⟶ Firmenvorgabe (identisch zur A4-Vorschau).
+      signatory1Name: signatories.signatory_1_name ?? undefined,
+      signatory1Role: signatories.signatory_1_role ?? undefined,
+      signatory2Name: signatories.signatory_2_name ?? undefined,
+      signatory2Role: signatories.signatory_2_role ?? undefined,
 
       hash: cert.hash,
       baseUrl,
