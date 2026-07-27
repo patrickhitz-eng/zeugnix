@@ -9,7 +9,10 @@
  *     liefern, die vor der Token-Einführung als Literale in
  *     lib/pdf/certificate.tsx standen. Die Erwartungswerte unten sind aus dem
  *     Stand VOR dem Refactor übernommen – sie sind bewusst nicht aus den
- *     Tokens abgeleitet, sonst wäre der Test zirkulär.
+ *     Tokens abgeleitet, sonst wäre der Test zirkulär. AUSNAHME: die
+ *     fontFamily-Felder wurden bewusst auf Inter/Inter-Bold aktualisiert, als
+ *     die Hausschrift des Standard-Themes von Helvetica auf die eingebettete
+ *     Inter umgestellt wurde. Geometrie und Farben bleiben die alte Sperre.
  *  2. BARRIEREFREIHEIT: jedes Built-in-Theme erfüllt WCAG AA gegen Papierweiss.
  *     Ein neues Marken-Theme mit zu blasser Farbe lässt den Build scheitern.
  *  3. RÜCKWÄRTSKOMPATIBILITÄT: die Alt-Werte der Spalte
@@ -58,7 +61,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     paddingTop: 56,
     paddingBottom: 60,
     paddingHorizontal: 60,
-    fontFamily: "Helvetica",
+    fontFamily: "Inter",
     fontSize: 11,
     lineHeight: 1.55,
     color: "#1a1d22",
@@ -75,7 +78,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
   eq("logo", s.logo, { maxWidth: 140, maxHeight: 48, objectFit: "contain" });
   eq("companyNameNoLogo", s.companyNameNoLogo, {
     fontSize: 14,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter-Bold",
   });
   eq("letterheadRight", s.letterheadRight, {
     textAlign: "right",
@@ -85,13 +88,13 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     width: 200,
   });
   eq("letterheadCompanyName", s.letterheadCompanyName, {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter-Bold",
     color: "#1a1d22",
     marginBottom: 2,
   });
   eq("title", s.title, {
     fontSize: 18,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter-Bold",
     textAlign: "center",
     marginTop: 24,
     marginBottom: 32,
@@ -106,7 +109,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
   eq("bullet", s.bullet, { fontSize: 11, marginLeft: 14, marginBottom: 3 });
   eq("sentinel", s.sentinel, { fontSize: 6, color: "#ffffff", lineHeight: 1 });
   eq("signaturesHeader", s.signaturesHeader, {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter-Bold",
     fontSize: 8,
     color: "#0f7a6b",
     textTransform: "uppercase",
@@ -123,7 +126,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     fontSize: 10,
   });
   eq("signatureSpacer", s.signatureSpacer, { width: 20 });
-  eq("signatureName", s.signatureName, { fontFamily: "Helvetica-Bold" });
+  eq("signatureName", s.signatureName, { fontFamily: "Inter-Bold" });
   eq("signatureRole", s.signatureRole, {
     color: "#3a3f46",
     marginTop: 1,
@@ -138,7 +141,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     color: "#0f7a6b",
     marginTop: 3,
     fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter-Bold",
   });
   eq("hashBlock", s.hashBlock, {
     marginTop: 36,
@@ -155,14 +158,14 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     lineHeight: 1.5,
   });
   eq("hashLabel", s.hashLabel, {
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Inter-Bold",
     color: "#0f7a6b",
     fontSize: 7,
     letterSpacing: 0.6,
     marginBottom: 3,
   });
   eq("hashValue", s.hashValue, {
-    fontFamily: "Courier",
+    fontFamily: "Inter",
     color: "#1a1d22",
     fontSize: 7.5,
     marginBottom: 4,

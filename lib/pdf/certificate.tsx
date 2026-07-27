@@ -16,6 +16,7 @@ import {
   renderToBuffer,
 } from "@react-pdf/renderer";
 import QRCode from "qrcode";
+import path from "node:path";
 import React from "react";
 import {
   BODY_SENTINEL_START,
@@ -33,6 +34,22 @@ import { buildPdfStyles } from "@/lib/design/document-pdf-styles";
 // Echtheits-Hash. Wir geben jedes Wort ungeteilt zurück → Umbruch nur an
 // Leerzeichen, extrahierter Text == Quelltext.
 Font.registerHyphenationCallback((word) => [word]);
+
+// Hausschrift Inter (OFL) einbetten. Zwei getrennte Familien (Inter / Inter-Bold)
+// – passt zum expliziten Fontnamen-Muster in lib/pdf/fonts.ts (pdfFontName).
+// Dateien liegen in public/fonts/ und werden auf Vercel über
+// outputFileTracingIncludes (next.config.mjs) in die Serverless-Function
+// mitgetraced; hier von der Platte gelesen (kein Netzwerk-Fetch pro Render).
+// Kursivschnitte entfallen bewusst – Kursiv ist im Arbeitszeugnis unzulässig.
+const FONT_DIR = path.join(process.cwd(), "public", "fonts");
+Font.register({
+  family: "Inter",
+  src: path.join(FONT_DIR, "Inter-Regular.ttf"),
+});
+Font.register({
+  family: "Inter-Bold",
+  src: path.join(FONT_DIR, "Inter-Bold.ttf"),
+});
 
 interface RenderInput {
   companyName: string;

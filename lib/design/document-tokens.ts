@@ -165,23 +165,23 @@ const BASE_COLORS: DocumentColors = {
 };
 
 /**
- * Lizenzfreie Built-in-Themes: alle drei nutzen ausschliesslich die in PDF
- * eingebauten Basisschriften (Helvetica/Times/Courier) – keine Einbettung,
- * keine Lizenz.
+ * Built-in-Themes. Alle lizenzfrei: der Standard nutzt die eingebettete
+ * Hausschrift Inter (OFL, keine Lizenzkosten), Serif/Mono nutzen die in PDF
+ * eingebauten Basisschriften (Times/Courier).
  *
- * Die drei Varianten existieren, damit Bestandsfirmen, die früher `times` oder
- * `courier` als Schrift gewählt hatten, exakt dasselbe PDF wie bisher erhalten.
- * Der Titel war schon immer Helvetica-Bold, unabhängig von der Firmenwahl –
- * daher bleibt `heading` überall "helvetica".
+ * Die Serif-/Mono-Varianten existieren, damit Bestandsfirmen, die früher `times`
+ * oder `courier` gewählt hatten, ihren gewohnten Fliesstext behalten (bewusst
+ * NICHT auf Inter umgestellt). Ihr `heading` bleibt "helvetica" wie bisher.
  *
- * Eine echte Marke (z.B. First Advisory) ist später ein weiterer Eintrag hier
- * plus neue FontKeys in lib/pdf/fonts.ts. Kein Code-Umbau.
+ * Eine echte Marke (z.B. First Advisory) ist ein Eintrag in BRAND_THEMES.
  */
 export const BUILTIN_THEMES: Record<string, DocumentTheme> = {
   "zeugnix-standard": {
     id: "zeugnix-standard",
-    label: "Zeugnix Standard (Helvetica)",
-    fonts: { heading: "helvetica", body: "helvetica", mono: "courier" },
+    label: "Zeugnix Standard (Inter)",
+    // Durchgängig Inter (Titel, Fliesstext UND Prüf-Hash) für ein einheitliches
+    // Schriftbild – bewusste Entscheidung gegen Monospace beim Hash.
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: BASE_COLORS,
   },
   "zeugnix-serif": {
@@ -210,32 +210,31 @@ export const BUILTIN_THEMES: Record<string, DocumentTheme> = {
  * Header, Bestätigungshäkchen, Hash-Label/Verify-Link, QR-Code). Der Fliesstext
  * bleibt neutral-schwarz für maximale Lesbarkeit. Farbwerte: Christoph Senn,
  * 2026-07-20; alle ≥ 4.5:1 gegen Papierweiss (WCAG AA, per test-themes.ts geprüft).
- * Die Schriften bleiben vorerst die eingebauten Basisschriften – Inter-Embedding
- * ist ein separater Schritt.
+ * Durchgängig Inter (Titel, Fliesstext, Hash) für ein einheitliches Schriftbild.
  */
 export const BRAND_THEMES: Record<string, DocumentTheme> = {
   "brand-first": {
     id: "brand-first",
     label: "First Advisory",
-    fonts: { heading: "helvetica", body: "helvetica", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#003867" },
   },
   "brand-csl": {
     id: "brand-csl",
     label: "CSL",
-    fonts: { heading: "helvetica", body: "helvetica", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#A44A52" },
   },
   "brand-c2g": {
     id: "brand-c2g",
     label: "Comply2gether",
-    fonts: { heading: "helvetica", body: "helvetica", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#D10800" },
   },
   "brand-iab": {
     id: "brand-iab",
     label: "IAB",
-    fonts: { heading: "helvetica", body: "helvetica", mono: "courier" },
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#002D53" },
   },
 };
