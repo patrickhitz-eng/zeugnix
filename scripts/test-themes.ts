@@ -95,6 +95,9 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
   eq("title", s.title, {
     fontSize: 18,
     fontFamily: "Inter-Bold",
+    // Titel trägt seit dem Call 2026-07-24 die Markenfarbe; im Standard-Theme
+    // ist das der Petrol-Akzent. Bewusste Änderung gegenüber der Alt-Sperre.
+    color: "#0f7a6b",
     textAlign: "center",
     marginTop: 24,
     marginBottom: 32,
@@ -182,6 +185,13 @@ console.log("\nPDF-Styles: Body-Schrift folgt dem Theme, Titel bleibt Helvetica-
   eq("serif: Titel-Schrift", serif.title.fontFamily, "Helvetica-Bold");
   eq("mono: Titel-Schrift", mono.title.fontFamily, "Helvetica-Bold");
   eq("serif: Hash-Schrift", serif.hashValue.fontFamily, "Courier");
+
+  // Titel trägt die Markenfarbe: im Standard-Theme Petrol, im Marken-Theme die
+  // jeweilige Firmenfarbe (First Advisory = #003867).
+  const brand = buildPdfStyles(BRAND_THEMES["brand-first"]) as any;
+  const standard = buildPdfStyles(DEFAULT_THEME) as any;
+  eq("brand: Titel-Farbe = Markenfarbe", brand.title.color, "#003867");
+  eq("standard: Titel-Farbe = Petrol", standard.title.color, "#0f7a6b");
 }
 
 // ---------------------------------------------------------------------------
