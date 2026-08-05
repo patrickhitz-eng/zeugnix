@@ -268,10 +268,13 @@ function CertificateDocument(props: DocProps) {
 export async function renderCertificatePdf(input: RenderInput): Promise<Buffer> {
   const theme = resolveTheme(input.themeId);
   const verifyUrl = buildVerifyUrl(input.baseUrl, input.hash);
+  // QR-Code bewusst schwarz auf weiss (nicht in Markenfarbe): schwarze Module
+  // haben den höchsten Kontrast und lassen sich am zuverlässigsten scannen –
+  // gerade beim ausgedruckten/gescannten Zeugnis (Wunsch Call 2026-07-24).
   const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
     margin: 0,
     width: 200,
-    color: { dark: theme.colors.brandAccent, light: theme.colors.paper },
+    color: { dark: theme.colors.textPrimary, light: theme.colors.paper },
   });
 
   const buffer = await renderToBuffer(

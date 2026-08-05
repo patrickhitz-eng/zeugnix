@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SKILLS, type SkillMeta } from "@/lib/phrases/skills";
 
 const RATINGS = [
@@ -9,6 +9,9 @@ const RATINGS = [
   { value: "genuegend", label: "Genügend" },
   { value: "ungenuegend", label: "Ungenügend" },
 ];
+
+/** Skill-Key -> Anzeigename, für gezielte Fehlermeldungen ("Bitte noch X bewerten"). */
+const SKILL_LABEL = new Map(SKILLS.map((s) => [s.key, s.label]));
 
 interface ThemeGroup {
   theme: string;
@@ -41,12 +44,21 @@ function buildThemes(isManager: boolean): ThemeGroup[] {
   return groups;
 }
 
+/** Eine zuvor gespeicherte Beurteilung (aus der evaluations-Tabelle). */
+export interface InitialEvaluation {
+  category: string;
+  rating: string;
+  free_text?: string | null;
+}
+
 interface Props {
   certificateId: string;
   isManager: boolean;
   // Genau eines von beiden muss gesetzt sein:
   token?: string; // Manager-Einladung über E-Mail-Link
   selfMode?: boolean; // Eingeloggter HR/Inhaber beurteilt selbst
+  /** Bereits gespeicherte Beurteilung – belegt das Formular beim Nachbearbeiten vor. */
+  initialEvaluations?: InitialEvaluation[];
 }
 
 export function ManagerEvaluationForm({
@@ -54,20 +66,39 @@ export function ManagerEvaluationForm({
   certificateId,
   isManager,
   selfMode,
+  initialEvaluations = [],
 }: Props) {
   const themes = useMemo(() => buildThemes(isManager), [isManager]);
 
-  // Kern-Skills (im Katalog mit '*') sind vorausgewählt; weitere zuschaltbar.
+  // Auswahl vorbelegen: Beim Nachbearbeiten (gespeicherte Beurteilung vorhanden)
+  // exakt die zuvor beurteilten Eigenschaften wiederherstellen; bei der Erst-
+  // beurteilung die empfohlenen (Kern-)Eigenschaften vorauswählen.
   const [selected, setSelected] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    for (const g of themes) for (const s of g.skills) if (s.core) init[s.key] = true;
+    if (initialEvaluations.length > 0) {
+      for (const ev of initialEvaluations) init[ev.category] = true;
+    } else {
+      for (const g of themes) for (const s of g.skills) if (s.core) init[s.key] = true;
+    }
     return init;
   });
-  const [ratings, setRatings] = useState<Record<string, string>>({});
-  const [freeTexts, setFreeTexts] = useState<Record<string, string>>({});
+  const [ratings, setRatings] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const ev of initialEvaluations) if (ev.rating) init[ev.category] = ev.rating;
+    return init;
+  });
+  const [freeTexts, setFreeTexts] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    for (const ev of initialEvaluations) if (ev.free_text) init[ev.category] = ev.free_text;
+    return init;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
+  // Nicht bewertete, aber ausgewählte Eigenschaften nach einem Absende-Versuch –
+  // für die gezielte Fehlermarkierung (Karte hervorheben + hinscrollen).
+  const [missingKeys, setMissingKeys] = useState<string[]>([]);
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   function toggleSkill(key: string) {
     setSelected((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -115,9 +146,21 @@ export function ManagerEvaluationForm({
     }
     const missing = selectedKeys.filter((k) => !ratings[k]);
     if (missing.length > 0) {
-      setError(`Bitte alle ausgewählten Eigenschaften bewerten (${missing.length} offen).`);
+      setMissingKeys(missing);
+      const labels = missing.map((k) => SKILL_LABEL.get(k) ?? k);
+      const preview = labels.slice(0, 3).join(", ");
+      const rest = labels.length > 3 ? ` und ${labels.length - 3} weitere` : "";
+      setError(
+        `Bitte noch bewerten: ${preview}${rest}. Die erste offene Eigenschaft ist markiert.`,
+      );
+      // Zur ersten offenen Eigenschaft scrollen und sie sichtbar hervorheben.
+      cardRefs.current[missing[0]]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
       return;
     }
+    setMissingKeys([]);
 
     setSubmitting(true);
 
@@ -256,8 +299,15 @@ export function ManagerEvaluationForm({
                 return (
                   <div
                     key={s.key}
+                    ref={(el) => {
+                      cardRefs.current[s.key] = el;
+                    }}
                     className={`card p-4 transition-colors ${
                       on ? "" : "bg-ink-50/40"
+                    } ${
+                      missingKeys.includes(s.key)
+                        ? "border-red-400 ring-1 ring-red-300"
+                        : ""
                     }`}
                   >
                     <label className="flex cursor-pointer items-center gap-3">
@@ -291,9 +341,12 @@ export function ManagerEvaluationForm({
                             <button
                               key={r.value}
                               type="button"
-                              onClick={() =>
-                                setRatings((prev) => ({ ...prev, [s.key]: r.value }))
-                              }
+                              onClick={() => {
+                                setRatings((prev) => ({ ...prev, [s.key]: r.value }));
+                                setMissingKeys((prev) =>
+                                  prev.filter((k) => k !== s.key),
+                                );
+                              }}
                               className={`rounded-md border px-3 py-2 text-[12.5px] font-medium transition-colors ${
                                 ratings[s.key] === r.value
                                   ? "border-petrol-600 bg-petrol-50 text-petrol-800"
@@ -346,7 +399,7 @@ export function ManagerEvaluationForm({
       <div className="sticky bottom-0 -mx-6 border-t border-ink-200 bg-white px-6 py-4">
         <button
           type="submit"
-          disabled={submitting || selectedKeys.length === 0 || progress < 100}
+          disabled={submitting || selectedKeys.length === 0}
           className="btn-primary w-full disabled:opacity-50"
         >
           {submitting ? "Wird gesendet…" : "Beurteilung absenden"}

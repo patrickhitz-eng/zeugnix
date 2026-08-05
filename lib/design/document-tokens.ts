@@ -129,7 +129,8 @@ export interface DocumentColors {
   textSecondary: string;
   /** Funktion der Unterzeichner. */
   textMuted: string;
-  /** Markenfarbe: Labels, Bestätigungen, Verify-Link, QR-Code. */
+  /** Markenfarbe: Titel, Signatur-Header, Labels, Bestätigungen, Verify-Link.
+   *  (NICHT der QR-Code – der ist bewusst schwarz/weiss für besten Scan-Kontrast.) */
   brandAccent: string;
   /** Trennlinien (Briefkopf, Hash-Block). */
   rule: string;
@@ -206,9 +207,10 @@ export const BUILTIN_THEMES: Record<string, DocumentTheme> = {
  * Self-Service, kein durchstöberbarer Katalog. resolveTheme() liest trotzdem aus
  * der Vereinigung beider Maps, damit eine gesetzte ID auflöst.
  *
- * Jedes Theme erbt BASE_COLORS und überschreibt NUR `brandAccent` (Signatur-
- * Header, Bestätigungshäkchen, Hash-Label/Verify-Link, QR-Code). Der Fliesstext
- * bleibt neutral-schwarz für maximale Lesbarkeit. Farbwerte: Christoph Senn,
+ * Jedes Theme erbt BASE_COLORS und überschreibt NUR `brandAccent` (Titel,
+ * Signatur-Header, Bestätigungshäkchen, Hash-Label/Verify-Link). Der QR-Code ist
+ * bewusst schwarz/weiss (Scan-Kontrast), der Fliesstext neutral-schwarz für
+ * maximale Lesbarkeit. Farbwerte: Christoph Senn,
  * 2026-07-20; alle ≥ 4.5:1 gegen Papierweiss (WCAG AA, per test-themes.ts geprüft).
  * Durchgängig Inter (Titel, Fliesstext, Hash) für ein einheitliches Schriftbild.
  */

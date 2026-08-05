@@ -68,6 +68,9 @@ export function buildPdfStyles(theme: DocumentTheme) {
     title: {
       fontSize: T.fontSize.title,
       fontFamily: headingBold,
+      // Titel trägt die Markenfarbe (Wunsch Christoph/Silvan, Call 2026-07-24):
+      // im Standard-Theme das Petrol, in Marken-Themes die jeweilige Firmenfarbe.
+      color: c.brandAccent,
       textAlign: "center",
       marginTop: T.space.titleMarginTop,
       marginBottom: T.space.titleMarginBottom,

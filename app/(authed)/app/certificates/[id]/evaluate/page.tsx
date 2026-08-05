@@ -20,7 +20,7 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
 
   const { data: cert } = await supabase
     .from("certificates")
-    .select("*, employees(*), companies(*)")
+    .select("*, employees(*), companies(*), evaluations(*)")
     .eq("id", id)
     .single();
 
@@ -28,6 +28,15 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
 
   const employee = cert.employees;
   const company = cert.companies;
+
+  // Bereits gespeicherte Beurteilung (falls die Person schon einmal bewertet
+  // wurde) für die Vorbelegung des Formulars – so muss beim Nachbearbeiten nicht
+  // alles neu gewählt werden.
+  const initialEvaluations = (cert.evaluations ?? []).map((e: any) => ({
+    category: e.category,
+    rating: e.rating,
+    free_text: e.free_text,
+  }));
 
   return (
     <div className="space-y-6">
@@ -59,6 +68,7 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
         certificateId={id}
         isManager={employee.is_manager}
         selfMode
+        initialEvaluations={initialEvaluations}
       />
     </div>
   );

@@ -70,7 +70,8 @@ export function CertificatePreview({
   const title = TYPE_LABELS[type] ?? "Arbeitszeugnis";
   const theme = resolveTheme(themeId);
   const css = buildDocumentCss(theme);
-  const qrDark = theme.colors.brandAccent;
+  // Schwarz/weiss wie im PDF (certificate.tsx) – bester Scan-Kontrast.
+  const qrDark = theme.colors.textPrimary;
   const qrLight = theme.colors.paper;
 
   // QR-Code zum Hash erzeugen – identische Verify-URL und Optionen wie im PDF
