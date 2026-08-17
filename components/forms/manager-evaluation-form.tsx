@@ -2,6 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import { SKILLS, type SkillMeta } from "@/lib/phrases/skills";
+import {
+  previewSkillPhrase,
+  type EmployeeData,
+  type PhraseBlock,
+} from "@/lib/phrases/engine";
 
 const RATINGS = [
   { value: "sehr_gut", label: "Sehr gut" },
@@ -59,6 +64,14 @@ interface Props {
   selfMode?: boolean; // Eingeloggter HR/Inhaber beurteilt selbst
   /** Bereits gespeicherte Beurteilung – belegt das Formular beim Nachbearbeiten vor. */
   initialEvaluations?: InitialEvaluation[];
+  /**
+   * Skill-Bausteine + Stammdaten für die Live-Vorschau der Satzbausteine. Wird
+   * von der Server-Komponente geladen (RLS-sicher). Fehlt eines davon, zeigt das
+   * Formular einfach keine Vorschau – die Beurteilung funktioniert unverändert.
+   */
+  phraseBlocks?: PhraseBlock[];
+  employee?: EmployeeData;
+  tempus?: "praesens" | "praeteritum";
 }
 
 export function ManagerEvaluationForm({
@@ -67,6 +80,9 @@ export function ManagerEvaluationForm({
   isManager,
   selfMode,
   initialEvaluations = [],
+  phraseBlocks = [],
+  employee,
+  tempus = "praeteritum",
 }: Props) {
   const themes = useMemo(() => buildThemes(isManager), [isManager]);
 
@@ -200,10 +216,19 @@ export function ManagerEvaluationForm({
       return;
     }
 
+    // Selbst-Beurteilung (HR): direkt zurück zum Zeugnis, ohne Zwischenseite.
+    // Voller Seitenwechsel wie zuvor der „Zurück zum Zeugnis"-Link → frische Daten.
+    if (selfMode) {
+      window.location.href = `/app/certificates/${certificateId}`;
+      return;
+    }
+    // Manager über Token-Link: kurze Bestätigung (kein Konto, kein Ziel-Redirect).
     setDone(true);
   }
 
   if (done) {
+    // Nur noch der Manager-Flow (Token-Link) erreicht diese Bestätigung; der
+    // Selbst-/HR-Flow wird nach dem Absenden direkt zum Zeugnis weitergeleitet.
     return (
       <div className="card p-10 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-petrol-100">
@@ -223,18 +248,9 @@ export function ManagerEvaluationForm({
         </div>
         <h2 className="mt-4 text-[16px] font-medium">Beurteilung gespeichert</h2>
         <p className="mt-2 text-[13.5px] text-ink-600">
-          {selfMode
-            ? "Sie können jetzt den Zeugnistext generieren."
-            : "Vielen Dank. Der Arbeitgeber kann nun den Zeugnistext generieren. Sie können dieses Fenster schliessen."}
+          Vielen Dank. Der Arbeitgeber kann nun den Zeugnistext generieren. Sie
+          können dieses Fenster schliessen.
         </p>
-        {selfMode && (
-          <a
-            href={`/app/certificates/${certificateId}`}
-            className="btn-primary mt-6 inline-flex"
-          >
-            Zurück zum Zeugnis
-          </a>
-        )}
       </div>
     );
   }
@@ -296,6 +312,20 @@ export function ManagerEvaluationForm({
             <div className="space-y-3">
               {g.skills.map((s) => {
                 const on = !!selected[s.key];
+                const rating = ratings[s.key];
+                // Live-Vorschau: derselbe Satz, den die Engine später erzeugt.
+                const vorschau =
+                  on && rating && employee && phraseBlocks.length > 0
+                    ? previewSkillPhrase({
+                        phraseBlocks,
+                        skillKey: s.key,
+                        theme: s.theme,
+                        rating: rating as PhraseBlock["rating"],
+                        employee,
+                        tempus,
+                        freeText: freeTexts[s.key],
+                      })
+                    : null;
                 return (
                   <div
                     key={s.key}
@@ -357,6 +387,17 @@ export function ManagerEvaluationForm({
                             </button>
                           ))}
                         </div>
+
+                        {vorschau && (
+                          <div className="mt-3 rounded-md border border-petrol-100 bg-petrol-50/60 px-3 py-2">
+                            <div className="text-[10px] font-medium uppercase tracking-wider text-petrol-600">
+                              Vorschau im Zeugnis
+                            </div>
+                            <p className="mt-1 text-[13px] leading-relaxed text-ink-700">
+                              {vorschau}
+                            </p>
+                          </div>
+                        )}
 
                         <details className="mt-3">
                           <summary className="cursor-pointer text-[12px] text-petrol-700 hover:underline">

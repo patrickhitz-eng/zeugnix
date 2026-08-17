@@ -1,6 +1,8 @@
 import { createServiceClient } from "@/lib/db/supabase-server";
 import { notFound } from "next/navigation";
 import { ManagerEvaluationForm } from "@/components/forms/manager-evaluation-form";
+import { SKILLS } from "@/lib/phrases/skills";
+import type { EmployeeData, PhraseBlock } from "@/lib/phrases/engine";
 import { Logo } from "@/components/ui/logo";
 import Link from "next/link";
 
@@ -73,6 +75,31 @@ export default async function InvitationPage({ params }: PageProps) {
     console.warn("[invitations] viewed-Update fehlgeschlagen:", viewErr.message);
   }
 
+  // Skill-Bausteine für die Live-Vorschau (Service-Client umgeht RLS in diesem
+  // öffentlichen Token-Flow – ein anonymer Manager ist nicht 'authenticated').
+  const { data: skillBlocks } = await supabase
+    .from("phrase_blocks")
+    .select("*")
+    .eq("active", true)
+    .in(
+      "category",
+      SKILLS.map((s) => s.key),
+    );
+
+  const employeeData: EmployeeData = {
+    firstName: employee.first_name,
+    lastName: employee.last_name,
+    gender: employee.gender,
+    functionTitle: employee.function_title,
+    entryDate: employee.entry_date,
+    exitDate: employee.exit_date ?? undefined,
+    dateOfBirth: employee.date_of_birth ?? undefined,
+    employmentPercentage: employee.employment_percentage ?? undefined,
+    isManager: employee.is_manager,
+  };
+  const tempus: "praesens" | "praeteritum" =
+    cert.type === "zwischen" ? "praesens" : "praeteritum";
+
   return (
     <Wrapper>
       <div className="text-[11px] font-medium uppercase tracking-wider text-petrol-600">
@@ -97,6 +124,9 @@ export default async function InvitationPage({ params }: PageProps) {
           token={token}
           certificateId={cert.id}
           isManager={employee.is_manager}
+          phraseBlocks={(skillBlocks ?? []) as PhraseBlock[]}
+          employee={employeeData}
+          tempus={tempus}
         />
       </div>
     </Wrapper>
@@ -111,7 +141,7 @@ function Wrapper({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2">
             <Logo className="h-6 w-6" />
             <span className="text-[15px] font-medium tracking-tight">
-              zeugnix
+              zeugnio
               <span className="text-petrol-600">.ch</span>
             </span>
           </Link>

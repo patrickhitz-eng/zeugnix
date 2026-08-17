@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { notFound, redirect } from "next/navigation";
 import { ManagerEvaluationForm } from "@/components/forms/manager-evaluation-form";
+import { SKILLS } from "@/lib/phrases/skills";
+import type { EmployeeData, PhraseBlock } from "@/lib/phrases/engine";
 import Link from "next/link";
 
 interface PageProps {
@@ -38,6 +40,32 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
     free_text: e.free_text,
   }));
 
+  // Skill-Bausteine (nur Beurteilungs-Kategorien) für die Live-Vorschau der
+  // Satzbausteine clientseitig verfügbar machen.
+  const { data: skillBlocks } = await supabase
+    .from("phrase_blocks")
+    .select("*")
+    .eq("active", true)
+    .in(
+      "category",
+      SKILLS.map((s) => s.key),
+    );
+
+  const employeeData: EmployeeData = {
+    firstName: employee.first_name,
+    lastName: employee.last_name,
+    gender: employee.gender,
+    functionTitle: employee.function_title,
+    entryDate: employee.entry_date,
+    exitDate: employee.exit_date ?? undefined,
+    dateOfBirth: employee.date_of_birth ?? undefined,
+    employmentPercentage: employee.employment_percentage ?? undefined,
+    isManager: employee.is_manager,
+  };
+  // Zwischenzeugnis = Gegenwart, sonst Rückblick (Vergangenheit) – wie in der Engine.
+  const tempus: "praesens" | "praeteritum" =
+    cert.type === "zwischen" ? "praesens" : "praeteritum";
+
   return (
     <div className="space-y-6">
       <div>
@@ -69,6 +97,9 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
         isManager={employee.is_manager}
         selfMode
         initialEvaluations={initialEvaluations}
+        phraseBlocks={(skillBlocks ?? []) as PhraseBlock[]}
+        employee={employeeData}
+        tempus={tempus}
       />
     </div>
   );

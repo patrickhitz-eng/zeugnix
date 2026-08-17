@@ -218,6 +218,39 @@ function hashString(s: string): number {
   return Math.abs(h);
 }
 
+/**
+ * Liefert den fertigen Satz für EINE bewertete Eigenschaft (Skill) – exakt so,
+ * wie ihn generateCertificate im Beurteilungsteil erzeugt (gleiche Auswahl via
+ * findPhrase, gleiche Substitution, gleiches Anhängen der Freitext-Anmerkung).
+ * Rein und ohne DB/Server-Abhängigkeit: die Bausteine kommen als Argument,
+ * daher auch clientseitig für die Live-Vorschau im Beurteilungsformular nutzbar.
+ * Gibt null zurück, wenn kein passender Baustein existiert.
+ */
+export function previewSkillPhrase(params: {
+  phraseBlocks: PhraseBlock[];
+  skillKey: string;
+  theme: string;
+  rating: Evaluation["rating"];
+  employee: EmployeeData;
+  tempus: "praesens" | "praeteritum";
+  freeText?: string | null;
+  cert?: CertificateData;
+}): string | null {
+  const phrase = findPhrase(
+    params.phraseBlocks,
+    params.skillKey,
+    params.rating,
+    params.employee,
+    params.theme,
+    params.tempus,
+  );
+  if (!phrase) return null;
+  let text = substitute(phrase.text, params.employee, params.cert);
+  const extra = params.freeText?.trim();
+  if (extra) text += " " + extra;
+  return text;
+}
+
 // ============================================================================
 // Hauptfunktion: Zeugnistext generieren
 // ============================================================================
@@ -344,10 +377,17 @@ export function generateCertificate(
       flushTheme();
       currentTheme = meta.theme;
     }
-    const phrase = findPhrase(phraseBlocks, meta.key, ev.rating, employee, meta.theme, tempus);
-    if (phrase) {
-      let text = substitute(phrase.text, employee, certificate);
-      if (ev.freeText) text += " " + ev.freeText.trim();
+    const text = previewSkillPhrase({
+      phraseBlocks,
+      skillKey: meta.key,
+      theme: meta.theme,
+      rating: ev.rating,
+      employee,
+      tempus,
+      freeText: ev.freeText,
+      cert: certificate,
+    });
+    if (text) {
       themeBuffer.push(text);
     } else {
       warnings.push(`Kein Baustein für ${meta.key} / ${ev.rating}`);
