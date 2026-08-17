@@ -25,7 +25,7 @@ export default async function AppLayout({
           <Link href="/app/dashboard" className="flex items-center gap-2">
             <Logo className="h-6 w-6" />
             <span className="text-[15px] font-medium tracking-tight">
-              zeugnix
+              zeugnio
               <span className="text-petrol-600">.ch</span>
             </span>
           </Link>
@@ -50,7 +50,7 @@ export default async function AppLayout({
 
       <footer className="border-t border-ink-200 bg-white">
         <div className="mx-auto flex w-full max-w-[1500px] flex-col items-start gap-2 px-6 py-6 text-xs text-ink-500 sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <p>© {new Date().getFullYear()} zeugnix. Schweizer Arbeitszeugnis-Plattform.</p>
+          <p>© {new Date().getFullYear()} zeugnio. Schweizer Arbeitszeugnis-Plattform.</p>
           <div className="flex gap-4">
             <Link href="/legal/imprint" className="hover:text-petrol-700">
               Impressum

@@ -1,7 +1,8 @@
 /**
  * Betreiber-Angaben für Impressum, AGB und Datenschutzerklärung.
- * zeugnix.ch ist ein Produkt der advisori GmbH (Domain und Produktname
- * bleiben "zeugnix"/"zeugnix.ch"). Eingetragen im Handelsregister des
+ * zeugnix.ch ist ein Produkt der advisori GmbH. Produktname neu "Zeugnio"
+ * (Umbenennung von "zeugnix"); Domain bleibt vorerst "zeugnix.ch" (Umstellung
+ * auf zeugnio.ch später). Eingetragen im Handelsregister des
  * Kantons Zug, Statutendatum 8. Mai 2026.
  *
  * Interimslösung: bei Gründung des geplanten Joint Ventures mit Christoph

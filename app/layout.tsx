@@ -23,8 +23,8 @@ export const metadata: Metadata = {
     "Treuhänder",
     "Recruiter",
   ],
-  authors: [{ name: "zeugnix" }],
-  creator: "zeugnix",
+  authors: [{ name: "zeugnio" }],
+  creator: "zeugnio",
   openGraph: {
     type: "website",
     locale: "de_CH",

@@ -55,7 +55,7 @@ export function Header() {
         >
           <Logo className="h-7 w-7" />
           <span className="text-[17px] font-medium tracking-tight">
-            zeugnix
+            zeugnio
             <span className="text-petrol-600">.ch</span>
           </span>
         </Link>

@@ -16,7 +16,7 @@ const verifySteps = [
   },
   {
     title: "Hash abgleichen",
-    body: "Der Inhaltshash wird neu berechnet und mit der zeugnix-Datenbank verglichen: verifiziert, nicht verifiziert oder unbekannt.",
+    body: "Der Inhaltshash wird neu berechnet und mit der zeugnio-Datenbank verglichen: verifiziert, nicht verifiziert oder unbekannt.",
   },
   {
     title: "Formulierungen verstehen (optional)",

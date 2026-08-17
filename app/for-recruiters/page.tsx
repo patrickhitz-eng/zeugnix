@@ -56,7 +56,7 @@ export default function Page() {
         <div className="container-zx max-w-3xl">
           <div className="eyebrow">Vorteile</div>
           <h2 className="headline-display mt-3 text-[32px] leading-[1.15] sm:text-[40px]">
-            Was zeugnix für Ihr Recruiting-Team bringt.
+            Was zeugnio für Ihr Recruiting-Team bringt.
           </h2>
 
           <ul className="mt-8 space-y-3">
@@ -90,7 +90,7 @@ export default function Page() {
       <section className="bg-white py-24">
         <div className="container-zx max-w-3xl">
           <p className="text-[15px] leading-relaxed text-ink-600">
-            Arbeitgeber, die ihre Zeugnisse mit dem zeugnix-Arbeitgeber-Siegel
+            Arbeitgeber, die ihre Zeugnisse mit dem zeugnio-Arbeitgeber-Siegel
             „Verified Certificate Employer" auszeichnen, signalisieren
             Recruitern zusätzliches Vertrauen.{" "}
             <Link

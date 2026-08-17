@@ -42,7 +42,7 @@ export function Footer() {
             <Link href="/" className="flex items-center gap-2.5">
               <Logo className="h-7 w-7" />
               <span className="text-[17px] font-medium tracking-tight">
-                zeugnix
+                zeugnio
                 <span className="text-petrol-600">.ch</span>
               </span>
             </Link>

@@ -53,7 +53,7 @@ export default async function LoginPage({
           <Link href="/" className="inline-flex items-center gap-2.5">
             <Logo className="h-8 w-8" />
             <span className="text-[18px] font-medium tracking-tight">
-              zeugnix
+              zeugnio
               <span className="text-petrol-600">.ch</span>
             </span>
           </Link>

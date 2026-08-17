@@ -1,5 +1,5 @@
 export const siteConfig = {
-  name: "zeugnix",
+  name: "zeugnio",
   domain: "zeugnix.ch",
   url: "https://zeugnix.ch",
   tagline: "Arbeitszeugnisse komplett neu gedacht.",

@@ -4,7 +4,7 @@ import { companyInfo } from "@/lib/legal/company-info";
 export const metadata = {
   title: "Firmenzugang anfragen",
   description:
-    "Kontaktieren Sie uns für das zeugnix Firmenpaket: mehrere Prüfungen, Recruiter-Zugang und zentrale Rechnungsstellung.",
+    "Kontaktieren Sie uns für das zeugnio Firmenpaket: mehrere Prüfungen, Recruiter-Zugang und zentrale Rechnungsstellung.",
 };
 
 export default function ContactPage() {
@@ -16,7 +16,7 @@ export default function ContactPage() {
           Firmenzugang anfragen
         </h1>
         <p className="mt-5 text-[15px] leading-relaxed text-ink-600">
-          Sie möchten zeugnix für mehrere Prüfungen, mit Recruiter-Zugang
+          Sie möchten zeugnio für mehrere Prüfungen, mit Recruiter-Zugang
           oder zentraler Rechnungsstellung einsetzen? Schreiben Sie uns kurz,
           worum es geht – wir melden uns.
         </p>
@@ -28,7 +28,7 @@ export default function ContactPage() {
           <p className="mt-2 text-[14.5px] leading-relaxed text-ink-600">
             <a
               href={`mailto:${companyInfo.contactEmail}?subject=${encodeURIComponent(
-                "Firmenzugang zeugnix",
+                "Firmenzugang zeugnio",
               )}`}
               className="font-medium text-petrol-700 underline underline-offset-2 hover:text-petrol-800"
             >
