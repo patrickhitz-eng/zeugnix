@@ -7,7 +7,7 @@ export const siteConfig = {
   description:
     "Erstellen Sie Schweizer Arbeitszeugnisse kostenlos, sichern Sie diese mit einem kryptografischen Hash ab und machen Sie Zeugnisse später überprüfbar und verständlich.",
   contact: {
-    email: "kontakt@zeugnio.ch",
+    email: "info@advisori.ch",
     address: "Zürich, Schweiz",
   },
   prices: {
