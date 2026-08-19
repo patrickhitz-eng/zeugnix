@@ -179,7 +179,7 @@ const BASE_COLORS: DocumentColors = {
 export const BUILTIN_THEMES: Record<string, DocumentTheme> = {
   "zeugnix-standard": {
     id: "zeugnix-standard",
-    label: "Zeugnix Standard (Inter)",
+    label: "Zeugnio Standard (Inter)",
     // Durchgängig Inter (Titel, Fliesstext UND Prüf-Hash) für ein einheitliches
     // Schriftbild – bewusste Entscheidung gegen Monospace beim Hash.
     fonts: { heading: "inter", body: "inter", mono: "inter" },

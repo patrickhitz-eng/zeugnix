@@ -250,7 +250,7 @@ function CertificateDocument(props: DocProps) {
             <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
             <Text style={styles.hashValue}>{hash}</Text>
             <Text>
-              Dieses Arbeitszeugnis wurde mit zeugnix.ch erstellt und mit einem
+              Dieses Arbeitszeugnis wurde mit zeugnio.ch erstellt und mit einem
               kryptografischen Echtheitsnachweis versehen. Jede nachträgliche
               Veränderung des Inhalts führt zu einem abweichenden Hash.
             </Text>

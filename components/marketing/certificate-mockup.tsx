@@ -86,7 +86,7 @@ export function CertificateMockup({ className }: CertificateMockupProps) {
             a3f5b9c2e7d18f4a2c9e1b7d0f6c4d8e
           </div>
           <div className="mt-1 text-[8px] text-ink-400">
-            zeugnix.ch/verify
+            zeugnio.ch/verify
           </div>
         </div>
       </div>

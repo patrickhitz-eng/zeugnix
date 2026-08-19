@@ -7,7 +7,7 @@ import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 export const metadata = {
   title: "Anmelden",
-  description: "Anmelden bei zeugnix.ch via Magic Link",
+  description: "Anmelden bei zeugnio.ch via Magic Link",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {

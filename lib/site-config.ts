@@ -1,13 +1,13 @@
 export const siteConfig = {
   name: "zeugnio",
-  domain: "zeugnix.ch",
-  url: "https://zeugnix.ch",
+  domain: "zeugnio.ch",
+  url: "https://zeugnio.ch",
   tagline: "Arbeitszeugnisse komplett neu gedacht.",
   subtagline: "Erstellen. Absichern. Prüfen. Verstehen.",
   description:
     "Erstellen Sie Schweizer Arbeitszeugnisse kostenlos, sichern Sie diese mit einem kryptografischen Hash ab und machen Sie Zeugnisse später überprüfbar und verständlich.",
   contact: {
-    email: "kontakt@zeugnix.ch",
+    email: "kontakt@zeugnio.ch",
     address: "Zürich, Schweiz",
   },
   prices: {

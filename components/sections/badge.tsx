@@ -101,7 +101,7 @@ export function BadgeSection() {
                   fontWeight="500"
                   letterSpacing="2"
                 >
-                  zeugnix.ch
+                  zeugnio.ch
                 </text>
               </svg>
             </div>
@@ -114,7 +114,7 @@ export function BadgeSection() {
             </h2>
             <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-ink-600">
               Unternehmen, die mindestens ein finales Arbeitszeugnis über
-              zeugnix.ch erstellt haben, dürfen das Siegel
+              zeugnio.ch erstellt haben, dürfen das Siegel
               <em className="font-display"> Verified Certificate Employer </em>
               führen – als sichtbares Zeichen für einen standardisierten,
               überprüfbaren HR-Prozess.

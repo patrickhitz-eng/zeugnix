@@ -170,7 +170,7 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
         </div>
         <div className="space-y-4 p-6">
           <p className="text-[14px] leading-relaxed text-ink-700">
-            Der berechnete Hash dieses Dokuments stimmt mit einem auf zeugnix.ch
+            Der berechnete Hash dieses Dokuments stimmt mit einem auf zeugnio.ch
             registrierten Arbeitszeugnis überein. Der Inhalt wurde seit der
             Ausstellung nicht verändert.
           </p>
@@ -216,11 +216,11 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
         </div>
         <div className="space-y-4 p-6">
           <p className="text-[14px] leading-relaxed text-ink-700">
-            Wir konnten kein passendes Original auf zeugnix.ch finden. Das
+            Wir konnten kein passendes Original auf zeugnio.ch finden. Das
             bedeutet entweder:
           </p>
           <ul className="ml-5 list-disc space-y-1.5 text-[13.5px] text-ink-700">
-            <li>Das Zeugnis wurde nicht über zeugnix.ch erstellt.</li>
+            <li>Das Zeugnis wurde nicht über zeugnio.ch erstellt.</li>
             <li>Das Zeugnis wurde nach der Ausstellung verändert.</li>
             <li>Das Zeugnis stammt von einem anderen Aussteller.</li>
           </ul>

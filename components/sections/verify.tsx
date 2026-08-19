@@ -56,7 +56,7 @@ export function VerifySection() {
                   <div className="h-2.5 w-2.5 rounded-full bg-ink-200" />
                 </div>
                 <div className="ml-3 flex-1 rounded-md bg-ink-50 px-3 py-1 text-[11px] text-ink-500">
-                  zeugnix.ch/verify
+                  zeugnio.ch/verify
                 </div>
               </div>
 

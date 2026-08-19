@@ -175,7 +175,7 @@ export async function GET(
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnix.ch";
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
   const certificateTitle = TYPE_LABELS[cert.type] ?? "Arbeitszeugnis";
 
   // Bevorzugt edited_text (manuell bearbeitet), sonst generated_text

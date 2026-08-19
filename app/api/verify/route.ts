@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
         {
           result: "no_sentinel",
           error:
-            "Dieses PDF enthält keine zeugnio-Echtheitsmarker. Möglicherweise wurde es vor einem Update erstellt oder stammt nicht von zeugnix.ch. Bitte das aktuelle PDF herunterladen und erneut prüfen.",
+            "Dieses PDF enthält keine zeugnio-Echtheitsmarker. Möglicherweise wurde es vor einem Update erstellt oder stammt nicht von zeugnio.ch. Bitte das aktuelle PDF herunterladen und erneut prüfen.",
         },
         { status: 200 },
       );

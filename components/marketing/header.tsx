@@ -51,7 +51,7 @@ export function Header() {
         <Link
           href="/"
           className="flex items-center gap-2.5"
-          aria-label="zeugnix.ch Startseite"
+          aria-label="zeugnio.ch Startseite"
         >
           <Logo className="h-7 w-7" />
           <span className="text-[17px] font-medium tracking-tight">

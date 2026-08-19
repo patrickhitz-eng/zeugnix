@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
         if (hrProfile?.email) {
           const employee: any = cert.employees;
           const employeeName = `${employee.first_name} ${employee.last_name}`;
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnix.ch";
+          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
           const certificateUrl = `${baseUrl}/app/certificates/${inv.certificate_id}`;
 
           const mail = buildEvaluationSubmittedEmail({

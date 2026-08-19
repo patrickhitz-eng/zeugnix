@@ -83,7 +83,7 @@ export function CertificatePreview({
       return;
     }
     const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnix.ch";
+      process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
     const verifyUrl = buildVerifyUrl(baseUrl, hash);
     let cancelled = false;
     QRCode.toDataURL(verifyUrl, {
@@ -264,10 +264,10 @@ export function CertificatePreview({
               <div style={css.hashLabel}>Echtheitsnachweis (SHA-256)</div>
               <div style={css.hashValue}>{hash}</div>
               <div>
-                Dieses Arbeitszeugnis wurde mit zeugnix.ch erstellt und mit
+                Dieses Arbeitszeugnis wurde mit zeugnio.ch erstellt und mit
                 einem kryptografischen Echtheitsnachweis versehen. Jede
                 nachträgliche Veränderung führt zu einem abweichenden Hash.
-                Echtheit prüfen: zeugnix.ch/verify
+                Echtheit prüfen: zeugnio.ch/verify
               </div>
             </div>
             {qrDataUrl && (

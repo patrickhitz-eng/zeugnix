@@ -1,5 +1,5 @@
 /**
- * zeugnix.ch – E-Mail-Templates
+ * zeugnio.ch – E-Mail-Templates
  * ----------------------------------------------------------------------------
  * HTML-Templates für transaktionale Mails. Inline-Styles, weil viele
  * Mail-Clients <style>-Blöcke filtern oder verändern.
@@ -62,7 +62,7 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
     "des Arbeitszeugnisses verwendet.",
     "",
     "Mit freundlichen Grüssen",
-    "zeugnix.ch",
+    "zeugnio.ch",
     "",
     "—",
     "Diese E-Mail wurde automatisch versendet, weil Ihre E-Mail-Adresse",
@@ -89,7 +89,7 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="font-size:16px;font-weight:600;color:#1a1d22;letter-spacing:-0.01em;">
-                  zeugnix<span style="color:#0f7a6b;">.ch</span>
+                  zeugnio<span style="color:#0f7a6b;">.ch</span>
                 </td>
                 <td align="right" style="font-size:11px;color:#6b7178;text-transform:uppercase;letter-spacing:0.06em;">
                   Beurteilung
@@ -157,7 +157,7 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
             Ihrem Arbeitgeber als Beurteilungsperson für ein Arbeitszeugnis angegeben wurde.
             Falls dies ein Irrtum ist, ignorieren Sie diese Mail.
             <br><br>
-            zeugnix.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
+            zeugnio.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
           </td>
         </tr>
 
@@ -212,7 +212,7 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
     certificateUrl,
     "",
     "Mit freundlichen Grüssen",
-    "zeugnix.ch",
+    "zeugnio.ch",
   ].join("\n");
 
   const html = `<!DOCTYPE html>
@@ -233,7 +233,7 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="font-size:16px;font-weight:600;color:#1a1d22;letter-spacing:-0.01em;">
-                  zeugnix<span style="color:#0f7a6b;">.ch</span>
+                  zeugnio<span style="color:#0f7a6b;">.ch</span>
                 </td>
                 <td align="right" style="font-size:11px;color:#6b7178;text-transform:uppercase;letter-spacing:0.06em;">
                   Beurteilung eingegangen
@@ -276,7 +276,7 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
 
         <tr>
           <td style="padding:20px 32px 28px 32px;border-top:1px solid #e4e6ea;font-size:11.5px;line-height:1.55;color:#8a8f96;">
-            zeugnix.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
+            zeugnio.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
           </td>
         </tr>
 

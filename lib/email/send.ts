@@ -1,12 +1,12 @@
 /**
- * zeugnix.ch – E-Mail-Service via Resend
+ * zeugnio.ch – E-Mail-Service via Resend
  * ----------------------------------------------------------------------------
  * Versendet transaktionale E-Mails. Verwendet die Resend-API.
  *
  * Konfiguration:
  *   RESEND_API_KEY          – API-Key aus Resend Dashboard
- *   EMAIL_FROM              – Absenderadresse (z.B. "noreply@zeugnix.ch")
- *   EMAIL_REPLY_TO          – Optional, Antworten gehen hierhin (z.B. "support@zeugnix.ch")
+ *   EMAIL_FROM              – Absenderadresse (z.B. "noreply@zeugnio.ch")
+ *   EMAIL_REPLY_TO          – Optional, Antworten gehen hierhin (z.B. "support@zeugnio.ch")
  *
  * Fallback: Wenn RESEND_API_KEY fehlt, wird der Versand übersprungen und
  * stattdessen ein Hinweis geloggt. Die aufrufende Funktion kann dann
@@ -35,7 +35,7 @@ export interface SendEmailResult {
  */
 export async function sendEmail(params: SendEmailParams): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM ?? "noreply@zeugnix.ch";
+  const from = process.env.EMAIL_FROM ?? "noreply@zeugnio.ch";
   const defaultReplyTo = process.env.EMAIL_REPLY_TO;
 
   if (!apiKey) {
@@ -49,7 +49,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
   try {
     const body: Record<string, unknown> = {
-      from: `zeugnix.ch <${from}>`,
+      from: `zeugnio.ch <${from}>`,
       to: [params.to],
       subject: params.subject,
       html: params.html,

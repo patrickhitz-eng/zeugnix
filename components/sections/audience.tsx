@@ -58,7 +58,7 @@ export function AudienceSection() {
           </h2>
           <p className="mt-5 text-[15px] leading-relaxed text-ink-600">
             Arbeitszeugnisse betreffen vier Gruppen mit sehr unterschiedlichen
-            Anforderungen. zeugnix.ch deckt alle vier ab – ohne dass eine Seite
+            Anforderungen. zeugnio.ch deckt alle vier ab – ohne dass eine Seite
             den Workflow der anderen stört.
           </p>
         </div>
