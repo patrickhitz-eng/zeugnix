@@ -124,6 +124,10 @@ export interface VerifiedCertificateFields {
   signatory1Role: string | null;
   signatory2Name: string | null;
   signatory2Role: string | null;
+  // V1: verifizierte Aussteller-Domain der Firma (null = nicht verifiziert).
+  // Trust-Signal NEBEN dem Hash; belegt, dass ein berechtigter Mensch mit einer
+  // E-Mail @dieser-Domain hinter dem Aussteller steht.
+  verifiedDomain: string | null;
 }
 
 export type VerifyOutcome =
