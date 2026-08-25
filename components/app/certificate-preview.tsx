@@ -44,6 +44,8 @@ interface Props {
   bodyOverride?: React.ReactNode;
   /** Theme des Dokuments; versteht auch die Alt-Font-Keys. */
   themeId?: string | null;
+  /** Unterschrifts-Modus; 'handwritten' blendet den Kopf „Digital ausgestellt durch" aus. */
+  signatureMode?: string | null;
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -66,6 +68,7 @@ export function CertificatePreview({
   hash,
   bodyOverride,
   themeId,
+  signatureMode,
 }: Props) {
   const title = TYPE_LABELS[type] ?? "Arbeitszeugnis";
   const theme = resolveTheme(themeId);
@@ -226,7 +229,9 @@ export function CertificatePreview({
         {/* Unterschriftsblock */}
         {(company.signatory_1_name || company.signatory_2_name) && (
           <div>
-            <div style={css.signaturesHeader}>Digital ausgestellt durch</div>
+            {signatureMode !== "handwritten" && (
+              <div style={css.signaturesHeader}>Digital ausgestellt durch</div>
+            )}
             <table style={css.signaturesWrap}>
               <tbody>
                 <tr>

@@ -2,13 +2,19 @@
 
 import { useState, useRef } from "react";
 import type { AnalysisResult } from "@/lib/phrases/analyze";
+import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { VerifyAnalysisResult } from "@/components/forms/verify-analysis-result";
 
 type State =
   | { kind: "idle" }
   | { kind: "extracting"; fileName: string }
   | { kind: "checking"; fileName: string }
-  | { kind: "verified"; hash: string; certificateId: string }
+  | {
+      kind: "verified";
+      hash: string;
+      certificateId: string;
+      certificate: VerifiedCertificateFields | null;
+    }
   | { kind: "unknown"; hash: string }
   | { kind: "no_sentinel"; message: string }
   | { kind: "error"; message: string };
@@ -87,6 +93,7 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
           kind: "verified",
           hash: data.matchedHash,
           certificateId: data.matchedCertificateId,
+          certificate: data.certificate ?? null,
         });
       } else if (data.result === "no_sentinel") {
         setState({
@@ -174,6 +181,74 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
             registrierten Arbeitszeugnis überein. Der Inhalt wurde seit der
             Ausstellung nicht verändert.
           </p>
+          {state.certificate && (
+            <div className="rounded-md border border-petrol-200 bg-petrol-50/50 p-4">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-petrol-700">
+                Registrierte Angaben
+              </div>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-ink-600">
+                Bitte mit dem vorliegenden Dokument vergleichen. Weichen
+                Arbeitgeber, Unterzeichnende oder Titel vom Papier ab, wurde das
+                Dokument nachträglich verändert – trotz übereinstimmendem Hash.
+              </p>
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                {state.certificate.employeeName && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Mitarbeiter/in</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.employeeName}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.employer && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Arbeitgeber</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.employer}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.documentType && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Dokument</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.documentType}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.issueDate && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Ausgestellt am</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.issueDate}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.signatory1Name && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Unterschrift 1</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.signatory1Name}
+                      {state.certificate.signatory1Role
+                        ? `, ${state.certificate.signatory1Role}`
+                        : ""}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.signatory2Name && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Unterschrift 2</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.signatory2Name}
+                      {state.certificate.signatory2Role
+                        ? `, ${state.certificate.signatory2Role}`
+                        : ""}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
           <div className="rounded-md bg-ink-50 p-4">
             <div className="text-[10px] font-medium uppercase tracking-wider text-ink-500">
               SHA-256 Hash

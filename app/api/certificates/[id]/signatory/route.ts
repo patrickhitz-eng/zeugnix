@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { isSignatureMode } from "@/lib/certificate/signature-mode";
 
 /**
  * Persistiert die zeugnis-spezifischen Unterzeichnenden (Override der
@@ -52,14 +53,26 @@ export async function PATCH(
   const role1 = name1 ? trimOrNull(body.signatory1Role) : null;
   const role2 = name2 ? trimOrNull(body.signatory2Role) : null;
 
+  const update: Record<string, unknown> = {
+    signatory_1_name: name1,
+    signatory_1_role: role1,
+    signatory_2_name: name2,
+    signatory_2_role: role2,
+  };
+
+  // Unterschrifts-Modus ist optional; nur bei gültigem Wert übernehmen.
+  if (body.signatureMode !== undefined) {
+    if (!isSignatureMode(body.signatureMode))
+      return NextResponse.json(
+        { error: "Ungültiger Unterschrifts-Modus." },
+        { status: 400 },
+      );
+    update.signature_mode = body.signatureMode;
+  }
+
   const { error: saveErr } = await supabase
     .from("certificates")
-    .update({
-      signatory_1_name: name1,
-      signatory_1_role: role1,
-      signatory_2_name: name2,
-      signatory_2_role: role2,
-    })
+    .update(update)
     .eq("id", id);
 
   if (saveErr)

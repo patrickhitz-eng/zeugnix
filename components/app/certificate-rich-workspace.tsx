@@ -32,6 +32,8 @@ interface Props {
   employee: any;
   type: string;
   hash?: string | null;
+  /** Unterschrifts-Modus; steuert den Kopf „Digital ausgestellt durch" in der Vorschau. */
+  signatureMode?: string | null;
 }
 
 type SaveStatus = "idle" | "typing" | "saving" | "saved" | "error";
@@ -46,6 +48,7 @@ export function CertificateRichWorkspace({
   employee,
   type,
   hash,
+  signatureMode,
 }: Props) {
   const router = useRouter();
   const workspace = useCertificateWorkspace();
@@ -215,6 +218,7 @@ export function CertificateRichWorkspace({
         type={type}
         text={previewText}
         hash={hash}
+        signatureMode={signatureMode}
         bodyOverride={
           <div
             className="zeugnix-doc-editable-wrap"

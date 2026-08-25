@@ -7,6 +7,8 @@ import {
   sha256,
   type VerifyOutcome,
 } from "@/lib/hash/canonicalize";
+import { resolveSignatories } from "@/lib/certificate/signatories";
+import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 
 // Öffentlicher, Service-Role-gestützter Endpunkt → Rate-Limit gegen DoS/Abuse.
 const VERIFY_LIMIT = 20;
@@ -60,21 +62,59 @@ export async function POST(req: NextRequest) {
     const canonical = canonicalizeForHash(rawBody);
     const calculatedHash = await sha256(canonical);
 
-    // 3. In DB suchen
+    // 3. In DB suchen. Mitgeladen werden die Vergleichsfelder (S1a): Arbeitgeber
+    //    und Unterzeichnende (beide AUSSERHALB des Hashes, also fälschbar) sowie
+    //    Mitarbeiter/in, Typ und Ausstelldatum zum Bestätigen des Datensatzes.
     const supabase = createServiceClient();
     const { data: match } = await supabase
       .from("certificates")
-      .select("id, company_id, status")
+      .select(
+        "id, company_id, status, type, finalized_at, " +
+          "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
+          "employees(first_name, last_name), " +
+          "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)",
+      )
       .eq("hash", calculatedHash)
       .eq("status", "final")
       .maybeSingle();
 
     let outcome: VerifyOutcome;
     if (match) {
+      // PostgREST bettet die 1:1-Relationen als Objekt ein; defensiv auch den
+      // Array-Fall (je nach Typ-Inferenz) abfangen.
+      const employee = Array.isArray(match.employees)
+        ? match.employees[0]
+        : match.employees;
+      const company = Array.isArray(match.companies)
+        ? match.companies[0]
+        : match.companies;
+
+      const signatories = resolveSignatories(match, company ?? {});
+
+      const issueDate = match.finalized_at
+        ? new Date(match.finalized_at).toLocaleDateString("de-CH", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })
+        : null;
+
       outcome = {
         result: "verified",
         matchedHash: calculatedHash,
         matchedCertificateId: match.id,
+        certificate: {
+          employeeName: [employee?.first_name, employee?.last_name]
+            .filter(Boolean)
+            .join(" "),
+          employer: company?.name ?? "",
+          documentType: certificateTypeLabel(match.type),
+          issueDate,
+          signatory1Name: signatories.signatory_1_name,
+          signatory1Role: signatories.signatory_1_role,
+          signatory2Name: signatories.signatory_2_name,
+          signatory2Role: signatories.signatory_2_role,
+        },
       };
     } else {
       // Wenn der eingehende Text einen Hash-Block enthält, könnten wir

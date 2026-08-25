@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  SIGNATURE_MODES,
+  normalizeSignatureMode,
+  type SignatureMode,
+} from "@/lib/certificate/signature-mode";
 
 interface Props {
   certificateId: string;
@@ -20,6 +25,8 @@ interface Props {
     signatory2Name: string;
     signatory2Role: string;
   };
+  /** Aktueller Unterschrifts-Modus des Zeugnisses (Default 'digital'). */
+  initialSignatureMode: string;
 }
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -36,12 +43,16 @@ export function SignatoryControls({
   finalized,
   companyDefaults,
   initial,
+  initialSignatureMode,
 }: Props) {
   const router = useRouter();
   const [signatory1Name, setSignatory1Name] = useState(initial.signatory1Name);
   const [signatory1Role, setSignatory1Role] = useState(initial.signatory1Role);
   const [signatory2Name, setSignatory2Name] = useState(initial.signatory2Name);
   const [signatory2Role, setSignatory2Role] = useState(initial.signatory2Role);
+  const [signatureMode, setSignatureMode] = useState<SignatureMode>(
+    normalizeSignatureMode(initialSignatureMode),
+  );
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState("");
@@ -52,6 +63,7 @@ export function SignatoryControls({
     signatory1Role,
     signatory2Name,
     signatory2Role,
+    signatureMode,
   };
   const body = JSON.stringify(payload);
   const savedSnapshot = useRef(body);
@@ -115,6 +127,37 @@ export function SignatoryControls({
       )}
 
       <fieldset disabled={finalized} className="space-y-5 disabled:opacity-60">
+        <div>
+          <span className="mb-1.5 block text-[12px] font-medium text-ink-700">
+            Unterschrift
+          </span>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {SIGNATURE_MODES.map((m) => {
+              const active = signatureMode === m.value;
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setSignatureMode(m.value)}
+                  aria-pressed={active}
+                  className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors ${
+                    active
+                      ? "border-petrol-500 bg-petrol-50/50 ring-2 ring-petrol-100"
+                      : "border-ink-200 bg-white hover:border-ink-300"
+                  }`}
+                >
+                  <span className="block text-[13px] font-medium text-ink-800">
+                    {m.label}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-ink-500">
+                    {m.hint}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Erste Person – Name">
             <input

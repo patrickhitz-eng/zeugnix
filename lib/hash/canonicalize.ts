@@ -106,8 +106,33 @@ export async function sha256(input: string): Promise<string> {
 // Verifikations-Ergebnistyp
 // ============================================================================
 
+/**
+ * Registrierte Felder eines Treffers, die dem Prüfer zum Abgleich mit dem
+ * vorliegenden Papier gezeigt werden (S1a). Bewusst nur die Vergleichsfelder,
+ * die einen getauschten Briefkopf/Unterschriftenblock entlarven: Arbeitgeber
+ * und Unterzeichnende stehen AUSSERHALB des Hashes, sind also fälschbar, ohne
+ * dass sich der Hash ändert. Mitarbeiter/in, Dokumenttyp und Ausstelldatum
+ * helfen, den richtigen Datensatz zu bestätigen. KEINE weiteren PII
+ * (Geburtsdatum, Pensum, Funktion) – die stünden ohnehin im Papier.
+ */
+export interface VerifiedCertificateFields {
+  employeeName: string;
+  employer: string;
+  documentType: string;
+  issueDate: string | null;
+  signatory1Name: string | null;
+  signatory1Role: string | null;
+  signatory2Name: string | null;
+  signatory2Role: string | null;
+}
+
 export type VerifyOutcome =
-  | { result: "verified"; matchedHash: string; matchedCertificateId: string }
+  | {
+      result: "verified";
+      matchedHash: string;
+      matchedCertificateId: string;
+      certificate: VerifiedCertificateFields;
+    }
   | { result: "unknown"; calculatedHash: string }
   | { result: "no_sentinel" };
 
