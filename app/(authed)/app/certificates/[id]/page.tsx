@@ -188,6 +188,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
           signatory2Name: cert.signatory_2_name ?? "",
           signatory2Role: cert.signatory_2_role ?? "",
         }}
+        initialSignatureMode={cert.signature_mode ?? "digital"}
       />
 
       {/* Editor + Preview Split-View */}
@@ -206,6 +207,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             employee={employee}
             type={cert.type}
             hash={cert.hash}
+            signatureMode={cert.signature_mode}
           />
 
           {/* Hinweise */}

@@ -3,24 +3,13 @@ import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
+import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 
 // @react-pdf/renderer braucht die Node-Runtime (nicht Edge). Die Antwort darf
 // nicht statisch gecacht werden, und die PDF-Erzeugung kann etwas dauern.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-
-const TYPE_LABELS: Record<string, string> = {
-  schluss: "Arbeitszeugnis",
-  zwischen: "Zwischenzeugnis",
-  funktionswechsel: "Arbeitszeugnis",
-  vorgesetztenwechsel: "Arbeitszeugnis",
-  interner_wechsel: "Arbeitszeugnis",
-  reorganisation: "Arbeitszeugnis",
-  wunsch_mitarbeiterin: "Arbeitszeugnis",
-  wunsch_mitarbeiter: "Arbeitszeugnis",
-  arbeitsbestaetigung: "Arbeitsbestätigung",
-};
 
 // SSRF-Härtung des Logo-Fetch: Logos liegen ausschliesslich im Supabase-Storage
 // (gleicher Host wie NEXT_PUBLIC_SUPABASE_URL, z. B. <project>.supabase.co).
@@ -176,7 +165,7 @@ export async function GET(
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
-  const certificateTitle = TYPE_LABELS[cert.type] ?? "Arbeitszeugnis";
+  const certificateTitle = certificateTypeLabel(cert.type);
 
   // Bevorzugt edited_text (manuell bearbeitet), sonst generated_text
   const bodyText = cert.edited_text || cert.generated_text || "";
@@ -205,6 +194,7 @@ export async function GET(
       signatory1Role: signatories.signatory_1_role ?? undefined,
       signatory2Name: signatories.signatory_2_name ?? undefined,
       signatory2Role: signatories.signatory_2_role ?? undefined,
+      signatureMode: cert.signature_mode ?? undefined,
 
       hash: cert.hash,
       baseUrl,

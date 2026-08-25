@@ -84,6 +84,8 @@ interface RenderInput {
   signatory2Role?: string;
   signatory2Email?: string;
   signatory2ConfirmedAt?: string;
+  /** Unterschrifts-Modus; 'handwritten' blendet den Kopf „Digital ausgestellt durch" aus. */
+  signatureMode?: string;
 
   hash: string;
   baseUrl: string;
@@ -209,7 +211,9 @@ function CertificateDocument(props: DocProps) {
         {/* Signatures */}
         {signatory1Name.length > 0 || signatory2Name.length > 0 ? (
           <View>
-            <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
+            {props.signatureMode !== "handwritten" ? (
+              <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
+            ) : null}
             <View style={styles.signatures}>
               <View style={styles.signatureCell}>
                 {signatory1Name.length > 0 ? (
