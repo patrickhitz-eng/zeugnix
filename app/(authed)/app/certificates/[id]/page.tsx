@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { notFound } from "next/navigation";
 import { CertificateActions } from "@/components/app/certificate-actions";
+import {
+  CertificateSignoffControls,
+  type SignoffSlot,
+} from "@/components/app/certificate-signoff-controls";
 import { SchlusssatzControls } from "@/components/forms/schlusssatz-controls";
 import { SignatoryControls } from "@/components/forms/signatory-controls";
 import { CertificateRichWorkspace } from "@/components/app/certificate-rich-workspace";
@@ -72,6 +76,32 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   // Speist Vorschau (previewCompany) und den Empfehlungs-Hinweis unten.
   const effectiveSignatories = resolveSignatories(cert, company);
   const previewCompany = { ...company, ...effectiveSignatories };
+
+  // V2: Freigaben separat (nicht als Embed) laden – so bricht eine noch nicht
+  // eingespielte Migration 020 nicht die ganze Detailseite, sondern blendet nur
+  // die Freigabe-Karte aus (data bleibt null bei fehlender Tabelle).
+  const { data: signoffData } = await supabase
+    .from("certificate_signoffs")
+    .select("slot, email, name, status, confirmed_at, sent_at")
+    .eq("certificate_id", id);
+  const signoffs = signoffData ?? [];
+
+  // Unterschrifts-Slots mit hinterlegtem Namen -> Freigabe möglich.
+  const signoffSlots: SignoffSlot[] = [];
+  if (effectiveSignatories.signatory_1_name) {
+    signoffSlots.push({
+      slot: 1,
+      name: effectiveSignatories.signatory_1_name,
+      role: effectiveSignatories.signatory_1_role,
+    });
+  }
+  if (effectiveSignatories.signatory_2_name) {
+    signoffSlots.push({
+      slot: 2,
+      name: effectiveSignatories.signatory_2_name,
+      role: effectiveSignatories.signatory_2_role,
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -190,6 +220,16 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         }}
         initialSignatureMode={cert.signature_mode ?? "digital"}
       />
+
+      {/* V2: identitätsgebundene Unterzeichner-Freigabe. Erst sinnvoll, wenn ein
+          Text zum Freigeben existiert und mindestens eine Person hinterlegt ist. */}
+      {hasText && signoffSlots.length > 0 && (
+        <CertificateSignoffControls
+          certificateId={cert.id}
+          slots={signoffSlots}
+          initialSignoffs={signoffs}
+        />
+      )}
 
       {/* Editor + Preview Split-View */}
       {hasText && (

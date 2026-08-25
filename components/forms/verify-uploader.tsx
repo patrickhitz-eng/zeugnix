@@ -245,6 +245,14 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
                         ? `, ${state.certificate.signatory1Role}`
                         : ""}
                     </dd>
+                    {state.certificate.signatory1ConfirmedAt && (
+                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-petrol-100 px-2 py-0.5 text-[11px] font-medium text-petrol-800">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Per E-Mail freigegeben · {state.certificate.signatory1ConfirmedAt}
+                      </dd>
+                    )}
                   </div>
                 )}
                 {state.certificate.signatory2Name && (
@@ -256,6 +264,14 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
                         ? `, ${state.certificate.signatory2Role}`
                         : ""}
                     </dd>
+                    {state.certificate.signatory2ConfirmedAt && (
+                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-petrol-100 px-2 py-0.5 text-[11px] font-medium text-petrol-800">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Per E-Mail freigegeben · {state.certificate.signatory2ConfirmedAt}
+                      </dd>
+                    )}
                   </div>
                 )}
               </dl>
