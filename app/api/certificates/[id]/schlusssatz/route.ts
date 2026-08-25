@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { deriveLegacyType } from "@/lib/phrases/schlusssaetze";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 /**
  * Persistiert die Schlusssatz-Steuerung der Detailseite (Christoph-Matrix):
@@ -36,9 +37,11 @@ export async function PATCH(
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
   // Nach der Finalisierung ist der Inhalt eingefroren (Hash) – keine Änderung.
-  if (cert.status === "final")
+  // Gilt genauso nach einem Widerruf (H2): 'revoked' ist ebenfalls ein
+  // Endzustand, keine weniger strenge Sperre als 'final'.
+  if (isCertificateLocked(cert.status))
     return NextResponse.json(
-      { error: "Zeugnis ist finalisiert und kann nicht geändert werden." },
+      { error: "Zeugnis ist finalisiert oder widerrufen und kann nicht geändert werden." },
       { status: 409 },
     );
 

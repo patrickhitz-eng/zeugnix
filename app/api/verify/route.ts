@@ -27,7 +27,7 @@ const VERIFY_WINDOW_MS = 60 * 1000;
  */
 export async function POST(req: NextRequest) {
   try {
-    const limited = rateLimit(
+    const limited = await rateLimit(
       `verify:${getClientIp(req)}`,
       VERIFY_LIMIT,
       VERIFY_WINDOW_MS,
@@ -65,17 +65,20 @@ export async function POST(req: NextRequest) {
     // 3. In DB suchen. Mitgeladen werden die Vergleichsfelder (S1a): Arbeitgeber
     //    und Unterzeichnende (beide AUSSERHALB des Hashes, also fälschbar) sowie
     //    Mitarbeiter/in, Typ und Ausstelldatum zum Bestätigen des Datensatzes.
+    //    Status bewusst NICHT auf 'final' gefiltert (H2): ein widerrufenes
+    //    Zeugnis muss denselben Hash-Match finden, um korrekt als "revoked"
+    //    statt fälschlich als "unknown" auszuweisen.
     const supabase = createServiceClient();
     const { data: match } = await supabase
       .from("certificates")
       .select(
-        "id, company_id, status, type, finalized_at, " +
+        "id, company_id, status, type, finalized_at, revoked_at, " +
           "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
           "employees(first_name, last_name), " +
           "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)",
       )
       .eq("hash", calculatedHash)
-      .eq("status", "final")
+      .in("status", ["final", "revoked"])
       .maybeSingle();
 
     let outcome: VerifyOutcome;
@@ -138,26 +141,41 @@ export async function POST(req: NextRequest) {
           })
         : null;
 
-      outcome = {
-        result: "verified",
-        matchedHash: calculatedHash,
-        matchedCertificateId: match.id,
-        certificate: {
-          employeeName: [employee?.first_name, employee?.last_name]
-            .filter(Boolean)
-            .join(" "),
-          employer: company?.name ?? "",
-          documentType: certificateTypeLabel(match.type),
-          issueDate,
-          signatory1Name: signatories.signatory_1_name,
-          signatory1Role: signatories.signatory_1_role,
-          signatory2Name: signatories.signatory_2_name,
-          signatory2Role: signatories.signatory_2_role,
-          verifiedDomain,
-          signatory1ConfirmedAt,
-          signatory2ConfirmedAt,
-        },
+      const certificateFields = {
+        employeeName: [employee?.first_name, employee?.last_name]
+          .filter(Boolean)
+          .join(" "),
+        employer: company?.name ?? "",
+        documentType: certificateTypeLabel(match.type),
+        issueDate,
+        signatory1Name: signatories.signatory_1_name,
+        signatory1Role: signatories.signatory_1_role,
+        signatory2Name: signatories.signatory_2_name,
+        signatory2Role: signatories.signatory_2_role,
+        verifiedDomain,
+        signatory1ConfirmedAt,
+        signatory2ConfirmedAt,
       };
+
+      // Widerruf ist ausschliesslich Statuswechsel, kein Bestandteil des
+      // Hashes - daher hier abzweigen statt in der DB-Query zu trennen.
+      // revocation_reason bewusst NICHT mitgegeben: interne HR-Info, nicht
+      // Sache des externen Prüfers.
+      outcome =
+        match.status === "revoked"
+          ? {
+              result: "revoked",
+              matchedHash: calculatedHash,
+              matchedCertificateId: match.id,
+              revokedAt: match.revoked_at ?? null,
+              certificate: certificateFields,
+            }
+          : {
+              result: "verified",
+              matchedHash: calculatedHash,
+              matchedCertificateId: match.id,
+              certificate: certificateFields,
+            };
     } else {
       // Wenn der eingehende Text einen Hash-Block enthält, könnten wir
       // dort auch einen "behaupteten Hash" finden und mismatch unterscheiden.

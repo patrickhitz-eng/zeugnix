@@ -23,7 +23,7 @@ export async function POST(
 ) {
   const { token } = await params;
 
-  const limited = rateLimit(`signoff-submit:${getClientIp(req)}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS);
+  const limited = await rateLimit(`signoff-submit:${getClientIp(req)}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS);
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const body = await req.json().catch(() => ({}));

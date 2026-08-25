@@ -4,6 +4,7 @@ import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 // @react-pdf/renderer braucht die Node-Runtime (nicht Edge). Die Antwort darf
 // nicht statisch gecacht werden, und die PDF-Erzeugung kann etwas dauern.
@@ -75,7 +76,10 @@ export async function GET(
   if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
-  if (cert.status !== "final" || !cert.hash) {
+  // Auch nach Widerruf (H2) darf die ausstellende Firma das historische
+  // Dokument weiterhin selbst herunterladen - nur die öffentliche Prüfung
+  // markiert es als widerrufen.
+  if (!isCertificateLocked(cert.status) || !cert.hash) {
     return NextResponse.json(
       { error: "Zeugnis ist nicht finalisiert" },
       { status: 400 },

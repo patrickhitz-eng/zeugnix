@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 /**
  * PUT /api/certificates/[id]/text
@@ -38,9 +39,9 @@ export async function PUT(
   if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
-  if (cert.status === "final") {
+  if (isCertificateLocked(cert.status)) {
     return NextResponse.json(
-      { error: "Finalisierte Zeugnisse können nicht mehr bearbeitet werden" },
+      { error: "Finalisierte oder widerrufene Zeugnisse können nicht mehr bearbeitet werden" },
       { status: 400 },
     );
   }

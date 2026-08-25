@@ -34,7 +34,7 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const limited = rateLimit(`signoff:${user.id}`, SIGNOFF_LIMIT, SIGNOFF_WINDOW_MS);
+  const limited = await rateLimit(`signoff:${user.id}`, SIGNOFF_LIMIT, SIGNOFF_WINDOW_MS);
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const body = await req.json().catch(() => ({}));

@@ -20,7 +20,7 @@ const ANALYZE_WINDOW_MS = 60 * 1000;
  */
 export async function POST(req: NextRequest) {
   try {
-    const limited = rateLimit(
+    const limited = await rateLimit(
       `analyze:${getClientIp(req)}`,
       ANALYZE_LIMIT,
       ANALYZE_WINDOW_MS,

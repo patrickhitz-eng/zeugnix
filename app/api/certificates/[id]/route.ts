@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 /**
  * DELETE /api/certificates/[id]
@@ -33,11 +34,11 @@ export async function DELETE(
   if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
-  if (cert.status === "final") {
+  if (isCertificateLocked(cert.status)) {
     return NextResponse.json(
       {
         error:
-          "Finalisierte Zeugnisse können nicht gelöscht, nur archiviert werden.",
+          "Finalisierte oder widerrufene Zeugnisse können nicht gelöscht, nur archiviert werden.",
       },
       { status: 400 },
     );
