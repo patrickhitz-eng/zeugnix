@@ -5,6 +5,7 @@ import { renderCertificatePdf } from "@/lib/pdf/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 import { isCertificateLocked } from "@/lib/certificate/status";
+import { encodeMetaBlock, toMetaFields } from "@/lib/hash/canonicalize";
 
 // @react-pdf/renderer braucht die Node-Runtime (nicht Edge). Die Antwort darf
 // nicht statisch gecacht werden, und die PDF-Erzeugung kann etwas dauern.
@@ -187,6 +188,16 @@ export async function GET(
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
   const certificateTitle = certificateTypeLabel(cert.type);
 
+  // S1b: unsichtbaren Meta-Block nur für v2-finalisierte Zeugnisse einbetten.
+  // Quelle ist der beim Finalisieren EINGEFRORENE Snapshot – so bettet das PDF
+  // exakt die Felder ein, über die der gespeicherte v2-Hash gebildet wurde
+  // (immun gegen spätere Änderungen an Firmenname/Unterzeichnenden). Alt-/v1-
+  // Zeugnisse (kein Snapshot) bekommen keinen Block und bleiben über v1 gültig.
+  let metaBlockEncoded: string | undefined;
+  if (cert.hash_version === 2 && cert.meta_snapshot) {
+    metaBlockEncoded = encodeMetaBlock(toMetaFields(cert.meta_snapshot));
+  }
+
   // Bevorzugt edited_text (manuell bearbeitet), sonst generated_text
   const bodyText = cert.edited_text || cert.generated_text || "";
 
@@ -221,6 +232,9 @@ export async function GET(
       signatory1ConfirmedAt: signoffBySlot[1]?.confirmedAt,
       signatory2Email: signoffBySlot[2]?.email,
       signatory2ConfirmedAt: signoffBySlot[2]?.confirmedAt,
+
+      // S1b: eingefrorener Meta-Block (nur v2-Zeugnisse).
+      metaBlockEncoded,
 
       hash: cert.hash,
       baseUrl,

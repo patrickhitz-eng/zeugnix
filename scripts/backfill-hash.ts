@@ -36,7 +36,7 @@ async function main() {
 
   const { data: certs, error } = await supabase
     .from("certificates")
-    .select("id, edited_text, generated_text, hash")
+    .select("id, edited_text, generated_text, hash, hash_version")
     .eq("status", "final");
 
   if (error) {
@@ -52,8 +52,17 @@ async function main() {
   let updated = 0;
   let unchanged = 0;
   let failed = 0;
+  let skippedV2 = 0;
 
   for (const cert of certs) {
+    // S1b: v2-Zeugnisse NIEMALS anfassen. Ihr Hash deckt Body + Meta; ein
+    // reines Body-Re-Hashing (unten) würde das Siegel zerstören. canonical_content
+    // ist bei v2 bewusst nur der Body – kein Grund zum Zurückschreiben.
+    if ((cert.hash_version ?? 1) >= 2) {
+      skippedV2++;
+      continue;
+    }
+
     const bodyText = cert.edited_text || cert.generated_text || "";
     if (!bodyText) {
       console.warn(`  ⚠ ${cert.id}: kein Body-Text, übersprungen`);
@@ -87,7 +96,7 @@ async function main() {
   }
 
   console.log(
-    `\nFertig: ${updated} aktualisiert, ${unchanged} bereits korrekt, ${failed} fehlgeschlagen.`,
+    `\nFertig: ${updated} aktualisiert, ${unchanged} bereits korrekt, ${skippedV2} v2 übersprungen, ${failed} fehlgeschlagen.`,
   );
   if (failed > 0) process.exit(1);
 }

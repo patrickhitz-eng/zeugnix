@@ -29,6 +29,14 @@
 export const BODY_SENTINEL_START = "[[zeugnix:body-start]]";
 export const BODY_SENTINEL_END = "[[zeugnix:body-end]]";
 
+// S1b — Meta-Block. Rahmt (zusätzlich zum Body) einen unsichtbaren, maschinen-
+// lesbaren Block mit den materiellen Feldern AUSSERHALB des Body ein
+// (Arbeitgeber, Titel, Unterzeichnende). Diese Marker sind NEU (kein Bestands-
+// PDF enthält sie), die Body-Sentinels bleiben unverändert. Bewusst gleiches
+// `zeugnix:`-Präfix wie die Body-Sentinels, damit die Konvention einheitlich ist.
+export const META_SENTINEL_START = "[[zeugnix:meta-start]]";
+export const META_SENTINEL_END = "[[zeugnix:meta-end]]";
+
 // ============================================================================
 // Kanonisierung
 // ============================================================================
@@ -103,6 +111,127 @@ export async function sha256(input: string): Promise<string> {
 }
 
 // ============================================================================
+// S1b – Meta-Block (Arbeitgeber / Titel / Unterzeichnende)
+// ============================================================================
+
+/**
+ * Materielle Felder, die im PDF AUSSERHALB des Body stehen und in v1 fälschbar
+ * waren, ohne den Hash zu ändern. In v2 sind sie Teil des Hash.
+ */
+export interface CertificateMetaFields {
+  employer: string;
+  documentTitle: string;
+  signatory1Name: string;
+  signatory1Role: string;
+  signatory2Name: string;
+  signatory2Role: string;
+}
+
+/** Ergänzt ein evtl. unvollständiges Objekt zu vollständigen Meta-Feldern. */
+export function toMetaFields(
+  obj: Partial<CertificateMetaFields> | null | undefined,
+): CertificateMetaFields {
+  return {
+    employer: obj?.employer ?? "",
+    documentTitle: obj?.documentTitle ?? "",
+    signatory1Name: obj?.signatory1Name ?? "",
+    signatory1Role: obj?.signatory1Role ?? "",
+    signatory2Name: obj?.signatory2Name ?? "",
+    signatory2Role: obj?.signatory2Role ?? "",
+  };
+}
+
+/**
+ * Kanonischer, deterministischer String über die Meta-Felder. Feste
+ * Feldreihenfolge; jeder Wert läuft durch dieselbe Body-Pipeline
+ * (canonicalizeForHash), damit PDF-Extraktions-/Whitespace-Varianten denselben
+ * Wert ergeben. Die Labels sorgen dafür, dass ein Feld-Tausch (z.B. Rolle als
+ * Name) den Hash verändert.
+ */
+export function canonicalizeMeta(meta: CertificateMetaFields): string {
+  const n = (v: string) => canonicalizeForHash(v ?? "");
+  return [
+    "employer=" + n(meta.employer),
+    "title=" + n(meta.documentTitle),
+    "sig1name=" + n(meta.signatory1Name),
+    "sig1role=" + n(meta.signatory1Role),
+    "sig2name=" + n(meta.signatory2Name),
+    "sig2role=" + n(meta.signatory2Role),
+  ].join("\n");
+}
+
+// Trenner zwischen Body- und Meta-Teil des v2-Hash. Bewusst ein Marker, damit
+// sich die Grenze zwischen Body und Meta nicht durch geschickt gewählte Inhalte
+// verschieben lässt.
+const META_HASH_SEPARATOR = "\n[[zeugnix:meta]]\n";
+
+/** v1-Hash: nur der kanonisierte Body (Bestandsschutz-Pfad). */
+export async function hashBodyV1(body: string): Promise<string> {
+  return sha256(canonicalizeForHash(body));
+}
+
+/** v2-Hash: deckt Body UND die materiellen Meta-Felder. */
+export async function hashBodyMetaV2(
+  body: string,
+  meta: CertificateMetaFields,
+): Promise<string> {
+  return sha256(
+    canonicalizeForHash(body) + META_HASH_SEPARATOR + canonicalizeMeta(meta),
+  );
+}
+
+/**
+ * Schneidet den Meta-Block zwischen den Meta-Sentinels heraus (roh, inkl. evtl.
+ * durch pdfjs eingefügter Whitespace). Tolerant gegenüber Whitespace in den
+ * Klammern. null, wenn kein Meta-Block vorhanden ist (v1-/Alt-PDF).
+ */
+export function extractMetaBetweenSentinels(raw: string): string | null {
+  const startRe = /\[\[\s*zeugnix\s*:\s*meta-start\s*\]\]/i;
+  const endRe = /\[\[\s*zeugnix\s*:\s*meta-end\s*\]\]/i;
+  const startMatch = raw.match(startRe);
+  if (!startMatch || startMatch.index === undefined) return null;
+  const afterStart = startMatch.index + startMatch[0].length;
+  const tail = raw.slice(afterStart);
+  const endMatch = tail.match(endRe);
+  if (!endMatch || endMatch.index === undefined) return null;
+  return tail.slice(0, endMatch.index);
+}
+
+/**
+ * Kodiert die Meta-Felder als Base64(JSON) für den unsichtbaren PDF-Block.
+ * Base64 enthält keine bedeutungstragende Whitespace – beim Prüfen wird die
+ * gesamte Whitespace entfernt, wodurch pdfjs-Eigenheiten (eingefügte Spaces/
+ * Umbrüche im weissen 6pt-Text) den Wert nicht mehr verfälschen können.
+ * Isomorph (btoa/TextEncoder – Node 20+ und Browser).
+ */
+export function encodeMetaBlock(meta: CertificateMetaFields): string {
+  const json = JSON.stringify({ v: 2, ...meta });
+  const bytes = new TextEncoder().encode(json);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/**
+ * Dekodiert den (evtl. mit Whitespace durchsetzten) Meta-Block zurück zu den
+ * Meta-Feldern. null, wenn der Block leer/unlesbar ist.
+ */
+export function decodeMetaBlock(rawBlock: string): CertificateMetaFields | null {
+  const b64 = rawBlock.replace(/\s+/g, "");
+  if (!b64) return null;
+  try {
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+    const obj = JSON.parse(json);
+    if (!obj || typeof obj !== "object") return null;
+    return toMetaFields(obj as Partial<CertificateMetaFields>);
+  } catch {
+    return null;
+  }
+}
+
+// ============================================================================
 // Verifikations-Ergebnistyp
 // ============================================================================
 
@@ -133,6 +262,10 @@ export interface VerifiedCertificateFields {
   // bleibt aus Datenschutzgruenden ausserhalb der oeffentlichen Antwort.
   signatory1ConfirmedAt: string | null;
   signatory2ConfirmedAt: string | null;
+  // S1b: Siegel-Version des Treffers. 2 = Body UND Aussteller/Titel/
+  // Unterzeichnende sind vom Hash gedeckt; 1 = nur Fliesstext (Alt-Zeugnis,
+  // Bestandsschutz). Steuert das Vertrauens-Label in der Prüfung.
+  sealVersion: number;
 }
 
 export type VerifyOutcome =
@@ -147,6 +280,16 @@ export type VerifyOutcome =
       matchedHash: string;
       matchedCertificateId: string;
       revokedAt: string | null;
+      certificate: VerifiedCertificateFields;
+    }
+  // S1b: Der Body stimmt mit einem registrierten v2-Zeugnis überein, aber der
+  // Meta-Block (Aussteller/Titel/Unterzeichnende) rekonstruiert nicht den
+  // gesiegelten Hash – d.h. Briefkopf/Unterschriften wurden getauscht oder der
+  // Block ist unlesbar. Die registrierten Soll-Angaben werden mitgegeben.
+  | {
+      result: "mismatch";
+      matchedCertificateId: string;
+      calculatedHash: string;
       certificate: VerifiedCertificateFields;
     }
   | { result: "unknown"; calculatedHash: string }

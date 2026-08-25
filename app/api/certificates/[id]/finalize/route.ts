@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
-import { canonicalizeForHash, sha256 } from "@/lib/hash/canonicalize";
+import {
+  canonicalizeForHash,
+  hashBodyMetaV2,
+  type CertificateMetaFields,
+} from "@/lib/hash/canonicalize";
+import { resolveSignatories } from "@/lib/certificate/signatories";
+import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 
 export async function POST(
   _req: NextRequest,
@@ -53,7 +59,25 @@ export async function POST(
   // letzter Absatz Teil des Body, daher kein separates (flüchtiges) Datum.
   const bodyText = cert.edited_text || cert.generated_text || "";
   const canonicalString = canonicalizeForHash(bodyText);
-  const hash = await sha256(canonicalString);
+
+  // S1b: Meta-Snapshot (Arbeitgeber / Titel / Unterzeichnende) zum
+  // Finalisierungszeitpunkt EINFRIEREN. Der v2-Hash deckt Body UND Meta; das
+  // PDF bettet exakt diesen Snapshot als unsichtbaren Block ein, damit die
+  // Prüfung den v2-Hash rekonstruieren kann – auch wenn Firmenname/
+  // Unterzeichnende später geändert werden. So ist ein getauschter Briefkopf
+  // oder Unterschriftenblock nicht mehr unbemerkt möglich (Hash bricht bzw. die
+  // registrierten Soll-Angaben decken den Tausch auf).
+  const company = cert.companies ?? {};
+  const sig = resolveSignatories(cert, company);
+  const metaSnapshot: CertificateMetaFields = {
+    employer: company?.name ?? "",
+    documentTitle: certificateTypeLabel(cert.type),
+    signatory1Name: sig.signatory_1_name ?? "",
+    signatory1Role: sig.signatory_1_role ?? "",
+    signatory2Name: sig.signatory_2_name ?? "",
+    signatory2Role: sig.signatory_2_role ?? "",
+  };
+  const hash = await hashBodyMetaV2(bodyText, metaSnapshot);
 
   // Kritischer Schreibvorgang: schlägt er fehl, darf NICHT ok:true zurück –
   // sonst meldet die UI "finalisiert", obwohl Hash/Status nicht gespeichert sind.
@@ -61,7 +85,12 @@ export async function POST(
     .from("certificates")
     .update({
       hash,
+      // canonical_content bleibt bewusst der reine Body-Canonical: er dient dem
+      // Verifier als Fallback-Lookup (Body erkannt, aber Meta getauscht -> gezielte
+      // "Feld-Mismatch"-Meldung statt "unbekannt").
       canonical_content: canonicalString,
+      hash_version: 2,
+      meta_snapshot: metaSnapshot,
       status: "final",
       finalized_at: new Date().toISOString(),
     })
