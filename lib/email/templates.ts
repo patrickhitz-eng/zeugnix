@@ -181,6 +181,170 @@ function escapeHtml(s: string): string {
 }
 
 // ============================================================================
+// Unterzeichner-Freigabe erbeten (V2): benannte Person bestaetigt das Zeugnis
+// per Magic-Link. Die bestaetigende E-Mail ist die Identitaetsbindung.
+// ============================================================================
+interface SignoffRequestProps {
+  signatoryName?: string;
+  signatoryRole?: string;
+  employeeName: string;
+  companyName: string;
+  hrSenderName?: string;
+  hrSenderEmail?: string;
+  signoffUrl: string;
+  expiresAt: Date;
+}
+
+export function buildSignoffRequestEmail(props: SignoffRequestProps): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const {
+    signatoryName,
+    signatoryRole,
+    employeeName,
+    companyName,
+    hrSenderName,
+    hrSenderEmail,
+    signoffUrl,
+    expiresAt,
+  } = props;
+
+  const expiryDate = expiresAt.toLocaleDateString("de-CH", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+
+  const greeting = signatoryName ? `Guten Tag ${signatoryName}` : "Guten Tag";
+  const senderLine = hrSenderName
+    ? hrSenderEmail
+      ? `${hrSenderName} (${hrSenderEmail}) von ${companyName}`
+      : `${hrSenderName} von ${companyName}`
+    : companyName;
+  const roleLine = signatoryRole ? ` als ${signatoryRole}` : "";
+
+  const subject = `Freigabe erbeten: Arbeitszeugnis für ${employeeName}`;
+
+  const text = [
+    greeting + ",",
+    "",
+    `${senderLine} bittet Sie, das Arbeitszeugnis für ${employeeName}${roleLine} freizugeben.`,
+    "",
+    "Bitte prüfen Sie das Zeugnis und bestätigen Sie es. Ihre Bestätigung wird",
+    "mit Ihrer E-Mail-Adresse und einem Zeitstempel als elektronische Freigabe",
+    "festgehalten und erscheint als Echtheitssignal auf dem Zeugnis.",
+    "",
+    "Zeugnis ansehen und freigeben:",
+    signoffUrl,
+    "",
+    `Dieser Link ist gültig bis ${expiryDate}.`,
+    "",
+    "Falls Sie diese Person oder dieses Zeugnis nicht kennen, ignorieren Sie",
+    "diese Mail — es geschieht nichts.",
+    "",
+    "Mit freundlichen Grüssen",
+    "zeugnio.ch",
+  ].join("\n");
+
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1d22;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:8px;border:1px solid #e4e6ea;">
+
+        <tr>
+          <td style="padding:28px 32px 20px 32px;border-bottom:1px solid #e4e6ea;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="font-size:16px;font-weight:600;color:#1a1d22;letter-spacing:-0.01em;">
+                  zeugnio<span style="color:#0f7a6b;">.ch</span>
+                </td>
+                <td align="right" style="font-size:11px;color:#6b7178;text-transform:uppercase;letter-spacing:0.06em;">
+                  Freigabe
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:32px;">
+            <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;letter-spacing:-0.01em;">
+              Freigabe erbeten für<br>
+              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(employeeName)}</span>
+            </h1>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              ${escapeHtml(greeting)},
+            </p>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              ${escapeHtml(senderLine)} bittet Sie, das Arbeitszeugnis für
+              <strong>${escapeHtml(employeeName)}</strong>${escapeHtml(roleLine)} freizugeben.
+            </p>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              Bitte prüfen Sie das Zeugnis und bestätigen Sie es. Ihre Bestätigung
+              wird mit Ihrer E-Mail-Adresse und einem Zeitstempel als
+              <strong>elektronische Freigabe</strong> festgehalten und erscheint
+              als Echtheitssignal auf dem Zeugnis.
+            </p>
+
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;">
+              <tr>
+                <td style="border-radius:6px;background:#0f7a6b;">
+                  <a href="${escapeHtml(signoffUrl)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:500;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
+                    Zeugnis ansehen und freigeben →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:16px 0 4px 0;font-size:12px;color:#6b7178;">
+              Falls der Button nicht funktioniert, kopieren Sie diesen Link:
+            </p>
+            <p style="margin:0 0 16px 0;font-size:11.5px;color:#6b7178;word-break:break-all;font-family:'SF Mono',Menlo,Consolas,monospace;">
+              ${escapeHtml(signoffUrl)}
+            </p>
+
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:24px 0;background:#f4f5f7;border-radius:6px;">
+              <tr>
+                <td style="padding:14px 18px;font-size:13px;line-height:1.55;color:#3a3f46;">
+                  <strong style="color:#1a1d22;">Gültig bis:</strong> ${expiryDate}<br>
+                  <strong style="color:#1a1d22;">Falls unbekannt:</strong> Kennen Sie diese
+                  Person oder dieses Zeugnis nicht, ignorieren Sie diese Mail — es geschieht nichts.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:20px 32px 28px 32px;border-top:1px solid #e4e6ea;font-size:11.5px;line-height:1.55;color:#8a8f96;">
+            Diese E-Mail wurde automatisch versendet, weil Ihre E-Mail-Adresse von
+            Ihrem Arbeitgeber als unterzeichnende Person für ein Arbeitszeugnis angegeben wurde.
+            <br><br>
+            zeugnio.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return { subject, html, text };
+}
+
+// ============================================================================
 // HR-Benachrichtigung: Beurteilung wurde abgegeben
 // ============================================================================
 interface EvaluationSubmittedProps {

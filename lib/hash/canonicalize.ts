@@ -128,6 +128,11 @@ export interface VerifiedCertificateFields {
   // Trust-Signal NEBEN dem Hash; belegt, dass ein berechtigter Mensch mit einer
   // E-Mail @dieser-Domain hinter dem Aussteller steht.
   verifiedDomain: string | null;
+  // V2: Zeitpunkt (formatiert) der identitaetsgebundenen Unterzeichner-Freigabe
+  // pro Slot (null = nicht per E-Mail bestaetigt). Die bestaetigende E-Mail
+  // bleibt aus Datenschutzgruenden ausserhalb der oeffentlichen Antwort.
+  signatory1ConfirmedAt: string | null;
+  signatory2ConfirmedAt: string | null;
 }
 
 export type VerifyOutcome =
