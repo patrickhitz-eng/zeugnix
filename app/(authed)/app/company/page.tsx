@@ -1,5 +1,9 @@
 import { createClient } from "@/lib/db/supabase-server";
 import { CompanyForm } from "@/components/forms/company-form";
+import {
+  CompanyDomainControls,
+  type CompanyDomain,
+} from "@/components/forms/company-domain-controls";
 
 export const metadata = { title: "Firma" };
 
@@ -12,6 +16,27 @@ export default async function CompanyPage() {
     .order("created_at", { ascending: false });
 
   const hasCompanies = companies && companies.length > 0;
+
+  // Domains aller sichtbaren Firmen laden (RLS: nur eigene) und je Firma gruppieren.
+  const companyIds = (companies ?? []).map((c: any) => c.id);
+  const domainsByCompany = new Map<string, CompanyDomain[]>();
+  if (companyIds.length > 0) {
+    const { data: allDomains } = await supabase
+      .from("company_domains")
+      .select("company_id, domain, method, status, verified_at")
+      .in("company_id", companyIds)
+      .order("domain", { ascending: true });
+    for (const d of allDomains ?? []) {
+      const list = domainsByCompany.get(d.company_id) ?? [];
+      list.push({
+        domain: d.domain,
+        method: d.method,
+        status: d.status,
+        verified_at: d.verified_at,
+      });
+      domainsByCompany.set(d.company_id, list);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -37,7 +62,13 @@ export default async function CompanyPage() {
                   </span>
                 )}
               </div>
-              <CompanyForm company={c} />
+              <div className="space-y-6">
+                <CompanyDomainControls
+                  companyId={c.id}
+                  initialDomains={domainsByCompany.get(c.id) ?? []}
+                />
+                <CompanyForm company={c} />
+              </div>
             </div>
           ))}
         </div>

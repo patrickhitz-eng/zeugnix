@@ -221,6 +221,18 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
                     <dd className="text-[13.5px] font-medium text-ink-800">
                       {state.certificate.employer}
                     </dd>
+                    {state.certificate.verifiedDomain ? (
+                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-petrol-100 px-2 py-0.5 text-[11px] font-medium text-petrol-800">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Domain verifiziert · {state.certificate.verifiedDomain}
+                      </dd>
+                    ) : (
+                      <dd className="mt-1 text-[11px] text-ink-400">
+                        Aussteller-Domain nicht verifiziert
+                      </dd>
+                    )}
                   </div>
                 )}
                 {state.certificate.documentType && (
@@ -338,6 +350,14 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
                     <dd className="text-[13.5px] font-medium text-ink-800">
                       {state.certificate.employer}
                     </dd>
+                    {state.certificate.verifiedDomain && (
+                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                        Domain verifiziert · {state.certificate.verifiedDomain}
+                      </dd>
+                    )}
                   </div>
                 )}
               </dl>

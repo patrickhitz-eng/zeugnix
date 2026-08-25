@@ -74,9 +74,26 @@ export async function POST(
     );
   }
 
+  // V1: Das Employer-Badge ist erst dann ein echtes Trust-Signal, wenn die Firma
+  // eine VERIFIZIERTE Domain hat (sonst kann sich ein Self-Issuer das Badge frei
+  // selbst ausstellen). Deshalb wird das Badge nur noch bei verifizierter Domain
+  // gewährt. Das Finalisieren selbst bleibt davon UNBERÜHRT (kein Hard-Block,
+  // voller Bestandsschutz) – es wird lediglich das Badge abgestuft.
+  let domainVerified = false;
+  if (cert.company_id) {
+    const { data: verifiedDom } = await supabase
+      .from("company_domains")
+      .select("id")
+      .eq("company_id", cert.company_id)
+      .eq("status", "verified")
+      .limit(1)
+      .maybeSingle();
+    domainVerified = !!verifiedDom;
+  }
+
   // Employer-Badge ist sekundär (kosmetisch): Fehler hier dürfen die bereits
   // erfolgreiche Finalisierung nicht zunichtemachen – nur protokollieren.
-  if (cert.company_id) {
+  if (cert.company_id && domainVerified) {
     const { error: badgeUpdateErr } = await supabase
       .from("companies")
       .update({ has_employer_badge: true })
@@ -97,5 +114,10 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({ ok: true, hash });
+  return NextResponse.json({
+    ok: true,
+    hash,
+    // Abgestuftes Trust-Level: verifizierter Aussteller vs. nur registriert.
+    trustLevel: domainVerified ? "domain_verified" : "registered_only",
+  });
 }

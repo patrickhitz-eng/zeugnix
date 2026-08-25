@@ -94,6 +94,21 @@ export async function POST(req: NextRequest) {
 
       const signatories = resolveSignatories(match, company ?? {});
 
+      // V1-Trust-Signal: Hat die ausstellende Firma eine verifizierte Domain?
+      // Liegt AUSSERHALB des Hashes; dient dem Prüfer als Aussteller-Beleg.
+      let verifiedDomain: string | null = null;
+      if (match.company_id) {
+        const { data: dom } = await supabase
+          .from("company_domains")
+          .select("domain")
+          .eq("company_id", match.company_id)
+          .eq("status", "verified")
+          .order("verified_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        verifiedDomain = dom?.domain ?? null;
+      }
+
       const issueDate = match.finalized_at
         ? new Date(match.finalized_at).toLocaleDateString("de-CH", {
             day: "2-digit",
@@ -113,6 +128,7 @@ export async function POST(req: NextRequest) {
         signatory1Role: signatories.signatory_1_role,
         signatory2Name: signatories.signatory_2_name,
         signatory2Role: signatories.signatory_2_role,
+        verifiedDomain,
       };
 
       // Widerruf ist ausschliesslich Statuswechsel, kein Bestandteil des
