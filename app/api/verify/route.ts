@@ -4,6 +4,9 @@ import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import {
   canonicalizeForHash,
   extractBodyBetweenSentinels,
+  extractMetaBetweenSentinels,
+  decodeMetaBlock,
+  hashBodyMetaV2,
   sha256,
   type VerifyOutcome,
 } from "@/lib/hash/canonicalize";
@@ -58,28 +61,66 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Kanonisieren (identische Pipeline wie beim Finalisieren) + SHA-256
+    // 2. Kanonisieren (identische Pipeline wie beim Finalisieren) + Hashes.
+    //    v1-Hash = nur Body. v2-Hash = Body + Meta-Block (Aussteller/Titel/
+    //    Unterzeichnende), sofern das PDF einen Meta-Block enthält (S1b).
     const canonical = canonicalizeForHash(rawBody);
-    const calculatedHash = await sha256(canonical);
+    const bodyHash = await sha256(canonical);
+
+    const rawMeta = extractMetaBetweenSentinels(text);
+    const parsedMeta = rawMeta ? decodeMetaBlock(rawMeta) : null;
+    const metaHash = parsedMeta ? await hashBodyMetaV2(rawBody, parsedMeta) : null;
+
+    // Der "berechnete Hash", den wir dem Prüfer zeigen/protokollieren: bei einem
+    // Meta-Block der v2-Hash (das eigentliche Siegel), sonst der v1-Body-Hash.
+    const calculatedHash = metaHash ?? bodyHash;
 
     // 3. In DB suchen. Mitgeladen werden die Vergleichsfelder (S1a): Arbeitgeber
-    //    und Unterzeichnende (beide AUSSERHALB des Hashes, also fälschbar) sowie
-    //    Mitarbeiter/in, Typ und Ausstelldatum zum Bestätigen des Datensatzes.
-    //    Status bewusst NICHT auf 'final' gefiltert (H2): ein widerrufenes
-    //    Zeugnis muss denselben Hash-Match finden, um korrekt als "revoked"
-    //    statt fälschlich als "unknown" auszuweisen.
+    //    und Unterzeichnende sowie Mitarbeiter/in, Typ und Ausstelldatum zum
+    //    Bestätigen des Datensatzes. Status bewusst NICHT auf 'final' gefiltert
+    //    (H2): ein widerrufenes Zeugnis muss denselben Hash-Match finden, um
+    //    korrekt als "revoked" statt fälschlich als "unknown" auszuweisen.
     const supabase = createServiceClient();
-    const { data: match } = await supabase
-      .from("certificates")
-      .select(
-        "id, company_id, status, type, finalized_at, revoked_at, " +
-          "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
-          "employees(first_name, last_name), " +
-          "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)",
-      )
-      .eq("hash", calculatedHash)
-      .in("status", ["final", "revoked"])
-      .maybeSingle();
+    const SELECT_COLS =
+      "id, company_id, status, type, hash, hash_version, finalized_at, revoked_at, " +
+      "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
+      "employees(first_name, last_name), " +
+      "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)";
+
+    async function findByHash(h: string) {
+      const { data } = await supabase
+        .from("certificates")
+        .select(SELECT_COLS)
+        .eq("hash", h)
+        .in("status", ["final", "revoked"])
+        .limit(1)
+        .maybeSingle();
+      return data;
+    }
+
+    // v2 zuerst (das vollständige Siegel), dann v1 (Bestandsschutz). Sequentiell
+    // statt .in(), um Mehrdeutigkeit zu vermeiden, falls zwei Zeugnisse denselben
+    // Body teilen (v1) und eines zusätzlich per v2 trifft.
+    let match = metaHash ? await findByHash(metaHash) : null;
+    if (!match) match = await findByHash(bodyHash);
+
+    // S1b Fallback: kein Hash-Treffer, aber der Body deckt sich mit einem
+    // registrierten v2-Zeugnis -> Meta (Kopf/Unterschriften) wurde getauscht
+    // oder ist unlesbar. Gezielte "Feld-Mismatch"-Meldung statt "unbekannt".
+    let isMismatch = false;
+    if (!match) {
+      const { data: bodyMatch } = await supabase
+        .from("certificates")
+        .select(SELECT_COLS)
+        .eq("canonical_content", canonical)
+        .in("status", ["final", "revoked"])
+        .limit(1)
+        .maybeSingle();
+      if (bodyMatch && (bodyMatch.hash_version ?? 1) >= 2) {
+        match = bodyMatch;
+        isMismatch = true;
+      }
+    }
 
     let outcome: VerifyOutcome;
     if (match) {
@@ -155,31 +196,39 @@ export async function POST(req: NextRequest) {
         verifiedDomain,
         signatory1ConfirmedAt,
         signatory2ConfirmedAt,
+        // S1b: 2 = Aussteller/Titel/Unterzeichnende sind vom Hash gedeckt.
+        sealVersion: match.hash_version ?? 1,
       };
 
-      // Widerruf ist ausschliesslich Statuswechsel, kein Bestandteil des
-      // Hashes - daher hier abzweigen statt in der DB-Query zu trennen.
-      // revocation_reason bewusst NICHT mitgegeben: interne HR-Info, nicht
-      // Sache des externen Prüfers.
-      outcome =
-        match.status === "revoked"
-          ? {
-              result: "revoked",
-              matchedHash: calculatedHash,
-              matchedCertificateId: match.id,
-              revokedAt: match.revoked_at ?? null,
-              certificate: certificateFields,
-            }
-          : {
-              result: "verified",
-              matchedHash: calculatedHash,
-              matchedCertificateId: match.id,
-              certificate: certificateFields,
-            };
+      // Reihenfolge der Fälle: Mismatch (Body echt, Meta-Siegel gebrochen) vor
+      // Widerruf/Verified. Widerruf ist ein reiner Statuswechsel (kein Hash-
+      // Bestandteil). revocation_reason bewusst NICHT mitgegeben: interne HR-Info.
+      if (isMismatch) {
+        outcome = {
+          result: "mismatch",
+          matchedCertificateId: match.id,
+          calculatedHash,
+          certificate: certificateFields,
+        };
+      } else if (match.status === "revoked") {
+        outcome = {
+          result: "revoked",
+          matchedHash: match.hash ?? calculatedHash,
+          matchedCertificateId: match.id,
+          revokedAt: match.revoked_at ?? null,
+          certificate: certificateFields,
+        };
+      } else {
+        outcome = {
+          result: "verified",
+          matchedHash: match.hash ?? calculatedHash,
+          matchedCertificateId: match.id,
+          certificate: certificateFields,
+        };
+      }
     } else {
-      // Wenn der eingehende Text einen Hash-Block enthält, könnten wir
-      // dort auch einen "behaupteten Hash" finden und mismatch unterscheiden.
-      // Hier vereinfacht: kein Match → unknown
+      // Weder ein Hash-Treffer (v2/v1) noch ein Body-Treffer (Mismatch-Fallback):
+      // das Dokument ist auf zeugnio.ch nicht registriert.
       outcome = { result: "unknown", calculatedHash };
     }
 

@@ -13,9 +13,18 @@
 import {
   BODY_SENTINEL_START,
   BODY_SENTINEL_END,
+  META_SENTINEL_START,
+  META_SENTINEL_END,
   canonicalizeForHash,
   extractBodyBetweenSentinels,
+  extractMetaBetweenSentinels,
+  canonicalizeMeta,
+  hashBodyV1,
+  hashBodyMetaV2,
+  encodeMetaBlock,
+  decodeMetaBlock,
   sha256,
+  type CertificateMetaFields,
 } from "../lib/hash/canonicalize";
 
 let passed = 0;
@@ -148,6 +157,126 @@ async function run() {
     "Quelle == silbengetrenntes PDF-Extrakt (gleicher Hash)",
     (await sha256(canonicalizeForHash("Er lieferte präzise Resultate."))) ===
       (await sha256(canonicalizeForHash("Er lieferte präzise Re- sultate."))),
+  );
+
+  // ----- S1b: Meta-Block / v2-Hash -----
+  console.log("\nS1b – Meta-Block & v2-Hash:");
+
+  const meta: CertificateMetaFields = {
+    employer: "Muster AG",
+    documentTitle: "Arbeitszeugnis",
+    signatory1Name: "Max Muster",
+    signatory1Role: "CEO",
+    signatory2Name: "Anna Beispiel",
+    signatory2Role: "Leiterin HR",
+  };
+
+  // v1-Hash muss exakt dem alten Body-only-Hash entsprechen (Bestandsschutz).
+  assert(
+    "hashBodyV1 == sha256(canon(body)) (Bestandsschutz)",
+    (await hashBodyV1(body)) === (await sha256(canonicalizeForHash(body))),
+  );
+
+  // v2 deckt zusätzlich die Meta-Felder -> muss sich von v1 unterscheiden.
+  const v2 = await hashBodyMetaV2(body, meta);
+  assert("v2-Hash != v1-Hash (Meta ist mitgedeckt)", v2 !== (await hashBodyV1(body)));
+
+  // Jede materielle Meta-Änderung bricht den v2-Hash.
+  assert(
+    "Getauschter Arbeitgeber bricht v2-Hash",
+    v2 !== (await hashBodyMetaV2(body, { ...meta, employer: "Fremd GmbH" })),
+  );
+  assert(
+    "Getauschte Unterschrift bricht v2-Hash",
+    v2 !== (await hashBodyMetaV2(body, { ...meta, signatory1Name: "Eve Faelscher" })),
+  );
+  assert(
+    "Getauschter Titel bricht v2-Hash",
+    v2 !== (await hashBodyMetaV2(body, { ...meta, documentTitle: "Zwischenzeugnis" })),
+  );
+  // Name/Rolle-Tausch (Label-Schutz): Name in Rolle verschoben ist NICHT gleich.
+  assert(
+    "Feld-Vertauschung (Name<->Rolle) bricht v2-Hash",
+    v2 !==
+      (await hashBodyMetaV2(body, {
+        ...meta,
+        signatory1Name: meta.signatory1Role,
+        signatory1Role: meta.signatory1Name,
+      })),
+  );
+
+  // canonicalizeMeta ist whitespace-tolerant pro Feld (wie der Body).
+  assert(
+    "canonicalizeMeta plättet Whitespace pro Feld",
+    canonicalizeMeta({ ...meta, employer: "Muster   AG\n" }) ===
+      canonicalizeMeta(meta),
+  );
+
+  // Base64-Block: Round-Trip encode -> decode.
+  const encoded = encodeMetaBlock(meta);
+  assert(
+    "encode->decode ergibt identische Meta-Felder",
+    JSON.stringify(decodeMetaBlock(encoded)) === JSON.stringify(meta),
+  );
+  // Umlaute im Meta-Block überleben (UTF-8 in Base64).
+  const metaUml: CertificateMetaFields = { ...meta, signatory2Role: "Geschäftsführung" };
+  assert(
+    "Umlaute im Meta-Block überleben den Base64-Round-Trip",
+    decodeMetaBlock(encodeMetaBlock(metaUml))?.signatory2Role === "Geschäftsführung",
+  );
+  // Whitespace (pdfjs-Umbrüche/Spaces) im Base64 stört das Dekodieren nicht.
+  assert(
+    "decodeMetaBlock ignoriert eingestreute Whitespace",
+    JSON.stringify(
+      decodeMetaBlock(encoded.replace(/(.{7})/g, "$1 \n ")),
+    ) === JSON.stringify(meta),
+  );
+  assert("decodeMetaBlock('') -> null", decodeMetaBlock("") === null);
+  assert("decodeMetaBlock('  ') -> null", decodeMetaBlock("   \n ") === null);
+
+  // ----- S1b: End-to-End über ein simuliertes v2-PDF-Extrakt -----
+  console.log("\nS1b – End-to-End (v2-PDF-Extrakt):");
+
+  // Simuliert den Renderer: Base64 in 40er-Chunks (chunkForWrap) + pdfjs
+  // join(" ") + zusätzliche Umbrüche.
+  const chunked = encoded.replace(/(.{40})/g, "$1 ");
+  const v2PdfExtract =
+    "Muster AG  Musterstrasse 1  8000 Zürich  Arbeitszeugnis  " +
+    BODY_SENTINEL_START +
+    " " +
+    body.replace(/\s+/g, " ").trim() +
+    " " +
+    BODY_SENTINEL_END +
+    "  " +
+    META_SENTINEL_START +
+    " " +
+    chunked +
+    " " +
+    META_SENTINEL_END +
+    "  Digital ausgestellt durch  Max Muster  CEO  Anna Beispiel  Leiterin HR  " +
+    "Echtheitsnachweis (SHA-256)  abcdef";
+
+  const exBody = extractBodyBetweenSentinels(v2PdfExtract);
+  const exMetaRaw = extractMetaBetweenSentinels(v2PdfExtract);
+  const exMeta = exMetaRaw ? decodeMetaBlock(exMetaRaw) : null;
+
+  assert("Body wird trotz Meta-Block korrekt isoliert", !!exBody);
+  assert("Meta-Block wird aus dem Extrakt gelesen", !!exMeta);
+  // Der aus dem PDF rekonstruierte v2-Hash == der beim Finalisieren gebildete.
+  const finalizeV2 = await hashBodyMetaV2(body, meta);
+  const verifyV2 =
+    exBody && exMeta ? await hashBodyMetaV2(exBody, exMeta) : "NULL";
+  assert(
+    "Finalize-v2-Hash == Verify-v2-Hash (aus dem PDF rekonstruiert)",
+    finalizeV2 === verifyV2,
+    `${finalizeV2} != ${verifyV2}`,
+  );
+  // Der v1-Body-Hash bleibt unabhängig vom Meta-Block extrahierbar (Fallback).
+  assert(
+    "v1-Body-Hash aus dem v2-Extrakt == direkter v1-Hash",
+    exBody
+      ? (await hashBodyV1(exBody)) === (await hashBodyV1(body))
+      : false,
   );
 
   // ----- Zusammenfassung -----

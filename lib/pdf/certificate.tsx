@@ -21,6 +21,8 @@ import React from "react";
 import {
   BODY_SENTINEL_START,
   BODY_SENTINEL_END,
+  META_SENTINEL_START,
+  META_SENTINEL_END,
   buildVerifyUrl,
 } from "@/lib/hash/canonicalize";
 import type { TiptapDoc } from "@/lib/certificate/tiptap-plaintext";
@@ -87,8 +89,27 @@ interface RenderInput {
   /** Unterschrifts-Modus; 'handwritten' blendet den Kopf „Digital ausgestellt durch" aus. */
   signatureMode?: string;
 
+  /**
+   * S1b: Base64(JSON) der eingefrorenen Meta-Felder (Arbeitgeber/Titel/
+   * Unterzeichnende). Wird als unsichtbarer, maschinenlesbarer Block eingebettet,
+   * damit die Prüfung den v2-Hash rekonstruieren kann. Leer/undefined -> kein
+   * Block (v1-/Alt-Zeugnis, Bestandsschutz).
+   */
+  metaBlockEncoded?: string;
+
   hash: string;
   baseUrl: string;
+}
+
+// Base64 hat keine Leerzeichen -> als ein einziges "Wort" würde @react-pdf es
+// (Auto-Silbentrennung ist global aus) nicht umbrechen und über den Seitenrand
+// schieben, wodurch Zeichen beim Extrahieren verloren gehen könnten. Deshalb
+// künstliche Umbruchpunkte alle 40 Zeichen; beim Prüfen wird sämtliche
+// Whitespace wieder entfernt (decodeMetaBlock), der Wert bleibt also identisch.
+function chunkForWrap(value: string, size = 40): string {
+  const parts: string[] = [];
+  for (let i = 0; i < value.length; i += size) parts.push(value.slice(i, i + size));
+  return parts.join(" ");
 }
 
 // ============================================================================
@@ -150,6 +171,7 @@ function CertificateDocument(props: DocProps) {
   const hash = s(props.hash);
   const baseUrl = s(props.baseUrl);
   const qrDataUrl = s(props.qrDataUrl);
+  const metaBlockEncoded = s(props.metaBlockEncoded);
 
   const cityLine = [companyPostalCode, companyCity]
     .filter((x) => x.length > 0)
@@ -207,6 +229,17 @@ function CertificateDocument(props: DocProps) {
               ))}
           <Text style={styles.sentinel}>{BODY_SENTINEL_END}</Text>
         </View>
+
+        {/* S1b: unsichtbarer Meta-Block (Aussteller/Titel/Unterzeichnende),
+            AUSSERHALB der Body-Sentinels – ändert den v1-Body-Hash nicht, deckt
+            aber in v2 die materiellen Kopf-/Unterschriftsdaten mit ab. */}
+        {metaBlockEncoded.length > 0 ? (
+          <View>
+            <Text style={styles.sentinel}>{META_SENTINEL_START}</Text>
+            <Text style={styles.sentinel}>{chunkForWrap(metaBlockEncoded)}</Text>
+            <Text style={styles.sentinel}>{META_SENTINEL_END}</Text>
+          </View>
+        ) : null}
 
         {/* Signatures */}
         {signatory1Name.length > 0 || signatory2Name.length > 0 ? (

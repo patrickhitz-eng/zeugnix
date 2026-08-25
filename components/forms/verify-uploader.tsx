@@ -22,6 +22,12 @@ type State =
       revokedAt: string | null;
       certificate: VerifiedCertificateFields | null;
     }
+  | {
+      kind: "mismatch";
+      hash: string;
+      certificateId: string;
+      certificate: VerifiedCertificateFields | null;
+    }
   | { kind: "unknown"; hash: string }
   | { kind: "no_sentinel"; message: string }
   | { kind: "error"; message: string };
@@ -108,6 +114,13 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
           hash: data.matchedHash,
           certificateId: data.matchedCertificateId,
           revokedAt: data.revokedAt ?? null,
+          certificate: data.certificate ?? null,
+        });
+      } else if (data.result === "mismatch") {
+        setState({
+          kind: "mismatch",
+          hash: data.calculatedHash,
+          certificateId: data.matchedCertificateId,
           certificate: data.certificate ?? null,
         });
       } else if (data.result === "no_sentinel") {
@@ -201,7 +214,22 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
               <div className="text-[10px] font-medium uppercase tracking-wider text-petrol-700">
                 Registrierte Angaben
               </div>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-ink-600">
+              {/* S1b: Siegel-Stufe. v2 = Aussteller/Titel/Unterzeichnende sind
+                  ebenfalls vom Hash gedeckt; v1 = nur der Fliesstext. */}
+              {(state.certificate.sealVersion ?? 1) >= 2 ? (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-petrol-100 px-2.5 py-1 text-[11px] font-medium text-petrol-800">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <polyline points="9 12 11 14 15 10" />
+                  </svg>
+                  Vollsiegel · Aussteller, Titel und Unterzeichnende sind hash-gesichert
+                </div>
+              ) : (
+                <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-ink-100 px-2.5 py-1 text-[11px] font-medium text-ink-600">
+                  Basissiegel · nur der Fliesstext ist hash-gesichert
+                </div>
+              )}
+              <p className="mt-2 text-[12.5px] leading-relaxed text-ink-600">
                 Bitte mit dem vorliegenden Dokument vergleichen. Weichen
                 Arbeitgeber, Unterzeichnende oder Titel vom Papier ab, wurde das
                 Dokument nachträglich verändert – trotz übereinstimmendem Hash.
@@ -425,6 +453,112 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
           </div>
           <button onClick={reset} className="btn-secondary text-[13px]">
             Weiteres Dokument prüfen
+          </button>
+        </div>
+      </div>
+      {analysisBlock}
+      </>
+    );
+  }
+
+  if (state.kind === "mismatch") {
+    return (
+      <>
+      <div className="card overflow-hidden">
+        <div className="bg-red-700 px-6 py-5 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider opacity-80">Resultat</div>
+              <div className="text-[18px] font-medium">Kopf-/Unterschriftsdaten weichen ab</div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4 p-6">
+          <p className="text-[14px] leading-relaxed text-ink-700">
+            Der <strong>Fliesstext</strong> dieses Dokuments stimmt mit einem auf
+            zeugnio.ch registrierten Arbeitszeugnis überein – der
+            <strong> versiegelte Aussteller-, Titel- oder Unterschriftenblock</strong>{" "}
+            lässt sich jedoch nicht bestätigen. Das deutet darauf hin, dass
+            Briefkopf oder Unterschriften nach der Ausstellung ausgetauscht
+            wurden. Bitte vergleichen Sie das Papier mit den registrierten
+            Original-Angaben:
+          </p>
+          {state.certificate && (
+            <div className="rounded-md border border-red-200 bg-red-50/60 p-4">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-red-700">
+                Registriertes Original
+              </div>
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                {state.certificate.employeeName && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Mitarbeiter/in</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.employeeName}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.employer && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Arbeitgeber</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.employer}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.documentType && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Dokument</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.documentType}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.signatory1Name && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Unterschrift 1</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.signatory1Name}
+                      {state.certificate.signatory1Role
+                        ? `, ${state.certificate.signatory1Role}`
+                        : ""}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.signatory2Name && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Unterschrift 2</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.signatory2Name}
+                      {state.certificate.signatory2Role
+                        ? `, ${state.certificate.signatory2Role}`
+                        : ""}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-[12.5px] text-amber-900">
+            Sollten die angezeigten Angaben mit dem Papier übereinstimmen, laden
+            Sie bitte das aktuelle PDF direkt bei der ausstellenden Stelle erneut
+            herunter und prüfen Sie es nochmals – ältere Downloads enthalten
+            möglicherweise noch keinen vollständigen Siegel-Block.
+          </div>
+          <div className="rounded-md bg-ink-50 p-4">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-ink-500">
+              Berechneter Hash
+            </div>
+            <div className="mt-1 break-all font-mono text-[11px]">{state.hash}</div>
+          </div>
+          <button onClick={reset} className="btn-secondary text-[13px]">
+            Anderes Dokument prüfen
           </button>
         </div>
       </div>
