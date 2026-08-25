@@ -141,6 +141,7 @@ function StatusBadge({ status }: { status: string }) {
       className: "bg-petrol-50 text-petrol-700",
     },
     final: { label: "Final", className: "bg-petrol-700 text-white" },
+    revoked: { label: "Widerrufen", className: "bg-red-700 text-white" },
   };
   const c = map[status] ?? { label: status, className: "bg-ink-100 text-ink-700" };
   return (

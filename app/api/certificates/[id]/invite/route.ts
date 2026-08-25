@@ -33,7 +33,7 @@ export async function POST(
   // Rate-Limit pro authentifiziertem User (nicht pro IP): ein HR-Team hinter
   // gemeinsamem NAT soll sich nicht ein Limit teilen. Greift vor dem teuren
   // E-Mail-Versand; das vorgelagerte getUser() ist günstig.
-  const limited = rateLimit(`invite:${user.id}`, INVITE_LIMIT, INVITE_WINDOW_MS);
+  const limited = await rateLimit(`invite:${user.id}`, INVITE_LIMIT, INVITE_WINDOW_MS);
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   // Zeugnis + Mitarbeitende + Firma laden für Mail-Inhalt

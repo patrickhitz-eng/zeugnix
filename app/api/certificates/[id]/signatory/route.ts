@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { isSignatureMode } from "@/lib/certificate/signature-mode";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 /**
  * Persistiert die zeugnis-spezifischen Unterzeichnenden (Override der
@@ -34,9 +35,9 @@ export async function PATCH(
   if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
 
-  if (cert.status === "final")
+  if (isCertificateLocked(cert.status))
     return NextResponse.json(
-      { error: "Zeugnis ist finalisiert und kann nicht geändert werden." },
+      { error: "Zeugnis ist finalisiert oder widerrufen und kann nicht geändert werden." },
       { status: 409 },
     );
 

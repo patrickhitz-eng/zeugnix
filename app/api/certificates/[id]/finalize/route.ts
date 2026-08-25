@@ -40,6 +40,13 @@ export async function POST(
     );
   }
 
+  if (cert.status === "revoked") {
+    return NextResponse.json(
+      { error: "Widerrufene Zeugnisse können nicht erneut finalisiert werden." },
+      { status: 400 },
+    );
+  }
+
   // Hash über den TATSÄCHLICH gedruckten Body bilden – exakt dieselbe Quelle
   // wie das PDF (app/api/certificates/[id]/pdf/route.ts) und dieselbe
   // Pipeline wie die Verifikation (canonicalizeForHash). Datum/Ort sind als

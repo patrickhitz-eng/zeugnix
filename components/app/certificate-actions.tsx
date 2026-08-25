@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCertificateWorkspace } from "./certificate-workspace";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 interface Props {
   certificate: any;
@@ -315,9 +316,9 @@ export function CertificateActions({
           step="3"
           title="Finalisieren mit Hash"
           desc="SHA-256-Hash berechnen, PDF generieren, unveränderlich speichern"
-          done={certificate.status === "final"}
+          done={isCertificateLocked(certificate.status)}
         >
-          {certificate.generated_text && certificate.status !== "final" && (
+          {certificate.generated_text && !isCertificateLocked(certificate.status) && (
             <button
               onClick={finalize}
               disabled={busy}

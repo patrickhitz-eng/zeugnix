@@ -15,6 +15,13 @@ type State =
       certificateId: string;
       certificate: VerifiedCertificateFields | null;
     }
+  | {
+      kind: "revoked";
+      hash: string;
+      certificateId: string;
+      revokedAt: string | null;
+      certificate: VerifiedCertificateFields | null;
+    }
   | { kind: "unknown"; hash: string }
   | { kind: "no_sentinel"; message: string }
   | { kind: "error"; message: string };
@@ -93,6 +100,14 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
           kind: "verified",
           hash: data.matchedHash,
           certificateId: data.matchedCertificateId,
+          certificate: data.certificate ?? null,
+        });
+      } else if (data.result === "revoked") {
+        setState({
+          kind: "revoked",
+          hash: data.matchedHash,
+          certificateId: data.matchedCertificateId,
+          revokedAt: data.revokedAt ?? null,
           certificate: data.certificate ?? null,
         });
       } else if (data.result === "no_sentinel") {
@@ -259,6 +274,80 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
             <strong>Hinweis:</strong> Die Verifikation bestätigt die Identität
             des Inhalts mit dem registrierten Original. Sie bestätigt nicht die
             materielle Richtigkeit der Aussagen im Zeugnis.
+          </div>
+          <button onClick={reset} className="btn-secondary text-[13px]">
+            Weiteres Dokument prüfen
+          </button>
+        </div>
+      </div>
+      {analysisBlock}
+      </>
+    );
+  }
+
+  if (state.kind === "revoked") {
+    const revokedDate = state.revokedAt
+      ? new Date(state.revokedAt).toLocaleDateString("de-CH", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+        })
+      : null;
+    return (
+      <>
+      <div className="card overflow-hidden">
+        <div className="bg-red-700 px-6 py-5 text-white">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider opacity-80">Resultat</div>
+              <div className="text-[18px] font-medium">Widerrufen</div>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4 p-6">
+          <p className="text-[14px] leading-relaxed text-ink-700">
+            Der Hash dieses Dokuments stimmt zwar mit einem auf zeugnio.ch
+            registrierten Arbeitszeugnis überein — der Aussteller hat dieses
+            Zeugnis jedoch nachträglich widerrufen{revokedDate ? ` (am ${revokedDate})` : ""}.
+            Es sollte nicht mehr als gültiger Nachweis akzeptiert werden.
+          </p>
+          {state.certificate && (
+            <div className="rounded-md border border-red-200 bg-red-50/60 p-4">
+              <div className="text-[10px] font-medium uppercase tracking-wider text-red-700">
+                Registrierte Angaben
+              </div>
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                {state.certificate.employeeName && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Mitarbeiter/in</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.employeeName}
+                    </dd>
+                  </div>
+                )}
+                {state.certificate.employer && (
+                  <div>
+                    <dt className="text-[11px] text-ink-500">Arbeitgeber</dt>
+                    <dd className="text-[13.5px] font-medium text-ink-800">
+                      {state.certificate.employer}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          )}
+          <div className="rounded-md bg-ink-50 p-4">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-ink-500">
+              SHA-256 Hash
+            </div>
+            <div className="mt-1 break-all font-mono text-[11px]">{state.hash}</div>
           </div>
           <button onClick={reset} className="btn-secondary text-[13px]">
             Weiteres Dokument prüfen

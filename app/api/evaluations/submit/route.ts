@@ -11,7 +11,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 
 export async function POST(req: NextRequest) {
   try {
-    const limited = rateLimit(
+    const limited = await rateLimit(
       `eval-submit:${getClientIp(req)}`,
       SUBMIT_LIMIT,
       SUBMIT_WINDOW_MS,

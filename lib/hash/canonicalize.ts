@@ -133,6 +133,13 @@ export type VerifyOutcome =
       matchedCertificateId: string;
       certificate: VerifiedCertificateFields;
     }
+  | {
+      result: "revoked";
+      matchedHash: string;
+      matchedCertificateId: string;
+      revokedAt: string | null;
+      certificate: VerifiedCertificateFields;
+    }
   | { result: "unknown"; calculatedHash: string }
   | { result: "no_sentinel" };
 

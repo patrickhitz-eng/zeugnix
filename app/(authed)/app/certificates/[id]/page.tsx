@@ -7,6 +7,7 @@ import { CertificateRichWorkspace } from "@/components/app/certificate-rich-work
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { CertificateWorkspace } from "@/components/app/certificate-workspace";
 import { CertificateManage } from "@/components/app/certificate-manage";
+import { isCertificateLocked } from "@/lib/certificate/status";
 import Link from "next/link";
 
 interface PageProps {
@@ -65,8 +66,23 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   const invitations = cert.manager_invitations ?? [];
 
   const isFinal = cert.status === "final";
+  const isRevoked = cert.status === "revoked";
+  // Editier-Sperre der Formulare: gilt fuer 'final' UND 'revoked' (revoked ist
+  // "final und mehr", nie weniger gesperrt) - sonst wuerden Schlusssatz-/
+  // Unterzeichner-/Editor-Formulare fuer ein widerrufenes Zeugnis wieder
+  // freigeschaltet.
+  const isLocked = isCertificateLocked(cert.status);
   const hasText = !!cert.generated_text;
   const isArchived = !!cert.archived_at;
+
+  // Verlauf (H3): Statuswechsel-Historie, wird automatisch per DB-Trigger
+  // befüllt (supabase/021_revocation_and_audit_log.sql). Nur lesend, kein
+  // eigener Client nötig.
+  const { data: auditLog } = await supabase
+    .from("audit_log")
+    .select("action, old_status, new_status, note, created_at, profiles(full_name, email)")
+    .eq("certificate_id", id)
+    .order("created_at", { ascending: false });
 
   // Effektive Unterzeichnende: Zeugnis-Override ⟶ Firmenvorgabe (pro Slot).
   // Speist Vorschau (previewCompany) und den Empfehlungs-Hinweis unten.
@@ -75,6 +91,16 @@ export default async function CertificateDetailPage({ params }: PageProps) {
 
   return (
     <div className="space-y-6">
+      {isRevoked && (
+        <div className="rounded-md border border-red-200 bg-red-50/70 px-4 py-2.5 text-[12.5px] text-red-800">
+          Dieses Zeugnis wurde widerrufen
+          {cert.revoked_at
+            ? ` am ${new Date(cert.revoked_at).toLocaleDateString("de-CH", { day: "2-digit", month: "2-digit", year: "numeric" })}`
+            : ""}
+          . Die Prüfung auf zeugnio.ch zeigt das dauerhaft an.
+          {cert.revocation_reason ? ` Grund: ${cert.revocation_reason}` : ""}
+        </div>
+      )}
       {isArchived && (
         <div className="rounded-md border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-[12.5px] text-amber-800">
           Dieses Zeugnis ist archiviert und erscheint nicht in der
@@ -93,7 +119,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             {employee.function_title} · {company.name}
           </p>
         </div>
-        {isFinal && cert.hash && (
+        {isLocked && cert.hash && (
           <a
             href={`/api/certificates/${cert.id}/pdf`}
             target="_blank"
@@ -130,7 +156,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             current={cert.status === "manager_submitted" && !cert.hash}
           />
           <Connector />
-          <StepBadge label="Final" active={isFinal} />
+          <StepBadge label="Final" active={isLocked} />
         </div>
       </div>
 
@@ -151,7 +177,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         <SchlusssatzControls
           certificateId={cert.id}
           zeugnisTyp={cert.zeugnis_typ}
-          finalized={isFinal}
+          finalized={isLocked}
           subject={{
             firstName: employee.first_name,
             lastName: employee.last_name,
@@ -201,7 +227,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             certificateId={cert.id}
             generatedText={cert.generated_text ?? ""}
             initialFormattedContent={cert.formatted_content ?? null}
-            finalized={isFinal}
+            finalized={isLocked}
             themeId={company.default_certificate_font_family}
             company={previewCompany}
             employee={employee}
@@ -254,14 +280,67 @@ export default async function CertificateDetailPage({ params }: PageProps) {
       )}
       </CertificateWorkspace>
 
-      {/* Verwaltung: Archivieren / Löschen */}
+      {/* Verwaltung: Archivieren / Löschen / Widerrufen */}
       <CertificateManage
         certificateId={cert.id}
         status={cert.status}
         archived={isArchived}
       />
+
+      {/* Verlauf (H3): automatisch protokollierte Statuswechsel */}
+      {auditLog && auditLog.length > 0 && (
+        <div className="card border-ink-100 p-6">
+          <h2 className="mb-4 text-[14px] font-medium tracking-tight">Verlauf</h2>
+          <ul className="space-y-2.5">
+            {auditLog.map((entry: any, i: number) => {
+              const actor = Array.isArray(entry.profiles)
+                ? entry.profiles[0]
+                : entry.profiles;
+              return (
+                <li
+                  key={i}
+                  className="flex items-start justify-between gap-3 border-b border-ink-50 pb-2.5 text-[12.5px] last:border-0 last:pb-0"
+                >
+                  <div>
+                    <span className="font-medium text-ink-800">
+                      {auditActionLabel(entry.action)}
+                    </span>
+                    <span className="text-ink-500">
+                      {" "}
+                      — {actor?.full_name || actor?.email || "System"}
+                    </span>
+                    {entry.note && (
+                      <div className="mt-0.5 text-[11.5px] text-ink-500">
+                        Grund: {entry.note}
+                      </div>
+                    )}
+                  </div>
+                  <div className="shrink-0 whitespace-nowrap text-[11px] text-ink-400">
+                    {new Date(entry.created_at).toLocaleString("de-CH", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
+}
+
+function auditActionLabel(action: string): string {
+  const map: Record<string, string> = {
+    finalized: "Finalisiert",
+    revoked: "Widerrufen",
+    status_changed: "Status geändert",
+  };
+  return map[action] ?? action;
 }
 
 function typeLabel(t: string) {
