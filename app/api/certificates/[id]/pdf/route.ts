@@ -98,6 +98,22 @@ export async function GET(
   // Unterzeichnende: zeugnis-spezifischer Override vor Firmenvorgabe.
   const signatories = resolveSignatories(cert, company);
 
+  // V2: bestaetigte Unterzeichner-Freigaben pro Slot (E-Mail + Zeitpunkt) laden.
+  // Der Renderer zeigt sie als "✓ Bestaetigt am …" unter der Unterschrift.
+  const signoffBySlot: Record<number, { email: string; confirmedAt: string }> = {};
+  {
+    const { data: signoffs } = await supabase
+      .from("certificate_signoffs")
+      .select("slot, email, confirmed_at, status")
+      .eq("certificate_id", id)
+      .eq("status", "confirmed");
+    for (const so of signoffs ?? []) {
+      if (so.confirmed_at && (so.slot === 1 || so.slot === 2)) {
+        signoffBySlot[so.slot] = { email: so.email, confirmedAt: so.confirmed_at };
+      }
+    }
+  }
+
   // Logo als Data-URL laden, falls Logo-URL vorhanden. SSRF-gehärtet:
   // nur erlaubte (Supabase-Storage-)URLs, mit Timeout und Grössenlimit. Ein
   // Problem beim Logo überspringt nur das Logo, bricht aber nicht den PDF-Build.
@@ -195,6 +211,12 @@ export async function GET(
       signatory2Name: signatories.signatory_2_name ?? undefined,
       signatory2Role: signatories.signatory_2_role ?? undefined,
       signatureMode: cert.signature_mode ?? undefined,
+
+      // V2: identitaetsgebundene Freigaben (nur bestaetigte Slots gesetzt).
+      signatory1Email: signoffBySlot[1]?.email,
+      signatory1ConfirmedAt: signoffBySlot[1]?.confirmedAt,
+      signatory2Email: signoffBySlot[2]?.email,
+      signatory2ConfirmedAt: signoffBySlot[2]?.confirmedAt,
 
       hash: cert.hash,
       baseUrl,

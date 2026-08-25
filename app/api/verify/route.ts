@@ -106,6 +106,30 @@ export async function POST(req: NextRequest) {
         verifiedDomain = dom?.domain ?? null;
       }
 
+      // V2-Trust-Signal: identitaetsgebundene Unterzeichner-Freigaben, die per
+      // Magic-Link bestaetigt wurden. Datum pro Slot; die bestaetigende E-Mail
+      // bleibt aus Datenschutzgruenden ausserhalb der oeffentlichen Antwort.
+      let signatory1ConfirmedAt: string | null = null;
+      let signatory2ConfirmedAt: string | null = null;
+      {
+        const { data: signoffs } = await supabase
+          .from("certificate_signoffs")
+          .select("slot, confirmed_at")
+          .eq("certificate_id", match.id)
+          .eq("status", "confirmed");
+        for (const so of signoffs ?? []) {
+          const formatted = so.confirmed_at
+            ? new Date(so.confirmed_at).toLocaleDateString("de-CH", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+              })
+            : null;
+          if (so.slot === 1) signatory1ConfirmedAt = formatted;
+          if (so.slot === 2) signatory2ConfirmedAt = formatted;
+        }
+      }
+
       const issueDate = match.finalized_at
         ? new Date(match.finalized_at).toLocaleDateString("de-CH", {
             day: "2-digit",
@@ -130,6 +154,8 @@ export async function POST(req: NextRequest) {
           signatory2Name: signatories.signatory_2_name,
           signatory2Role: signatories.signatory_2_role,
           verifiedDomain,
+          signatory1ConfirmedAt,
+          signatory2ConfirmedAt,
         },
       };
     } else {
