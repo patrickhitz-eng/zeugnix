@@ -239,6 +239,12 @@ export const BRAND_THEMES: Record<string, DocumentTheme> = {
     fonts: { heading: "inter", body: "inter", mono: "inter" },
     colors: { ...BASE_COLORS, brandAccent: "#002D53" },
   },
+  "brand-prokuration": {
+    id: "brand-prokuration",
+    label: "Prokuration",
+    fonts: { heading: "inter", body: "inter", mono: "inter" },
+    colors: { ...BASE_COLORS, brandAccent: "#2278C9" },
+  },
 };
 
 /** Vereinigung: alle auflösbaren Themes (öffentlich + privat). */
