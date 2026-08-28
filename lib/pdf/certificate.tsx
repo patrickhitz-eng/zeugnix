@@ -172,6 +172,10 @@ function CertificateDocument(props: DocProps) {
   const baseUrl = s(props.baseUrl);
   const qrDataUrl = s(props.qrDataUrl);
   const metaBlockEncoded = s(props.metaBlockEncoded);
+  // Handunterschrift: Fläche zum Unterschreiben schaffen und die Namen bündig an
+  // die Trennlinie über dem Hash rücken (der „Digital ausgestellt durch"-Kopf
+  // entfällt in diesem Modus).
+  const isHandwritten = props.signatureMode === "handwritten";
 
   const cityLine = [companyPostalCode, companyCity]
     .filter((x) => x.length > 0)
@@ -244,9 +248,14 @@ function CertificateDocument(props: DocProps) {
         {/* Signatures */}
         {signatory1Name.length > 0 || signatory2Name.length > 0 ? (
           <View>
-            {props.signatureMode !== "handwritten" ? (
+            {isHandwritten ? (
+              // Leerraum als handschriftliche Unterschriftsfläche ÜBER der
+              // Unterschriftslinie. marginTop ersetzt den entfallenden
+              // „Digital ausgestellt durch"-Kopf; height = Platz zum Unterschreiben.
+              <View style={{ marginTop: 36, height: 54 }} />
+            ) : (
               <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
-            ) : null}
+            )}
             <View style={styles.signatures}>
               <View style={styles.signatureCell}>
                 {signatory1Name.length > 0 ? (
@@ -282,7 +291,9 @@ function CertificateDocument(props: DocProps) {
         ) : null}
 
         {/* Hash + QR */}
-        <View style={styles.hashBlock}>
+        {/* Handunterschrift: kleinerer Abstand, damit die Namen bündig auf der
+            Trennlinie über dem Hash sitzen (Standard 36 lässt sonst eine Lücke). */}
+        <View style={isHandwritten ? [styles.hashBlock, { marginTop: 14 }] : styles.hashBlock}>
           <View style={styles.hashText}>
             <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
             <Text style={styles.hashValue}>{hash}</Text>
