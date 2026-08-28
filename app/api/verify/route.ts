@@ -5,13 +5,19 @@ import {
   canonicalizeForHash,
   extractBodyBetweenSentinels,
   extractMetaBetweenSentinels,
+  extractSignatureBetweenSentinels,
   decodeMetaBlock,
+  decodeSignatureBlock,
   hashBodyMetaV2,
   sha256,
   type VerifyOutcome,
 } from "@/lib/hash/canonicalize";
+import { verifyCertificateSignature } from "@/lib/crypto/signing";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+
+// S2: node:crypto (Ed25519-Verifikation) benötigt die Node-Runtime (nicht Edge).
+export const runtime = "nodejs";
 
 // Öffentlicher, Service-Role-gestützter Endpunkt → Rate-Limit gegen DoS/Abuse.
 const VERIFY_LIMIT = 20;
@@ -74,6 +80,20 @@ export async function POST(req: NextRequest) {
     // Der "berechnete Hash", den wir dem Prüfer zeigen/protokollieren: bei einem
     // Meta-Block der v2-Hash (das eigentliche Siegel), sonst der v1-Body-Hash.
     const calculatedHash = metaHash ?? bodyHash;
+
+    // S2: kryptografische Signatur aus dem PDF verifizieren – OFFLINE, gegen den
+    // öffentlichen Plattform-Schlüssel, unabhängig von der DB. Signiert wurde der
+    // v2-Hash; wir prüfen die eingebettete Signatur gegen den aus DIESEM PDF
+    // rekonstruierten metaHash. Gültig => „nur zeugnio konnte das ausstellen".
+    // Fehlt der Block oder passt er nicht (Alt-Zeugnis, kein Schlüssel,
+    // Manipulation), bleibt signatureValid false und die Prüfung fällt sauber auf
+    // den Hash-Match zurück (Bestandsschutz).
+    const rawSig = extractSignatureBetweenSentinels(text);
+    const parsedSig = rawSig ? decodeSignatureBlock(rawSig) : null;
+    const signatureValid =
+      parsedSig !== null && metaHash !== null
+        ? verifyCertificateSignature(metaHash, parsedSig.keyId, parsedSig.signature)
+        : false;
 
     // 3. In DB suchen. Mitgeladen werden die Vergleichsfelder (S1a): Arbeitgeber
     //    und Unterzeichnende sowie Mitarbeiter/in, Typ und Ausstelldatum zum
@@ -198,6 +218,8 @@ export async function POST(req: NextRequest) {
         signatory2ConfirmedAt,
         // S1b: 2 = Aussteller/Titel/Unterzeichnende sind vom Hash gedeckt.
         sealVersion: match.hash_version ?? 1,
+        // S2: PDF trägt eine gültige, offline verifizierte zeugnio-Signatur.
+        signatureValid,
       };
 
       // Reihenfolge der Fälle: Mismatch (Body echt, Meta-Siegel gebrochen) vor

@@ -8,6 +8,10 @@ import {
 } from "@/lib/hash/canonicalize";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+import { signCertificateHash } from "@/lib/crypto/signing";
+
+// S2: node:crypto (Ed25519) benötigt die Node-Runtime (nicht Edge).
+export const runtime = "nodejs";
 
 export async function POST(
   _req: NextRequest,
@@ -79,6 +83,14 @@ export async function POST(
   };
   const hash = await hashBodyMetaV2(bodyText, metaSnapshot);
 
+  // S2: v2-Hash mit dem privaten Plattform-Schlüssel (Ed25519) signieren. Die
+  // Signatur wird gespeichert UND (im PDF) eingebettet; die Prüfung verifiziert
+  // sie offline gegen den öffentlichen Schlüssel -> „nur zeugnio konnte das
+  // ausstellen". Ist KEIN Schlüssel konfiguriert (z. B. Preview ohne Env),
+  // bleibt signed null: die Finalisierung läuft ohne Signatur weiter (voller
+  // Bestandsschutz), die Prüfung fällt sauber auf den v2-/v1-Hash-Match zurück.
+  const signed = signCertificateHash(hash);
+
   // Kritischer Schreibvorgang: schlägt er fehl, darf NICHT ok:true zurück –
   // sonst meldet die UI "finalisiert", obwohl Hash/Status nicht gespeichert sind.
   const { error: finalizeErr } = await supabase
@@ -91,6 +103,9 @@ export async function POST(
       canonical_content: canonicalString,
       hash_version: 2,
       meta_snapshot: metaSnapshot,
+      // S2: null, wenn kein Schlüssel konfiguriert ist (additiv, Bestandsschutz).
+      signature: signed?.signature ?? null,
+      signing_key_id: signed?.keyId ?? null,
       status: "final",
       finalized_at: new Date().toISOString(),
     })
@@ -146,6 +161,8 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     hash,
+    // S2: wurde das Zeugnis kryptografisch signiert (Schlüssel konfiguriert)?
+    signed: !!signed,
     // Abgestuftes Trust-Level: verifizierter Aussteller vs. nur registriert.
     trustLevel: domainVerified ? "domain_verified" : "registered_only",
   });

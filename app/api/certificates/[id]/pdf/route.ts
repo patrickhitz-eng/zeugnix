@@ -5,7 +5,11 @@ import { renderCertificatePdf } from "@/lib/pdf/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 import { isCertificateLocked } from "@/lib/certificate/status";
-import { encodeMetaBlock, toMetaFields } from "@/lib/hash/canonicalize";
+import {
+  encodeMetaBlock,
+  encodeSignatureBlock,
+  toMetaFields,
+} from "@/lib/hash/canonicalize";
 
 // @react-pdf/renderer braucht die Node-Runtime (nicht Edge). Die Antwort darf
 // nicht statisch gecacht werden, und die PDF-Erzeugung kann etwas dauern.
@@ -198,6 +202,18 @@ export async function GET(
     metaBlockEncoded = encodeMetaBlock(toMetaFields(cert.meta_snapshot));
   }
 
+  // S2: unsichtbaren Signatur-Block einbetten, sofern das Zeugnis beim
+  // Finalisieren signiert wurde. Quelle ist der eingefrorene DB-Wert (nicht neu
+  // signieren) – so trägt das PDF exakt die gespeicherte, unveränderliche
+  // Signatur. Fehlt sie (Alt-Zeugnis / kein Schlüssel), kein Block.
+  let signatureBlockEncoded: string | undefined;
+  if (cert.signature && cert.signing_key_id) {
+    signatureBlockEncoded = encodeSignatureBlock({
+      keyId: cert.signing_key_id,
+      signature: cert.signature,
+    });
+  }
+
   // Bevorzugt edited_text (manuell bearbeitet), sonst generated_text
   const bodyText = cert.edited_text || cert.generated_text || "";
 
@@ -235,6 +251,8 @@ export async function GET(
 
       // S1b: eingefrorener Meta-Block (nur v2-Zeugnisse).
       metaBlockEncoded,
+      // S2: eingefrorener Signatur-Block (nur signierte Zeugnisse).
+      signatureBlockEncoded,
 
       hash: cert.hash,
       baseUrl,
