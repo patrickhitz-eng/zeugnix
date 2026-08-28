@@ -275,7 +275,9 @@ function CertificateDocument(props: DocProps) {
               // Leerraum als handschriftliche Unterschriftsfläche ÜBER der
               // Unterschriftslinie. marginTop ersetzt den entfallenden
               // „Digital ausgestellt durch"-Kopf; height = Platz zum Unterschreiben.
-              <View style={{ marginTop: 36, height: 54 }} />
+              // ~90pt (≈32mm) geben genügend Raum für eine echte Unterschrift mit
+              // Stift; die Namen bleiben bündig an der Linie darunter.
+              <View style={{ marginTop: 36, height: 90 }} />
             ) : (
               <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
             )}
