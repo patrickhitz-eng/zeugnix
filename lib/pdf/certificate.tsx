@@ -23,6 +23,8 @@ import {
   BODY_SENTINEL_END,
   META_SENTINEL_START,
   META_SENTINEL_END,
+  SIG_SENTINEL_START,
+  SIG_SENTINEL_END,
   buildVerifyUrl,
 } from "@/lib/hash/canonicalize";
 import type { TiptapDoc } from "@/lib/certificate/tiptap-plaintext";
@@ -96,6 +98,14 @@ interface RenderInput {
    * Block (v1-/Alt-Zeugnis, Bestandsschutz).
    */
   metaBlockEncoded?: string;
+
+  /**
+   * S2: Base64(JSON) des Signatur-Blocks { kid, sig } (Ed25519 über den
+   * v2-Hash). Wird als unsichtbarer, maschinenlesbarer Block eingebettet, damit
+   * die Prüfung die Signatur offline verifizieren kann. Leer/undefined -> kein
+   * Block (Alt-Zeugnis oder kein Schlüssel konfiguriert, Bestandsschutz).
+   */
+  signatureBlockEncoded?: string;
 
   hash: string;
   baseUrl: string;
@@ -172,6 +182,7 @@ function CertificateDocument(props: DocProps) {
   const baseUrl = s(props.baseUrl);
   const qrDataUrl = s(props.qrDataUrl);
   const metaBlockEncoded = s(props.metaBlockEncoded);
+  const signatureBlockEncoded = s(props.signatureBlockEncoded);
   // Handunterschrift: Fläche zum Unterschreiben schaffen und die Namen bündig an
   // die Trennlinie über dem Hash rücken (der „Digital ausgestellt durch"-Kopf
   // entfällt in diesem Modus).
@@ -242,6 +253,18 @@ function CertificateDocument(props: DocProps) {
             <Text style={styles.sentinel}>{META_SENTINEL_START}</Text>
             <Text style={styles.sentinel}>{chunkForWrap(metaBlockEncoded)}</Text>
             <Text style={styles.sentinel}>{META_SENTINEL_END}</Text>
+          </View>
+        ) : null}
+
+        {/* S2: unsichtbarer Signatur-Block (Ed25519 über den v2-Hash),
+            ausserhalb aller Body-/Meta-Sentinels. Erlaubt der Prüfung, die
+            Ausstellung offline gegen den öffentlichen Plattform-Schlüssel zu
+            verifizieren. Ändert Body- und Meta-Hash nicht. */}
+        {signatureBlockEncoded.length > 0 ? (
+          <View>
+            <Text style={styles.sentinel}>{SIG_SENTINEL_START}</Text>
+            <Text style={styles.sentinel}>{chunkForWrap(signatureBlockEncoded)}</Text>
+            <Text style={styles.sentinel}>{SIG_SENTINEL_END}</Text>
           </View>
         ) : null}
 

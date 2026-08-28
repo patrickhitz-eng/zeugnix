@@ -11,6 +11,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test:hash": "tsx scripts/test-hash.ts",
+    "test:signing": "tsx scripts/test-signing.ts",
     "test:domain": "tsx scripts/test-domain.ts",
     "test:tiptap": "tsx scripts/test-tiptap.ts",
     "test:themes": "tsx scripts/test-themes.ts",

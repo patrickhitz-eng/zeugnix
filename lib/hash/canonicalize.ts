@@ -232,6 +232,89 @@ export function decodeMetaBlock(rawBlock: string): CertificateMetaFields | null 
 }
 
 // ============================================================================
+// S2 – Kryptografische Signatur (Ed25519)
+// ============================================================================
+// Der SHA-256 belegt Inhalts-Identität (jeder kann ihn nachrechnen), NICHT
+// Urheberschaft. S2 signiert den v2-Hash mit einem privaten Plattform-Schlüssel;
+// die Prüfung verifiziert die Signatur gegen den öffentlichen Schlüssel –
+// offline, ohne DB. Damit gilt „nur zeugnio konnte das ausstellen".
+//
+// Die hier liegenden Helfer sind ISOMORPH (kein node:crypto): Payload-Aufbau
+// und das Encode/Decode des unsichtbaren PDF-Blocks. Das eigentliche Signieren/
+// Verifizieren (privater Schlüssel) lebt server-only in lib/crypto/signing.ts.
+
+// Eigene Sentinels für den unsichtbaren Signatur-Block. Neu (kein Bestands-PDF
+// enthält sie); Body- und Meta-Sentinels bleiben unverändert.
+export const SIG_SENTINEL_START = "[[zeugnix:sig-start]]";
+export const SIG_SENTINEL_END = "[[zeugnix:sig-end]]";
+
+// Domain-Separations-Präfix: signiert wird NICHT der nackte Hash, sondern
+// dieser Präfix + Hash. Verhindert, dass eine hier erzeugte Signatur in einem
+// fremden Kontext als gültig missbraucht werden kann. Versioniert.
+const SIG_PAYLOAD_PREFIX = "zeugnio-cert-sig-v1:";
+
+/** Kanonische, zu signierende Nachricht über den v2-Hash. */
+export function buildSignaturePayload(hashV2: string): string {
+  return SIG_PAYLOAD_PREFIX + hashV2;
+}
+
+export interface CertificateSignatureBlock {
+  /** ID des Schlüssels, mit dem signiert wurde (erlaubt Rotation). */
+  keyId: string;
+  /** Base64 der Ed25519-Signatur. */
+  signature: string;
+}
+
+/**
+ * Kodiert den Signatur-Block als Base64(JSON) für den unsichtbaren PDF-Block –
+ * exakt wie encodeMetaBlock (whitespace-robust: beim Prüfen wird sämtliche
+ * Whitespace entfernt, wodurch pdfjs-Eigenheiten den Wert nicht verfälschen).
+ */
+export function encodeSignatureBlock(block: CertificateSignatureBlock): string {
+  const json = JSON.stringify({ v: 1, kid: block.keyId, sig: block.signature });
+  const bytes = new TextEncoder().encode(json);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
+/** Dekodiert den (evtl. mit Whitespace durchsetzten) Signatur-Block. null, wenn
+ * leer/unlesbar oder unvollständig. */
+export function decodeSignatureBlock(
+  rawBlock: string,
+): CertificateSignatureBlock | null {
+  const b64 = rawBlock.replace(/\s+/g, "");
+  if (!b64) return null;
+  try {
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, (ch) => ch.charCodeAt(0));
+    const json = new TextDecoder().decode(bytes);
+    const obj = JSON.parse(json);
+    if (!obj || typeof obj !== "object") return null;
+    const kid = typeof obj.kid === "string" ? obj.kid : "";
+    const sig = typeof obj.sig === "string" ? obj.sig : "";
+    if (!kid || !sig) return null;
+    return { keyId: kid, signature: sig };
+  } catch {
+    return null;
+  }
+}
+
+/** Schneidet den Signatur-Block zwischen den Sig-Sentinels heraus (roh). null,
+ * wenn kein Block vorhanden ist (v1-/v2-ohne-Signatur/Alt-PDF). */
+export function extractSignatureBetweenSentinels(raw: string): string | null {
+  const startRe = /\[\[\s*zeugnix\s*:\s*sig-start\s*\]\]/i;
+  const endRe = /\[\[\s*zeugnix\s*:\s*sig-end\s*\]\]/i;
+  const startMatch = raw.match(startRe);
+  if (!startMatch || startMatch.index === undefined) return null;
+  const afterStart = startMatch.index + startMatch[0].length;
+  const tail = raw.slice(afterStart);
+  const endMatch = tail.match(endRe);
+  if (!endMatch || endMatch.index === undefined) return null;
+  return tail.slice(0, endMatch.index);
+}
+
+// ============================================================================
 // Verifikations-Ergebnistyp
 // ============================================================================
 
@@ -266,6 +349,13 @@ export interface VerifiedCertificateFields {
   // Unterzeichnende sind vom Hash gedeckt; 1 = nur Fliesstext (Alt-Zeugnis,
   // Bestandsschutz). Steuert das Vertrauens-Label in der Prüfung.
   sealVersion: number;
+  // S2: true = das PDF trägt eine GÜLTIGE kryptografische zeugnio-Signatur
+  // (Ed25519) über seinen Inhalt, gegen den öffentlichen Plattform-Schlüssel
+  // offline (ohne DB) verifiziert -> „nur zeugnio konnte das ausstellen".
+  // false/undefined = keine (gültige) Signatur (Alt-Zeugnis vor S2, oder der
+  // Signatur-Block fehlt/ist gebrochen). Bestandsschutz: false stuft nur das
+  // Trust-Label ab, der v2-/v1-Hash-Match bleibt davon unberührt.
+  signatureValid?: boolean;
 }
 
 export type VerifyOutcome =
