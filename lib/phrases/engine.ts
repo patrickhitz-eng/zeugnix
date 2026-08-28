@@ -422,6 +422,9 @@ export function generateCertificate(
       wertschaetzung: certificate.wertschaetzung ?? null,
       optinBedauern: certificate.optinBedauern,
       optinReorg: certificate.optinReorg,
+      // Zwischenzeugnis-Anlass: passt den Schlusssatz an (VG-/interner Wechsel).
+      optinVorgesetztenwechsel: certificate.optinVorgesetztenwechsel,
+      optinInternerWechsel: certificate.optinInternerWechsel,
     });
     closing = tmpl
       ? substitute(tmpl, employee, certificate)

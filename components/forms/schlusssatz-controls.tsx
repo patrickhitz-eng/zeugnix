@@ -96,7 +96,15 @@ export function SchlusssatzControls({
     zeugnisTyp === "arbeitsbestaetigung"
       ? null
       : schlusssatzPreview(
-          { zeugnisTyp, austrittsgrund, wertschaetzung, optinBedauern, optinReorg },
+          {
+            zeugnisTyp,
+            austrittsgrund,
+            wertschaetzung,
+            optinBedauern,
+            optinReorg,
+            optinVorgesetztenwechsel,
+            optinInternerWechsel,
+          },
           subject,
         );
 

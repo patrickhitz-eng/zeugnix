@@ -11,7 +11,9 @@
  *   Zeugnistyp  (schluss | zwischen)
  *   Austrittsgrund (wunsch_an | wunsch_ag | einvernehmen)   – nur bei Schluss
  *   Wertschätzungsgrad (standard | wertschaetzender | top)
- *   Opt-ins: Bedauern (nur Schluss, ersetzt den Satz), Reorganisation
+ *   Opt-ins Schluss:  Bedauern (ersetzt den Satz), Reorganisation
+ *   Opt-ins Zwischen: Anlass = Vorgesetztenwechsel | interner Wechsel |
+ *                     Reorganisation (ersetzt den Standard-Zwischensatz)
  *
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
@@ -31,6 +33,10 @@ export interface SchlusssatzParams {
   wertschaetzung?: Wertschaetzung | null;
   optinBedauern?: boolean;
   optinReorg?: boolean;
+  // Nur Zwischenzeugnis: Anlass des Zwischenzeugnisses. Passt den Schlusssatz an
+  // (Person bleibt angestellt). Vorrang vor dem grad-basierten Standardsatz.
+  optinVorgesetztenwechsel?: boolean;
+  optinInternerWechsel?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,6 +76,19 @@ const ZWISCHEN: Partial<Record<Wertschaetzung, string>> = {
   // wertschaetzender / top: Lücke (KI-Ergänzung)
 };
 
+// Zwischenzeugnis – Anlass-Varianten. Beim Zwischenzeugnis BLEIBT die Person
+// angestellt; der gewählte Anlass verändert nur den Schlusssatz und ersetzt den
+// Standard-Zwischensatz oben. Basis = Christoph-abgesegnete Bausteine aus
+// Migration 010 (phrase_blocks: vorgesetztenwechsel / interner_wechsel), hier
+// für den Zwischen-Kontext gespiegelt/angepasst.
+// ENTWURF – finale Formulierung + Freigabe durch Christoph noch ausstehend.
+const ZWISCHEN_VORGESETZTENWECHSEL =
+  "Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken {vorname} {nachname} für die bisherige sehr wertvolle Unterstützung bestens und hoffen, noch lange auf {{seine|ihre|seine/ihre}} geschätzte Mitarbeit zählen zu dürfen.";
+const ZWISCHEN_INTERNER_WECHSEL =
+  "Dieses Zwischenzeugnis wird aufgrund eines internen Wechsels ausgestellt. Wir danken {vorname} {nachname} bestens für die bisherige wertvolle Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} viel Freude und Erfolg im neuen Aufgabengebiet.";
+const ZWISCHEN_REORG =
+  "Dieses Zwischenzeugnis wird im Zuge einer Reorganisation ausgestellt. Wir danken {vorname} {nachname} für die bisherige wertvolle Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} weiterhin viel Erfolg.";
+
 // ---------------------------------------------------------------------------
 // Auswahl
 // ---------------------------------------------------------------------------
@@ -102,6 +121,12 @@ export function pickSchlusssatz(p: SchlusssatzParams): string | null {
   }
 
   if (p.zeugnisTyp === "zwischen") {
+    // Anlass-Opt-ins haben Vorrang vor dem grad-basierten Standard-Zwischensatz
+    // (analog zu Bedauern/Reorg beim Schlusszeugnis). Reihenfolge wie in
+    // deriveLegacyType: Vorgesetztenwechsel vor internem Wechsel, Reorg zuletzt.
+    if (p.optinVorgesetztenwechsel) return ZWISCHEN_VORGESETZTENWECHSEL;
+    if (p.optinInternerWechsel) return ZWISCHEN_INTERNER_WECHSEL;
+    if (p.optinReorg) return ZWISCHEN_REORG;
     return ZWISCHEN[grad] ?? ZWISCHEN.standard ?? null;
   }
 
