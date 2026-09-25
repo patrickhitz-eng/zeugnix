@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { logInfo } from "@/lib/log";
 
 /**
  * Stripe-Webhook-Endpoint (Stub für MVP).
@@ -16,7 +17,9 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text();
-    console.log("Stripe webhook received (stub):", body.slice(0, 200));
+    // Bewusst nur die Grösse: Ein Stripe-Payload enthält Name, E-Mail und
+    // Zahlungsdaten der kaufenden Person.
+    logInfo("[stripe] Webhook empfangen (Stub), Bytes:", body.length);
 
     // ---- Echte Webhook-Verarbeitung (auskommentiert) ----
     // const sig = req.headers.get('stripe-signature')!;

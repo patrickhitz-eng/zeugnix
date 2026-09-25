@@ -15,6 +15,7 @@ import {
 import { verifyCertificateSignature } from "@/lib/crypto/signing";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+import { logError } from "@/lib/log";
 
 // S2: node:crypto (Ed25519-Verifikation) benötigt die Node-Runtime (nicht Edge).
 export const runtime = "nodejs";
@@ -268,7 +269,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(outcome);
   } catch (err: any) {
-    console.error("Verify error:", err);
+    logError("[verify] Fehler:", err);
     return NextResponse.json(
       { error: err.message ?? "Internal error" },
       { status: 500 },

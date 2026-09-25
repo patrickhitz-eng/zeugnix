@@ -45,3 +45,6 @@ desktop.ini
 
 # Vertrauliche Inputs Dritter (nicht ins Repo)
 /Inputs von Christoph Senn/
+
+# Aus node_modules kopiert (scripts/copy-pdf-worker.ts, läuft in prebuild/predev)
+/public/pdfjs/

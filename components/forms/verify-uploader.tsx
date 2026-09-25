@@ -60,8 +60,11 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
     try {
       // pdfjs-dist im Browser laden
       const pdfjsLib = await import("pdfjs-dist");
-      // Worker via CDN (für MVP einfach; produktiv eigenes Hosting)
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+      // Worker aus dem eigenen Build (scripts/copy-pdf-worker.ts kopiert ihn in
+      // prebuild/predev nach public/pdfjs/). Vorher kam er von cdnjs: Das trug
+      // die Besucher-IP in die USA und brach still, sobald das CDN die
+      // installierte pdfjs-Version nicht führt.
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.min.mjs";
 
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;

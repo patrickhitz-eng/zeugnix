@@ -52,15 +52,25 @@ export default function RootLayout({
   return (
     <html lang="de-CH" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        {/*
+         * Schriften liegen self-hosted in public/fonts/web (@font-face in
+         * globals.css). Kein Google-Fonts-CDN mehr: Jeder Seitenaufruf hätte
+         * sonst die Besucher-IP in die USA getragen. Vorgeladen wird nur der
+         * Latin-Schnitt der beiden Schriften, die above the fold sichtbar sind.
+         */}
         <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
+          rel="preload"
+          href="/fonts/web/inter-tight-latin.woff2"
+          as="font"
+          type="font/woff2"
           crossOrigin="anonymous"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
+          rel="preload"
+          href="/fonts/web/fraunces-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
         />
       </head>
       <body className="bg-white font-sans text-ink-900 antialiased">
