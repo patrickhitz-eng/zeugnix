@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
 import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { analyzeText } from "@/lib/phrases/analyze";
+import { logError } from "@/lib/log";
 
 // Öffentlicher, Service-Role-gestützter Endpunkt → Rate-Limit gegen DoS/Abuse.
 const ANALYZE_LIMIT = 10;
@@ -60,7 +61,9 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      console.error("Analyse-Insert-Fehler:", error);
+      // Der Insert-Fehler von PostgREST trägt die eingefügte Zeile mit sich –
+      // und die enthält den analysierten Zeugnistext.
+      logError("[analyze] Insert fehlgeschlagen:", error);
     }
 
     return NextResponse.json({ ok: true, analysis: result, id: data?.id });

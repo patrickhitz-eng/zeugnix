@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
+import { logWarn } from "@/lib/log";
 
 /**
  * Durable Rate-Limiter (H5) mit In-Memory-Fallback.
@@ -124,7 +125,8 @@ export async function rateLimit(
     );
     return { ok: false, retryAfter };
   } catch (err) {
-    console.warn(
+    // Der Schlüssel enthält die Client-IP; sie darf nicht ungekürzt ins Log.
+    logWarn(
       "[rate-limit] Durable Store nicht erreichbar, Fallback auf In-Memory:",
       err,
     );

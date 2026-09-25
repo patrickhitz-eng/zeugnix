@@ -13,6 +13,8 @@
  * entscheiden, was zu tun ist (z.B. Link in API-Antwort zurückgeben).
  */
 
+import { logError, logWarn } from "@/lib/log";
+
 const RESEND_API_URL = "https://api.resend.com/emails";
 
 export interface SendEmailParams {
@@ -39,7 +41,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
   const defaultReplyTo = process.env.EMAIL_REPLY_TO;
 
   if (!apiKey) {
-    console.warn("[email] RESEND_API_KEY nicht gesetzt – Versand übersprungen");
+    logWarn("[email] RESEND_API_KEY nicht gesetzt – Versand übersprungen");
     return { sent: false, reason: "no_api_key" };
   }
 
@@ -69,7 +71,8 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error("[email] Resend API error:", res.status, errText);
+      // Die Fehlerantwort spiegelt die Empfängeradresse zurück.
+      logError("[email] Resend API error:", res.status, errText);
       return {
         sent: false,
         reason: "api_error",
@@ -80,7 +83,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
     const data = await res.json();
     return { sent: true, id: data.id };
   } catch (err: any) {
-    console.error("[email] Resend fetch error:", err);
+    logError("[email] Resend fetch error:", err);
     return { sent: false, reason: "api_error", error: err.message ?? "Unknown error" };
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
+import { logError } from "@/lib/log";
 
 /**
  * GET /api/cron/pii-cleanup  (H4 — PII-Minimierung)
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest) {
     .select("id");
 
   if (verificationsErr || analysesErr) {
-    console.error("[pii-cleanup] Fehler:", verificationsErr, analysesErr);
+    logError("[pii-cleanup] Fehler:", verificationsErr, analysesErr);
     return NextResponse.json(
       {
         error:
