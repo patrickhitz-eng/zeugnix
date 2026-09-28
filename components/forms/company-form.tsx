@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/db/supabase-client";
 import {
   BRAND_THEMES,
   BUILTIN_THEMES,
@@ -39,13 +38,21 @@ export function CompanyForm({ company, compact = false }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [logoUrl, setLogoUrl] = useState(company?.logo_url ?? "");
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  // Ausgewählte, noch nicht hochgeladene Datei plus lokale Vorschau. Das Logo
+  // geht erst nach dem Speichern zum Server: beim Anlegen einer neuen Firma gibt
+  // es vorher noch keine ID, unter der es abgelegt werden könnte.
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
+  const [pendingPreview, setPendingPreview] = useState("");
+  const [removeLogo, setRemoveLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = !!company?.id;
+  const shownLogo = pendingPreview || (removeLogo ? "" : logoUrl);
 
-  async function uploadLogo(file: File) {
-    if (!file) return;
+  // Nur eine erste Rückmeldung für die Person am Bildschirm. Die verbindliche
+  // Prüfung macht der Server (lib/uploads/logos.ts) – und zwar anhand der ersten
+  // Bytes der Datei, nicht anhand der vom Browser gemeldeten Art.
+  function selectLogo(file: File) {
     if (file.size > 2 * 1024 * 1024) {
       setError("Logo darf maximal 2 MB gross sein");
       return;
@@ -54,40 +61,20 @@ export function CompanyForm({ company, compact = false }: Props) {
       setError("Nur PNG oder JPG erlaubt (SVG wird im PDF nicht unterstützt)");
       return;
     }
-    setUploadingLogo(true);
     setError("");
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingLogo(file);
+    setPendingPreview(URL.createObjectURL(file));
+    setRemoveLogo(false);
+  }
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Nicht angemeldet");
-      setUploadingLogo(false);
-      return;
-    }
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    // Pfad = <user_id>/<datei> — passt zur RLS-Policy (Migration 007) und
-    // vermeidet den frueheren "tmp/"-Sammelordner.
-    const path = `${user.id}/${fileName}`;
-
-    const { error: upErr } = await supabase.storage
-      .from("company-logos")
-      .upload(path, file, { upsert: true, contentType: file.type });
-
-    if (upErr) {
-      setError(`Logo-Upload fehlgeschlagen: ${upErr.message}`);
-      setUploadingLogo(false);
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("company-logos")
-      .getPublicUrl(path);
-
-    setLogoUrl(urlData.publicUrl);
-    setUploadingLogo(false);
+  function clearLogo() {
+    if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+    setPendingLogo(null);
+    setPendingPreview("");
+    // Ein vorhandenes Logo wird erst beim Speichern entfernt, nicht beim Klick.
+    if (logoUrl) setRemoveLogo(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -95,21 +82,14 @@ export function CompanyForm({ company, compact = false }: Props) {
     setSubmitting(true);
     setError("");
 
-    const fd = new FormData(e.currentTarget);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Nicht angemeldet");
-      setSubmitting(false);
-      return;
-    }
+    const form = e.currentTarget;
+    const fd = new FormData(form);
 
     // Immer vorhandene Felder. Im compact-Modus werden Logo, Kontakt- und
     // Unterzeichner-Felder NICHT gerendert – diese dürfen dann auch nicht ins
-    // Update, sonst würden bestehende Werte mit null überschrieben.
-    const data: any = {
+    // Update, sonst würden bestehende Werte mit null überschrieben. Die
+    // Server-Route schreibt darum ausschliesslich übergebene Felder.
+    const data: Record<string, unknown> = {
       name: (fd.get("name") as string)?.trim(),
       address: (fd.get("address") as string)?.trim() || null,
       postal_code: (fd.get("postal_code") as string)?.trim() || null,
@@ -124,43 +104,71 @@ export function CompanyForm({ company, compact = false }: Props) {
       data.signatory_1_role = (fd.get("signatory_1_role") as string)?.trim() || null;
       data.signatory_2_name = (fd.get("signatory_2_name") as string)?.trim() || null;
       data.signatory_2_role = (fd.get("signatory_2_role") as string)?.trim() || null;
-      data.logo_url = logoUrl || null;
       // Hält die Theme-ID (lib/design/document-tokens.ts). Der Spaltenname ist
       // historisch; resolveTheme() versteht auch die Alt-Font-Keys.
       data.default_certificate_font_family =
         (fd.get("default_certificate_font_family") as string)?.trim() || null;
+      // logo_url wird nur beim Entfernen mitgeschickt. Gesetzt wird es
+      // ausschliesslich von /api/companies/<id>/logo – sonst könnte hier eine
+      // beliebige Adresse eingetragen werden, die die PDF-Route dann abruft.
+      if (removeLogo) data.logo_url = null;
       // default_certificate_text_color wird bewusst nicht mehr geschrieben:
       // die Textfarbe gehört zum Theme. Die Spalte bleibt als Altlast bestehen.
     }
 
-    let dbErr;
-    if (isEdit) {
-      const { error: err } = await supabase
-        .from("companies")
-        .update(data)
-        .eq("id", company!.id);
-      dbErr = err;
-    } else {
-      data.created_by_user_id = user.id;
-      const { error: err } = await supabase.from("companies").insert(data);
-      dbErr = err;
+    async function speichern(): Promise<string> {
+      const response = await fetch(
+        isEdit ? `/api/companies/${company!.id}` : "/api/companies",
+        {
+          method: isEdit ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? "Speichern fehlgeschlagen.");
+      return (result.id as string) ?? company!.id!;
     }
 
-    if (dbErr) {
-      setError(dbErr.message);
+    try {
+      const companyId = await speichern();
+
+      if (pendingLogo) {
+        const upload = new FormData();
+        upload.append("file", pendingLogo);
+        const response = await fetch(`/api/companies/${companyId}/logo`, {
+          method: "POST",
+          body: upload,
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          // Die Stammdaten sind gespeichert, nur das Logo nicht. Das muss die
+          // Meldung sagen, sonst speichert jemand aus Unsicherheit ein zweites Mal.
+          throw new Error(
+            `Die Stammdaten sind gespeichert, das Logo nicht: ${result.error ?? "unbekannter Fehler"}`,
+          );
+        }
+        setLogoUrl(result.logo_url as string);
+        if (pendingPreview) URL.revokeObjectURL(pendingPreview);
+        setPendingLogo(null);
+        setPendingPreview("");
+      }
+
+      if (removeLogo) {
+        setLogoUrl("");
+        setRemoveLogo(false);
+      }
+
+      router.refresh();
+      if (!isEdit) {
+        form.reset();
+        setLogoUrl("");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Speichern fehlgeschlagen.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    router.refresh();
-    if (isEdit) {
-      // Bleiben auf der Seite, nur Refresh
-    } else {
-      // Form zurücksetzen
-      (e.target as HTMLFormElement).reset();
-      setLogoUrl("");
-    }
-    setSubmitting(false);
   }
 
   return (
@@ -176,10 +184,10 @@ export function CompanyForm({ company, compact = false }: Props) {
           </p>
           <div className="mt-4 flex items-center gap-4">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-ink-200 bg-ink-50/50 overflow-hidden">
-              {logoUrl ? (
+              {shownLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={logoUrl}
+                  src={shownLogo}
                   alt="Logo"
                   className="h-full w-full object-contain"
                 />
@@ -194,30 +202,31 @@ export function CompanyForm({ company, compact = false }: Props) {
                 accept="image/png,image/jpeg"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
-                  if (f) uploadLogo(f);
+                  if (f) selectLogo(f);
                 }}
                 className="hidden"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingLogo}
+                disabled={submitting}
                 className="rounded-md border border-ink-200 bg-white px-3 py-1.5 text-[12px] font-medium hover:bg-ink-50 disabled:opacity-50"
               >
-                {uploadingLogo
-                  ? "Wird hochgeladen…"
-                  : logoUrl
-                    ? "Logo ändern"
-                    : "Logo hochladen"}
+                {shownLogo ? "Logo ändern" : "Logo auswählen"}
               </button>
-              {logoUrl && (
+              {shownLogo && (
                 <button
                   type="button"
-                  onClick={() => setLogoUrl("")}
+                  onClick={clearLogo}
                   className="text-[11px] text-ink-500 hover:text-red-700"
                 >
                   Entfernen
                 </button>
+              )}
+              {pendingLogo && (
+                <span className="text-[11px] text-ink-500">
+                  Wird beim Speichern übertragen
+                </span>
               )}
             </div>
           </div>
@@ -415,7 +424,7 @@ export function CompanyForm({ company, compact = false }: Props) {
       <div className="flex justify-end">
         <button
           type="submit"
-          disabled={submitting || uploadingLogo}
+          disabled={submitting}
           className="btn-primary disabled:opacity-50"
         >
           {submitting

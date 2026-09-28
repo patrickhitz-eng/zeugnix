@@ -68,6 +68,21 @@ export default function AuthCallbackPage() {
           throw new Error("Der Link enthält keine Anmeldedaten.");
         }
 
+        // Die Sitzung steht. Solange die Daten noch bei Supabase liegen, ist
+        // dieser Aufruf wirkungslos und antwortet mit "übersprungen". Danach
+        // trägt er die Person in die eigene auth.users ein – ohne diesen Eintrag
+        // greift der Fremdschlüssel von public.profiles nicht, und das Konto
+        // bliebe leer. Siehe app/api/auth/sync/route.ts.
+        const sync = await fetch("/api/auth/sync", { method: "POST" });
+        if (!sync.ok) {
+          const body = (await sync.json().catch(() => ({}))) as { error?: string };
+          throw new Error(
+            body.error ??
+              "Die Anmeldung hat funktioniert, das Konto konnte aber nicht fertig " +
+                "eingerichtet werden. Bitte noch einmal versuchen.",
+          );
+        }
+
         window.location.assign(next);
       } catch (e: unknown) {
         const msg =
