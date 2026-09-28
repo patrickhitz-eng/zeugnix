@@ -81,7 +81,6 @@ export async function POST(
     );
   }
 
-  const employeeName = `${employee.first_name} ${employee.last_name}`;
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 Tage
 
@@ -125,10 +124,11 @@ export async function POST(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   ).toString();
 
+  // Der Name der beurteilten Person geht bewusst NICHT in die Mail – siehe den
+  // Kopf von lib/email/templates.ts. Er erscheint erst hinter dem Link.
   const mail = buildSignoffRequestEmail({
     signatoryName: slotName,
     signatoryRole: slotRole ?? undefined,
-    employeeName,
     companyName: company.name,
     hrSenderName: hrProfile?.full_name ?? undefined,
     hrSenderEmail: hrProfile?.email ?? user.email ?? undefined,

@@ -9,11 +9,34 @@
  *   - Maximale Kompatibilität (Outlook, Gmail, Apple Mail)
  *   - Tabellenbasiertes Layout für Stabilität
  *   - Lesbar auch in Plain-Text-Fallback
+ *
+ * ----------------------------------------------------------------------------
+ * KEIN NAME DER BEURTEILTEN PERSON IN DIESEN MAILS
+ *
+ * Eine Grenze bleibt auch nach dem Umzug auf Schweizer Infrastruktur bestehen,
+ * und sie ist nicht zu umgehen: Sobald eine Einladung an ein Postfach bei
+ * Microsoft 365 oder Gmail geht, liegt diese Mail in einem US-Rechenzentrum –
+ * ganz unabhängig davon, über welchen Schweizer Versender wir sie verschickt
+ * haben. Der einzige wirksame Hebel ist deshalb, was in der Mail steht.
+ *
+ * Darum nennen diese Vorlagen den Namen der Person, um deren Zeugnis es geht,
+ * nicht mehr – weder im Betreff noch im Text. Er erscheint erst hinter dem
+ * Link, also auf zeugnio.ch und damit in der Schweiz. Die Vorlagen nehmen den
+ * Namen gar nicht mehr als Feld an: so lässt er sich nicht aus Versehen wieder
+ * hineinschreiben.
+ *
+ * Die Namen der Beteiligten selbst – Empfängerin, Absender, Beurteiler – bleiben
+ * stehen. Das ist die Grenze: wer eine Mail schreibt oder bekommt, ist Teil des
+ * Schriftverkehrs. Die Person, deren Zeugnis erstellt wird, ist es nicht.
+ *
+ * Steht das so auch in der Datenschutzerklärung: Bearbeitung und Speicherung in
+ * der Schweiz, Zustellung beim Mailanbieter der Empfängerin und damit
+ * ausserhalb unseres Einflussbereichs.
+ * ----------------------------------------------------------------------------
  */
 
 interface ManagerInvitationProps {
   managerName?: string;
-  employeeName: string;
   companyName: string;
   hrSenderName?: string;
   hrSenderEmail?: string;
@@ -26,7 +49,7 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
   html: string;
   text: string;
 } {
-  const { employeeName, companyName, inviteUrl, expiresAt, managerName, hrSenderName, hrSenderEmail } =
+  const { companyName, inviteUrl, expiresAt, managerName, hrSenderName, hrSenderEmail } =
     props;
 
   const expiryDate = expiresAt.toLocaleDateString("de-CH", {
@@ -42,12 +65,15 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
       : `${hrSenderName} von ${companyName}`
     : companyName;
 
-  const subject = `Beurteilung erbeten: Arbeitszeugnis für ${employeeName}`;
+  const subject = `Beurteilung erbeten: Arbeitszeugnis (${companyName})`;
 
   const text = [
     greeting + ",",
     "",
-    `${senderLine} bittet Sie um Ihre Beurteilung für das Arbeitszeugnis von ${employeeName}.`,
+    `${senderLine} bittet Sie um Ihre Beurteilung für ein Arbeitszeugnis.`,
+    "",
+    "Um wen es geht, sehen Sie nach dem Öffnen des Links. Wir nennen in E-Mails",
+    "bewusst keine Namen von Mitarbeitenden.",
     "",
     "Sie müssen keinen Account erstellen und keinen Text formulieren.",
     "Sie geben in einem strukturierten Formular pro Kategorie eine Bewertung ab –",
@@ -103,15 +129,19 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
         <tr>
           <td style="padding:32px;">
             <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;letter-spacing:-0.01em;">
-              Beurteilung erbeten für<br>
-              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(employeeName)}</span>
+              Beurteilung erbeten<br>
+              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(companyName)}</span>
             </h1>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
               ${escapeHtml(greeting)},
             </p>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
-              ${escapeHtml(senderLine)} bittet Sie um Ihre Beurteilung für das Arbeitszeugnis
-              von <strong>${escapeHtml(employeeName)}</strong>.
+              ${escapeHtml(senderLine)} bittet Sie um Ihre Beurteilung für ein
+              Arbeitszeugnis.
+            </p>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              Um wen es geht, sehen Sie nach dem Öffnen des Links. Wir nennen in
+              E-Mails bewusst keine Namen von Mitarbeitenden.
             </p>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
               Sie müssen <strong>keinen Account erstellen</strong> und <strong>keinen Text formulieren</strong>.
@@ -187,7 +217,6 @@ function escapeHtml(s: string): string {
 interface SignoffRequestProps {
   signatoryName?: string;
   signatoryRole?: string;
-  employeeName: string;
   companyName: string;
   hrSenderName?: string;
   hrSenderEmail?: string;
@@ -203,7 +232,6 @@ export function buildSignoffRequestEmail(props: SignoffRequestProps): {
   const {
     signatoryName,
     signatoryRole,
-    employeeName,
     companyName,
     hrSenderName,
     hrSenderEmail,
@@ -225,12 +253,15 @@ export function buildSignoffRequestEmail(props: SignoffRequestProps): {
     : companyName;
   const roleLine = signatoryRole ? ` als ${signatoryRole}` : "";
 
-  const subject = `Freigabe erbeten: Arbeitszeugnis für ${employeeName}`;
+  const subject = `Freigabe erbeten: Arbeitszeugnis (${companyName})`;
 
   const text = [
     greeting + ",",
     "",
-    `${senderLine} bittet Sie, das Arbeitszeugnis für ${employeeName}${roleLine} freizugeben.`,
+    `${senderLine} bittet Sie${roleLine}, ein Arbeitszeugnis freizugeben.`,
+    "",
+    "Um wen es geht, sehen Sie nach dem Öffnen des Links. Wir nennen in E-Mails",
+    "bewusst keine Namen von Mitarbeitenden.",
     "",
     "Bitte prüfen Sie das Zeugnis und bestätigen Sie es. Ihre Bestätigung wird",
     "mit Ihrer E-Mail-Adresse und einem Zeitstempel als elektronische Freigabe",
@@ -279,15 +310,19 @@ export function buildSignoffRequestEmail(props: SignoffRequestProps): {
         <tr>
           <td style="padding:32px;">
             <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;letter-spacing:-0.01em;">
-              Freigabe erbeten für<br>
-              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(employeeName)}</span>
+              Freigabe erbeten<br>
+              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(companyName)}</span>
             </h1>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
               ${escapeHtml(greeting)},
             </p>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
-              ${escapeHtml(senderLine)} bittet Sie, das Arbeitszeugnis für
-              <strong>${escapeHtml(employeeName)}</strong>${escapeHtml(roleLine)} freizugeben.
+              ${escapeHtml(senderLine)} bittet Sie${escapeHtml(roleLine)}, ein
+              Arbeitszeugnis freizugeben.
+            </p>
+            <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
+              Um wen es geht, sehen Sie nach dem Öffnen des Links. Wir nennen in
+              E-Mails bewusst keine Namen von Mitarbeitenden.
             </p>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
               Bitte prüfen Sie das Zeugnis und bestätigen Sie es. Ihre Bestätigung
@@ -349,7 +384,6 @@ export function buildSignoffRequestEmail(props: SignoffRequestProps): {
 // ============================================================================
 interface EvaluationSubmittedProps {
   hrName?: string;
-  employeeName: string;
   managerEmail: string;
   managerName?: string;
   certificateUrl: string;
@@ -360,17 +394,23 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
   html: string;
   text: string;
 } {
-  const { hrName, employeeName, managerEmail, managerName, certificateUrl } = props;
+  const { hrName, managerEmail, managerName, certificateUrl } = props;
 
   const greeting = hrName ? `Guten Tag ${hrName}` : "Guten Tag";
   const beurteiler = managerName ? `${managerName} (${managerEmail})` : managerEmail;
 
-  const subject = `Beurteilung erhalten für ${employeeName}`;
+  // Diese Mail geht an die HR-Person, die das Zeugnis angelegt hat – sie kennt die
+  // Person also. Der Name bleibt trotzdem draussen: die Mail liegt danach im
+  // Postfach eines Anbieters, und eine Regel, die nur manchmal gilt, ist in einer
+  // Datenschutzerklärung nicht formulierbar.
+  const subject = "Beurteilung erhalten – Arbeitszeugnis";
 
   const text = [
     greeting + ",",
     "",
-    `${beurteiler} hat die Beurteilung für das Arbeitszeugnis von ${employeeName} abgegeben.`,
+    `${beurteiler} hat eine Beurteilung für ein Arbeitszeugnis abgegeben.`,
+    "",
+    "Um welches Zeugnis es geht, sehen Sie hinter dem Link.",
     "",
     "Sie können nun den Zeugnistext generieren und finalisieren:",
     certificateUrl,
@@ -410,16 +450,16 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
         <tr>
           <td style="padding:32px;">
             <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;letter-spacing:-0.01em;">
-              Beurteilung erhalten für<br>
-              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(employeeName)}</span>
+              Beurteilung erhalten<br>
+              <span style="font-style:italic;color:#0f7a6b;">Arbeitszeugnis</span>
             </h1>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
               ${escapeHtml(greeting)},
             </p>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
-              <strong>${escapeHtml(beurteiler)}</strong> hat die Beurteilung
-              für das Arbeitszeugnis von <strong>${escapeHtml(employeeName)}</strong>
-              abgegeben.
+              <strong>${escapeHtml(beurteiler)}</strong> hat eine Beurteilung
+              für ein Arbeitszeugnis abgegeben. Um welches Zeugnis es geht, sehen
+              Sie hinter dem Link.
             </p>
             <p style="margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;">
               Sie können nun den Zeugnistext generieren, prüfen und mit
