@@ -666,6 +666,13 @@ Tabellen liegt jetzt bei <code>service_role</code>. Läuft nines Auszug als Date
 diese Mitgliedschaft, fehlen Tabellen — lautlos. <code>900</code> setzt die Mitgliedschaft, aber
 die Bestätigung ist die Dateigrösse.</li>
 <li><code>~/zeugnio/logs/backup.log</code> ansehen: liegen Journal und Auszug im Object Storage?</li>
+<li><span class="label">Prüfen, dass der Logo-Rückfallweg nicht mehr betreten wird.</span> Solange
+die Produktion auf Vercel lief, gingen neue Logos in den Supabase-Storage; auf dem eigenen Server
+gehören sie auf die Platte. Ein Logo hochladen und danach:
+<pre><code>pm2 logs zeugnio --lines 200 --nostream | grep "\[logo\]"</code></pre>
+Erscheint dort „Rückfall auf den Supabase-Storage", zeigt <code>ZEUGNIO_UPLOAD_DIR</code> nicht auf
+ein beschreibbares Verzeichnis — und die Logos verlassen weiter die Schweiz, ohne dass sonst etwas
+darauf hinweist.</li>
 <li>HSTS wieder hochsetzen und deployen.</li>
 <li><code>vercel.json</code> erst <strong>48 Stunden</strong> nach dem Cutover entfernen — vorher
 ist es der Rückweg.</li>
