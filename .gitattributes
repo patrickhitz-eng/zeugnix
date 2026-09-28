@@ -9,5 +9,7 @@
 # liest eine Unit-Datei mit CRLF gar nicht ein.
 *.sh text eol=lf
 *.service text eol=lf
+.nvmrc text eol=lf
 deploy/nine/*.conf text eol=lf
 deploy/nine/*.example text eol=lf
+deploy/nine/*.mjs text eol=lf
