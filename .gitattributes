@@ -3,3 +3,11 @@
 *.otf binary
 *.woff binary
 *.woff2 binary
+
+# Alles, was auf dem Linux-Server ausgeführt oder gelesen wird, braucht LF. Mit CRLF
+# scheitert ein Shell-Skript mit „bad interpreter: /usr/bin/env bash^M", und systemd
+# liest eine Unit-Datei mit CRLF gar nicht ein.
+*.sh text eol=lf
+*.service text eol=lf
+deploy/nine/*.conf text eol=lf
+deploy/nine/*.example text eol=lf
