@@ -24,22 +24,28 @@ db-pool = 10
 db-pool-acquisition-timeout = 10
 
 ## --- Anmeldung -------------------------------------------------------------------------
-## Fuer Cutover A wird hier das BESTEHENDE Supabase-JWT-Geheimnis eingetragen (HS256).
-## Damit akzeptiert die eigene Daten-API genau die Token, die Supabase heute ausstellt -
-## deshalb muss sich im Cutover A niemand neu anmelden. Erst Cutover B ersetzt die
-## Anmeldung, dann wird hier ein eigenes Geheimnis eingesetzt.
+## Hier steht ein EIGENES Geheimnis, nicht das von Supabase. Erzeugen mit:
+##   openssl rand -base64 48
+## Derselbe Wert gehoert in die .env als DATA_API_JWT_SECRET.
 ##
-## Zu pruefen, bevor das hier eingetragen wird: hat das Supabase-Projekt noch ein
-## HS256-Geheimnis, oder ist es auf asymmetrische Signing Keys umgestellt? Bei
-## asymmetrischen Schluesseln gehoert hier stattdessen der JWKS-Endpunkt hin, und die
-## Prueffrage lautet, ob PostgREST diesen Endpunkt erreichen darf.
-jwt-secret = "<Supabase JWT-Secret: Dashboard, Settings, API, JWT Settings>"
+## Warum nicht das Supabase-Geheimnis, wie zuerst geplant: das Projekt stellt seine
+## Sitzungs-Token auf asymmetrische ES256-Schluessel um. Ein HS256-Geheimnis gibt es damit
+## nicht mehr dauerhaft, und das JWKS liesse sich hier nur als Datei hinterlegen - PostgREST
+## nimmt keine URL. Bei jeder Rotation des Signaturschluessels wuerde die Daten-API jedes
+## neue Token mit 401 abweisen, bis jemand eine Datei kopiert.
+##
+## Stattdessen stellt die Anwendung die Token fuer diese API selbst aus
+## (lib/db/rest-rewrite.ts), und zwar aus der Identitaet, die supabase-js ueber getUser()
+## ohnehin schon beim Auth-Server geprueft hat. PostgREST sieht damit nur Token aus
+## unserer eigenen Hand - welcher Algorithmus bei Supabase gilt, ist dafuer gleichgueltig.
+jwt-secret = "<eigenes Geheimnis, openssl rand -base64 48, gleich wie DATA_API_JWT_SECRET>"
 jwt-secret-is-base64 = false
 
-## Supabase legt die Rolle in den Anspruch role auf oberster Ebene.
+## Die Rolle steht im Anspruch role auf oberster Ebene - so stellt die Anwendung sie aus,
+## und so liest sie auch unsere Funktion auth.role().
 jwt-role-claim-key = ".role"
 
-## Supabase-Token tragen aud = authenticated. Prueft PostgREST das mit, werden Token mit
+## Die Anwendung setzt aud = authenticated. Prueft PostgREST das mit, werden Token mit
 ## gueltiger Signatur aber falschem Zweck abgewiesen.
 jwt-aud = "authenticated"
 

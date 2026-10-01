@@ -169,6 +169,26 @@ if (dataApi) {
       errors.push("DATA_API_URL bitte ohne Pfad angeben (nur Schema, Host und Port).");
     }
   }
+
+  // Das Geheimnis, mit dem die Anwendung die Zugangstoken für die Daten-API ausstellt.
+  // Es muss identisch zu jwt-secret in ~/zeugnio/shared/postgrest.conf sein – stimmt es
+  // nicht, antwortet die Daten-API auf JEDE Anfrage mit 401, und zwar sofort nach dem
+  // Umschalten. Siehe lib/db/rest-rewrite.ts, warum nicht das Supabase-Geheimnis.
+  const apiSecret = nonEmpty("DATA_API_JWT_SECRET");
+  if (!apiSecret) {
+    errors.push(
+      "DATA_API_JWT_SECRET fehlt, obwohl DATA_API_URL gesetzt ist. Erzeugen mit " +
+        "openssl rand -base64 48 und denselben Wert als jwt-secret in postgrest.conf " +
+        "eintragen.",
+    );
+  } else if (apiSecret.length < 32) {
+    errors.push("DATA_API_JWT_SECRET ist zu kurz (mindestens 32 Zeichen).");
+  } else if (apiSecret === anonKey || apiSecret === serviceKey) {
+    errors.push(
+      "DATA_API_JWT_SECRET ist identisch mit einem Supabase-Schlüssel. Es muss ein " +
+        "eigener Wert sein – sonst hängt die eigene Daten-API wieder an Supabase.",
+    );
+  }
 } else if (!onVercel) {
   warnings.push(
     "DATA_API_URL ist nicht gesetzt: die App liest und schreibt weiterhin bei Supabase, " +

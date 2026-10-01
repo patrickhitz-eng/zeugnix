@@ -11,9 +11,12 @@
 //   --status     zeigt, was eingespielt ist und was aussteht. Verändert nichts.
 //   --dry-run    zeigt, was eingespielt WÜRDE. Verändert nichts.
 //   --baseline   markiert alle vorhandenen Migrationen als eingespielt, OHNE sie
-//                auszuführen. Genau einmal nötig, direkt nach dem Einspielen des
-//                Schema-Auszugs aus der Produktionsdatenbank: das Schema ist dann schon
-//                da, die Dateien ein zweites Mal auszuführen würde scheitern.
+//                auszuführen. Beim Umzug auf advisori01 NICHT nötig: dort laufen die
+//                Migrationen wirklich, weil das Schema aus diesem Repository kommt und
+//                nicht aus einem Auszug der Produktionsdatenbank (die auf PostgreSQL 17
+//                läuft, der Server hier auf 16 – ein Auszug ist aufwärtskompatibel, nicht
+//                abwärts). Die Option bleibt für den Fall, dass eine Datenbank aus einem
+//                Auszug entsteht, in dem das Schema schon enthalten ist.
 //
 // Dateien ab 900 werden NICHT automatisch eingespielt. Sie richten Rollen, Schemas und
 // Eigentumsverhältnisse ein, brauchen dafür mehr Rechte als der Anwendungsbenutzer und
@@ -26,6 +29,22 @@ import path from "node:path";
 
 const MIGRATION_DIR = path.join(process.cwd(), "supabase");
 const MANUAL_FROM = 900;
+
+// Migrationen, die auf dem eigenen Server nicht laufen können oder sollen – mit dem
+// Grund daneben, damit niemand sie später aus Unkenntnis wieder aufnimmt.
+//
+// Diese Liste ist der Preis dafür, dass das Repository die Quelle der Wahrheit ist und
+// nicht ein Auszug aus der Produktion. Das war nicht immer so: der Plan sah vor, das
+// Schema aus der Produktionsdatenbank zu übernehmen und 001–025 nur als „eingespielt" zu
+// vermerken. Das trägt nicht mehr, seit klar ist, dass dort PostgreSQL 17 läuft und hier
+// 16 – ein Auszug ist aufwärtskompatibel, nicht abwärts. Also laufen die Migrationen hier
+// wirklich, und die beiden, die Supabase-Eigenes anfassen, fallen heraus.
+const NICHT_AUF_EIGENEM_SERVER = {
+  "007_storage_logos.sql":
+    "Legt den Supabase-Storage-Bucket an und setzt Regeln auf storage.objects. Dieses " +
+    "Schema gibt es hier nicht, die Migration würde scheitern. Kein Verlust: die " +
+    "Firmenlogos liegen seit der Umstellung auf der Platte (lib/uploads/logos.ts).",
+};
 
 const args = new Set(process.argv.slice(2));
 const statusOnly = args.has("--status");
@@ -97,8 +116,22 @@ const all = entries
   .filter((name) => /^\d{3}_.+\.sql$/.test(name))
   .sort((a, b) => a.localeCompare(b, "en"));
 
-const auto = all.filter((name) => Number(name.slice(0, 3)) < MANUAL_FROM);
+const auto = all.filter(
+  (name) => Number(name.slice(0, 3)) < MANUAL_FROM && !(name in NICHT_AUF_EIGENEM_SERVER),
+);
 const manual = all.filter((name) => Number(name.slice(0, 3)) >= MANUAL_FROM);
+const ausgenommen = all.filter((name) => name in NICHT_AUF_EIGENEM_SERVER);
+
+// Ein Tippfehler in der Ausnahmeliste würde sonst stillschweigend dazu führen, dass eine
+// Migration doch läuft, die nicht laufen darf.
+for (const name of Object.keys(NICHT_AUF_EIGENEM_SERVER)) {
+  if (!all.includes(name)) {
+    fail(
+      `Die Ausnahmeliste nennt ${name}, aber diese Datei gibt es in ${MIGRATION_DIR} nicht. ` +
+        "Umbenannt oder Tippfehler? Beides muss geklärt werden, bevor migriert wird.",
+    );
+  }
+}
 
 if (auto.length === 0) fail("Keine Migrationsdateien gefunden.");
 
@@ -167,6 +200,12 @@ if (statusOnly || dryRun) {
     console.log(`\nVon Hand einzuspielen, nicht Teil dieses Läufers (${manual.length}):`);
     for (const name of manual) {
       console.log(`  ${name}${applied.has(name) ? "  (als eingespielt vermerkt)" : ""}`);
+    }
+  }
+  if (ausgenommen.length > 0) {
+    console.log(`\nAuf diesem Server ausgenommen (${ausgenommen.length}):`);
+    for (const name of ausgenommen) {
+      console.log(`  ${name}\n    ${NICHT_AUF_EIGENEM_SERVER[name]}`);
     }
   }
   process.exit(0);

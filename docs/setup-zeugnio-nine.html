@@ -122,43 +122,54 @@ finalisiert wird, trägt die Testadresse dauerhaft im QR-Code.</li>
 </ul>
 </div>
 
-<h2 id="s0">1 · Bevor es losgeht: vier Angaben aus dem Supabase-Dashboard</h2>
+<h2 id="s0">1 · Der Ausgangszustand bei Supabase</h2>
 
-<p>Ohne diese vier Angaben lässt sich der Termin nicht planen. Projekt
-<code>swnycyrhqilzmqnmclcp</code> — nicht das pausierte Projekt aus der lokalen
-<code>.env.local</code>.</p>
+<p>Projekt <code>swnycyrhqilzmqnmclcp</code> — nicht das pausierte Projekt aus der lokalen
+<code>.env.local</code>. Am 1. Oktober 2026 nachgesehen; zwei der vier Antworten haben den Plan
+geändert.</p>
 
 <table>
-<tr><th>Was</th><th>Wo</th><th>Warum es den Termin bestimmt</th></tr>
+<tr><th>Was</th><th>Antwort</th><th>Folge für den Umzug</th></tr>
 <tr>
   <td>PostgreSQL-Version</td>
-  <td>SQL Editor: <code>select version();</code></td>
-  <td>Läuft dort 17 und auf advisori01 steht nur ein <code>pg_dump</code> 16 zur Verfügung,
-  verweigert dieser den Auszug. Dann braucht es zuerst einen 17er Client auf dem Server —
-  Abschnitt 4 des Prüfskripts sagt, ob er nachinstallierbar ist.</td>
+  <td><strong>17</strong></td>
+  <td><strong>Plan geändert.</strong> Auf advisori01 läuft 16. Das Schema kommt darum aus dem
+  Repository, nicht aus einem Auszug — siehe Abschnitt 6. Für den Datenauszug braucht es einen
+  17er Client auf dem Server.</td>
 </tr>
 <tr>
   <td>Region</td>
-  <td>Project Settings → General</td>
-  <td>Geht in die Antwort an Christoph. Steht dort Zürich, liegt die Datenbank schon heute in der
-  Schweiz und die Aussage in der Mail ändert sich deutlich.</td>
+  <td><strong>Frankfurt</strong> (EU)</td>
+  <td>Keine Überraschung, bestätigt die Annahme im README. Die Daten liegen heute in der EU, nicht
+  in der Schweiz. Der Zwischenschritt „Datenbank nach Zürich" aus Christophs Mail entfällt damit —
+  er wäre ein eigener Umstellungstermin für nichts.</td>
 </tr>
 <tr>
-  <td>JWT-Geheimnis oder Signing Keys</td>
-  <td>Project Settings → API → JWT</td>
-  <td>Ein HS256-Geheimnis lässt sich in <code>postgrest.conf</code> eintragen — dann muss sich im
-  Cutover niemand neu anmelden. Ist das Projekt auf asymmetrische Signing Keys umgestellt, gehört
-  dort stattdessen der JWKS-Endpunkt hin, und das ist eine andere Aufgabe.</td>
+  <td>API-Schlüssel</td>
+  <td>neu: <code>sb_publishable_…</code> / <code>sb_secret_…</code><br>
+      <strong>alte <code>anon</code> und <code>service_role</code> noch aktiv</strong></td>
+  <td>Die neuen Schlüssel sind undurchsichtige Zeichenketten, keine JWTs, und gehören in die
+  <code>apikey</code>-Kopfzeile. Als Bearer-Token geprüft scheitern sie — die eigene Daten-API
+  würde mit 401 antworten. Dass die alten noch aktiv sind, heisst: der Cutover ist nicht
+  blockiert. Darauf stützen sollte man sich trotzdem nicht, sie sind zur Abschaltung vorgesehen.</td>
 </tr>
 <tr>
-  <td>Form der API-Schlüssel</td>
-  <td>Project Settings → API Keys</td>
-  <td>PostgREST braucht ein JWT als Bearer-Token. Die neuen Schlüssel im Format
-  <code>sb_publishable_…</code> und <code>sb_secret_…</code> sind keine JWTs; mit ihnen antwortet
-  die eigene Daten-API auf jede Anfrage mit 401. <code>scripts/check-env.mjs</code> prüft das und
-  bricht ab, sobald <code>DATA_API_URL</code> gesetzt ist.</td>
+  <td>Signatur der Sitzungs-Token</td>
+  <td>Wechsel auf <strong>asymmetrisch, ES256</strong></td>
+  <td><strong>Plan geändert.</strong> Das alte HS256-Geheimnis ist kein Fundament mehr. Es wird
+  darum nicht in <code>postgrest.conf</code> eingetragen: dort steht ein <em>eigenes</em>
+  Geheimnis, und die Anwendung stellt die Token für die Daten-API selbst aus — aus der Identität,
+  die <code>getUser()</code> ohnehin schon beim Auth-Server geprüft hat. Siehe Abschnitt 9.</td>
 </tr>
 </table>
+
+<div class="note">
+<p><span class="label">Warum nicht das JWKS in <code>postgrest.conf</code>.</span> PostgREST nimmt
+ein JWKS an, aber nur inline oder als Datei — <strong>keine URL</strong>. Rotiert Supabase den
+Signaturschlüssel, lehnt die Daten-API jedes neue Token mit 401 ab, bis jemand eine Datei kopiert.
+Das wäre ein Ausfall, der niemandem auffällt, bis die Anrufe kommen. Die Prüfung gehört deshalb
+dorthin, wo eine URL erlaubt ist: in die Anwendung.</p>
+</div>
 
 <p>Dazu die Prüfsummen der ausgestellten Zeugnisse — sie werden im Cutover mit der eigenen
 Datenbank verglichen. Im SQL Editor von Supabase den Abschnitt 11 aus
@@ -329,38 +340,70 @@ Zeilensicherheit vorbei.</li>
 schlimmer, erst der erste <code>INSERT</code>.</li>
 </ul>
 
-<h2 id="s5">6 · Schema aus der Produktion übernehmen</h2>
+<h2 id="s5">6 · Schema: aus dem Repository, nicht aus der Produktion</h2>
 
-<p>Der Auszug wird <strong>auf dem Server</strong> geholt, nicht über den Arbeitsrechner: sonst
-laufen die Daten über einen Windows-Laptop, und der Serverstandort, um den es hier geht, ist
-ausgehebelt.</p>
+<div class="warn">
+<p><span class="label">Hier ist der Plan am 1. Oktober geändert worden.</span> Ursprünglich sollte
+das Schema aus einem Auszug der Produktionsdatenbank kommen und die Migrationen 001–025 nur als
+„eingespielt" vermerkt werden. Das trägt nicht: in der Produktion läuft <strong>PostgreSQL
+17</strong>, hier steht <strong>16</strong>. Ein Auszug ist aufwärtskompatibel, nicht abwärts —
+ihn in eine ältere Version zu laden ist nicht vorgesehen und scheitert je nach Inhalt sofort oder,
+schlimmer, erst später an einer Einzelheit.</p>
+<p>Statt nine um PostgreSQL 17 zu bitten (weiterer Complex Service, Vorlauf, Kosten) wird die
+Richtung umgedreht: <strong>das Repository ist die Quelle der Wahrheit für das Schema, die
+Produktion nur für die Daten.</strong> Daten kommen als <code>COPY</code> heraus und sind reiner
+Text ohne Versionsbezug. Der Schema-Auszug wird trotzdem gezogen — aber nur zum Vergleichen, nie
+zum Einspielen.</p>
+</div>
+
+<h3>Migrationen einspielen</h3>
+
+<pre><code>cd /tmp/zeugnio-setup
+ln -sf ~/zeugnio/shared/.env .env
+node --env-file=.env scripts/migrate.mjs --status     # zeigt, was ansteht
+node --env-file=.env scripts/migrate.mjs              # 001-025 wirklich ausführen
+</code></pre>
+
+<p>Der Läufer nimmt <code>007_storage_logos.sql</code> selbst heraus und sagt auch, warum: sie legt
+den Supabase-Storage-Bucket an und setzt Regeln auf <code>storage.objects</code> — ein Schema, das
+es hier nicht gibt. Kein Verlust, die Firmenlogos liegen seit der Umstellung auf der Platte. Alle
+übrigen Migrationen brauchen nur <code>auth.users</code> und <code>auth.uid()</code>, und die hat
+Abschnitt 5 schon angelegt.</p>
+
+<h3>Abgleich mit der Produktion — der Schritt, der Drift findet</h3>
+
+<p>Dafür braucht es einen <strong>17er Client</strong>; <code>pg_dump 16</code> verweigert einen
+17er Server. Abschnitt 4 des Prüfskripts sagt, ob <code>postgresql-client-17</code> im
+Paketspeicher liegt. Liegt er nicht, geht eine Zeile ans Ticket an nine.</p>
 
 <pre><code># Verbindung über den Session-Pooler — der direkte Datenbank-Host von Supabase
 # ist nur über IPv6 erreichbar, und advisori01 hat kein IPv6.
 export PGPASSWORD='DAS_SUPABASE_DB_PASSWORT'
-pg_dump \
-  --host=aws-0-REGION.pooler.supabase.com --port=5432 \
+/usr/lib/postgresql/17/bin/pg_dump \
+  --host=aws-0-eu-central-1.pooler.supabase.com --port=5432 \
   --username=postgres.swnycyrhqilzmqnmclcp --dbname=postgres \
   --schema-only --schema=public --no-owner --no-privileges \
   --file=/tmp/prod-schema.sql
-unset PGPASSWORD</code></pre>
+unset PGPASSWORD
+
+# Dasselbe von der eigenen Datenbank, damit die zwei vergleichbar sind
+pg_dump --schema-only --schema=public --no-owner --no-privileges \
+  -d nmd_zeugnio --file=/tmp/eigen-schema.sql
+
+# Nur die Strukturzeilen gegenüberstellen
+grep -E "^(CREATE TABLE|    [a-z_]+ )" /tmp/prod-schema.sql  | sed 's/,$//' | sort > /tmp/a.txt
+grep -E "^(CREATE TABLE|    [a-z_]+ )" /tmp/eigen-schema.sql | sed 's/,$//' | sort > /tmp/b.txt
+diff /tmp/a.txt /tmp/b.txt && echo "deckungsgleich"</code></pre>
 
 <div class="warn">
-<p><span class="label">Vor dem Einspielen vergleichen.</span> Der Auszug muss zu den Migrationen
-001–025 im Repository passen. Weicht er ab, ist in der Produktion etwas von Hand geändert worden,
-das niemand aufgeschrieben hat — und das wäre nach dem Umzug verloren.</p>
-<pre><code>grep -c "CREATE TABLE" /tmp/prod-schema.sql        # erwartet: 16
-grep "CREATE TABLE" /tmp/prod-schema.sql | sort</code></pre>
+<p><span class="label">Abweichungen hier sind keine Formalität.</span> Jede Zeile, die nur links
+steht, ist etwas, das in der Produktion von Hand geändert wurde und in keiner Migration steht.
+Nach dem Umzug wäre es weg. Also: anschauen, verstehen, und als neue Migration mit der nächsten
+Nummer nachziehen — nicht in eine bestehende Datei hineinschreiben,
+<code>scripts/migrate.mjs</code> erkennt das über die Prüfsumme und bricht ab.</p>
+<p>Erwartet werden 16 Tabellen. <code>grep -c "^CREATE TABLE" /tmp/eigen-schema.sql</code>
+beantwortet das in einer Zeile.</p>
 </div>
-
-<pre><code>psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f /tmp/prod-schema.sql
-
-# Die Migrationen 001-025 als eingespielt vermerken, OHNE sie auszuführen:
-# das Schema ist ja schon da.
-cd /tmp/zeugnio-setup
-ln -sf ~/zeugnio/shared/.env .env
-node --env-file=.env scripts/migrate.mjs --baseline
-node --env-file=.env scripts/migrate.mjs --status</code></pre>
 
 <h2 id="s6">7 · Eigentum, Rechte, Auth-Brücke</h2>
 
@@ -548,9 +591,12 @@ alter role service_role  set default_transaction_read_only = on;
 select pg_terminate_backend(pid) from pg_stat_activity
  where datname = current_database() and pid &lt;&gt; pg_backend_pid();</code></pre>
 
-<pre><code># 2. Daten holen — auf dem Server, über den Pooler
+<pre><code># 2. Daten holen — auf dem Server, über den Pooler, mit dem 17er Client.
+#    Nur --data-only: das Schema steht schon (Abschnitt 6). Daten kommen als COPY
+#    heraus und sind reiner Text ohne Versionsbezug, 17 nach 16 ist hier unkritisch.
 export PGPASSWORD='DAS_SUPABASE_DB_PASSWORT'
-pg_dump --host=aws-0-REGION.pooler.supabase.com --port=5432 \
+/usr/lib/postgresql/17/bin/pg_dump \
+  --host=aws-0-eu-central-1.pooler.supabase.com --port=5432 \
   --username=postgres.swnycyrhqilzmqnmclcp --dbname=postgres \
   --data-only --schema=public --no-owner --no-privileges \
   --file=/tmp/prod-data.sql

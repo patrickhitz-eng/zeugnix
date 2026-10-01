@@ -13,9 +13,24 @@ import { createDataApiFetch } from "./rest-rewrite";
  */
 export async function createClient() {
   const cookieStore = await cookies();
-  const dataFetch = createDataApiFetch();
 
-  return createServerClient(
+  // Der Fetch-Wrapper braucht die GEPRÜFTE Identität, und die liefert ausgerechnet der
+  // Client, den er selbst bedient. Darum dieser Platzhalter: er wird gesetzt, sobald der
+  // Client steht, und der Wrapper fragt erst bei der ersten Datenanfrage nach – dann ist
+  // er längst gefüllt. `getUser()` ist ein Netzwerkaufruf zum Auth-Server und damit die
+  // einzige belastbare Quelle; das Cookie selbst ist keine (siehe lib/db/rest-rewrite.ts).
+  let self: ReturnType<typeof createServerClient> | null = null;
+
+  const dataFetch = createDataApiFetch({
+    resolveIdentity: async () => {
+      if (!self) return null;
+      const { data, error } = await self.auth.getUser();
+      if (error || !data.user) return null;
+      return { role: "authenticated", sub: data.user.id };
+    },
+  });
+
+  const client = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -38,6 +53,9 @@ export async function createClient() {
       },
     },
   );
+
+  self = client;
+  return client;
 }
 
 /**
@@ -51,7 +69,10 @@ export function createServiceClient() {
   }
 
   const { createClient } = require("@supabase/supabase-js");
-  const dataFetch = createDataApiFetch();
+  // Feste Rolle, keine Benutzeridentität: service_role besitzt die Tabellen und umgeht
+  // damit die Zeilensicherheit. Der Supabase-Schlüssel erreicht die eigene Daten-API nie –
+  // er ist im neuen Format ohnehin kein JWT und würde dort mit 401 abgewiesen.
+  const dataFetch = createDataApiFetch({ role: "service_role" });
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
