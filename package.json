@@ -23,7 +23,9 @@
     "test:dataapi": "tsx scripts/test-data-api-token.ts",
     "backfill:hash": "tsx scripts/backfill-hash.ts",
     "check:env": "node --env-file=.env scripts/check-env.mjs",
-    "migrate": "node --env-file=.env scripts/migrate.mjs"
+    "migrate": "node --env-file=.env scripts/migrate.mjs",
+    "postbuild": "node scripts/check-nonce-routes.mjs",
+    "check:nonce": "node scripts/check-nonce-routes.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.0.0",
