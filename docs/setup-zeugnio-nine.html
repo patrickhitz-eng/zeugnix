@@ -361,7 +361,7 @@ zum Einspielen.</p>
 <pre><code>cd /tmp/zeugnio-setup
 ln -sf ~/zeugnio/shared/.env .env
 node --env-file=.env scripts/migrate.mjs --status     # zeigt, was ansteht
-node --env-file=.env scripts/migrate.mjs              # 001-025 wirklich ausführen
+node --env-file=.env scripts/migrate.mjs              # 001-026 wirklich ausführen
 </code></pre>
 
 <p>Der Läufer nimmt <code>007_storage_logos.sql</code> selbst heraus und sagt auch, warum: sie legt
@@ -619,12 +619,30 @@ psql -w -d nmd_zeugnio -c "\copy auth.users (id, email, created_at, updated_at, 
 psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f /tmp/prod-data.sql
 psql -w -d nmd_zeugnio -c "alter table auth.users enable trigger on_auth_user_created;"</code></pre>
 
-<pre><code># 4. Logos herunterziehen und die Adressen umschreiben
-#    (Liste aus der alten Datenbank, dann pro Datei ein curl)
+<pre><code># 4. Logos herunterziehen und die Adressen umschreiben.
+#    Es sind sechs Dateien (Stand 02.10.2026, gezählt mit 905_prod_definitionen.sql).
+#    Der Bucket company-logos ist öffentlich, die Adressen brauchen also keinen
+#    Schlüssel — ein curl pro Zeile genügt. Die drei übrigen Buckets (certificates,
+#    reports, uploads) sind leer: PDFs entstehen bei jedem Abruf neu und werden nicht
+#    abgelegt. Ausser diesen sechs Dateien ist nichts zu übertragen.
+psql -w -d nmd_zeugnio -t -A -F' ' -c \
+  "select id, logo_url from companies where logo_url like 'http%';" \
+  | while read -r id url; do
+      datei="$(basename "${url%%\?*}")"
+      mkdir -p ~/zeugnio/shared/uploads/logos/"$id"
+      curl -fsS "$url" -o ~/zeugnio/shared/uploads/logos/"$id"/"$datei" \
+        && psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -c \
+             "update companies set logo_url = '/api/logos/$id/$datei' where id = '$id';" \
+        || echo "FEHLGESCHLAGEN: $id $url"
+    done
+
+# Gegenprobe: keine Firma darf danach noch auf eine fremde Adresse zeigen.
 psql -w -d nmd_zeugnio -t -A -c \
-  "select id, logo_url from companies where logo_url like 'http%';"
-# ... Dateien nach ~/zeugnio/shared/uploads/logos/&lt;companyId&gt;/ legen, dann:
-#     update companies set logo_url = '/api/logos/' || id || '/&lt;datei&gt;' where id = '...';</code></pre>
+  "select count(*) from companies where logo_url like 'http%';"   # muss 0 sein</code></pre>
+
+<p>Die Adresse wird erst nach erfolgreichem <code>curl</code> umgeschrieben — scheitert der
+Download, bleibt der alte Verweis stehen und das Logo lädt weiter aus dem Supabase-Storage.
+Umgekehrt hätte man einen Verweis ins Leere und ein kaputtes Bild ohne Fehlermeldung.</p>
 
 <div class="danger">
 <p><span class="label">Integritätsprüfung — Abbruchkriterium.</span> Jetzt Abschnitt 11 aus

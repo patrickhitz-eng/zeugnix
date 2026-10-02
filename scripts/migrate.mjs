@@ -246,8 +246,22 @@ for (const name of pending) {
   // Datei und Vermerk in EINER Transaktion: bricht die Migration ab, gilt sie auch nicht
   // als eingespielt. Der umgekehrte Fall – ausgeführt, aber nicht vermerkt – wäre beim
   // nächsten Lauf ein Fehlschlag mitten in der Kette.
+  // `set local`: gilt nur bis zum commit, hinterlässt also nichts in der Sitzung.
+  //
+  // Warum überhaupt: die Migrationen rufen 13 Mal `uuid_generate_v4()` ohne Schema auf.
+  // Bei Supabase liegt uuid-ossp in `extensions`, nicht in `public` – der Name löst dort
+  // nur auf, weil `extensions` im search_path steht. Auf dem eigenen Server setzt
+  // 900_nine_bootstrap.sql dafür den search_path der Datenbank, aber nur, wenn der
+  // ausführende Benutzer deren Eigentümer ist; andernfalls gibt es bloss einen Hinweis.
+  // Diese Zeile macht den Lauf davon unabhängig. Fehlte sie und wäre der search_path
+  // nicht gesetzt, bräche schon 001 ab mit „function uuid_generate_v4() does not exist".
+  //
+  // Nur für das Anlegen nötig, nicht im Betrieb: PostgreSQL merkt sich den Vorgabewert
+  // einer Spalte als aufgelösten Ausdruck mit der Objektkennung der Funktion. Beim
+  // späteren INSERT wird der Name nicht erneut gesucht.
   const sql = `
 begin;
+set local search_path to public, extensions;
 \\i ${file}
 insert into public.schema_migrations (filename, checksum) values ('${name}', '${checksum(name)}');
 commit;

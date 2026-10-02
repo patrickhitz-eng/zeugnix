@@ -5,7 +5,7 @@
 --
 -- Zwei Fragen auf einmal:
 --
---   1. Welche der Migrationen 001–025 sind in der Produktion wirklich
+--   1. Welche der Migrationen 001–026 sind in der Produktion wirklich
 --      angekommen? Die Dateien im Ordner supabase/ laufen NICHT beim
 --      Deployment – sie werden von Hand im SQL-Editor ausgeführt. Wird eine
 --      vergessen, läuft die Anwendung weiter und scheitert erst an der Stelle,
