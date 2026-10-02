@@ -7,10 +7,18 @@
 --
 -- REIHENFOLGE – die Dateien 900 bis 903 laufen einmalig und in dieser Folge:
 --
---   900_nine_bootstrap.sql   VOR dem Einspielen des Schemas (diese Datei)
---   → dann den Schema-Auszug der Produktionsdatenbank einspielen
---   → dann `node scripts/migrate.mjs --baseline`
---   901_nine_ownership.sql   NACH dem Einspielen: Eigentum und Rechte
+--   900_nine_bootstrap.sql   VOR dem Schema (diese Datei)
+--   → dann `node scripts/migrate.mjs`
+--     Das Schema entsteht aus den Migrationen im Repository (supabase/0*.sql),
+--     NICHT aus einem Auszug der Produktionsdatenbank. Grund: Supabase läuft
+--     auf PostgreSQL 17, hier steht 16, und der Auszug eines neueren Servers
+--     lässt sich nicht in einen älteren einspielen. Der Auszug wird trotzdem
+--     gezogen, aber nur zum Vergleichen. Näheres in Abschnitt 6 von
+--     docs/setup-zeugnio-nine.html.
+--     Kein `--baseline`: die Migrationen laufen hier wirklich. `--baseline`
+--     würde sie nur als erledigt vermerken, ohne sie auszuführen – das war die
+--     Reihenfolge, als das Schema noch aus dem Auszug kam.
+--   901_nine_ownership.sql   NACH dem Schema: Eigentum und Rechte
 --   902_auth_bridge.sql      NACH 901: Trigger und ensure_auth_user
 --   903_nine_verify.sql      nur SELECTs – prüft, ob alles davon getragen hat
 --
@@ -251,6 +259,6 @@ revoke all on auth.users from public;
 grant select, insert, update on auth.users to service_role;
 
 -- ----------------------------------------------------------------------------
--- Fertig. Nächster Schritt: den Schema-Auszug der Produktionsdatenbank
--- einspielen, dann 901_nine_ownership.sql.
+-- Fertig. Nächster Schritt: `node scripts/migrate.mjs` – das legt das Schema aus
+-- den Migrationen im Repository an. Danach 901_nine_ownership.sql.
 -- ----------------------------------------------------------------------------

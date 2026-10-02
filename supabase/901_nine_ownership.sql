@@ -1,8 +1,9 @@
 -- ============================================================================
 -- zeugnio.ch – Eigentum und Rechte in der eigenen Datenbank (nine.ch)
 -- ----------------------------------------------------------------------------
--- Läuft NACH dem Einspielen des Schema-Auszugs aus der Produktionsdatenbank und
--- nach `node scripts/migrate.mjs --baseline`. Siehe Kopf von 900_nine_bootstrap.sql.
+-- Läuft NACH `node scripts/migrate.mjs`, also nachdem das Schema aus den
+-- Migrationen im Repository entstanden ist – Eigentum kann man nur an Tabellen
+-- übertragen, die es schon gibt. Siehe Kopf von 900_nine_bootstrap.sql.
 --
 -- WAS HIER PASSIERT UND WARUM
 --
