@@ -136,6 +136,12 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/auth/callback") ||
     path.startsWith("/api/verify") ||
     path.startsWith("/api/analyze") ||
+    // Firmenlogos: liegen auf der Platte und sind wie bisher im öffentlichen
+    // Supabase-Bucket ohne Anmeldung abrufbar. Ohne diese Zeile käme pro Bild
+    // ein getUser() gegen Supabase dazu – für eine Datei, die ohnehin jeder
+    // sehen darf, der die Adresse kennt.
+    path.startsWith("/api/logos/") ||
+    path.startsWith("/api/health") ||
     path.startsWith("/app/invitations"); // Token-basiert, kein Login nötig
 
   // ENV-Vars prüfen

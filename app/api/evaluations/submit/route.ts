@@ -115,14 +115,13 @@ export async function POST(req: NextRequest) {
           .single();
 
         if (hrProfile?.email) {
-          const employee: any = cert.employees;
-          const employeeName = `${employee.first_name} ${employee.last_name}`;
           const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
           const certificateUrl = `${baseUrl}/app/certificates/${inv.certificate_id}`;
 
+          // Der Name der beurteilten Person geht bewusst NICHT in die Mail –
+          // siehe den Kopf von lib/email/templates.ts.
           const mail = buildEvaluationSubmittedEmail({
             hrName: hrProfile.full_name ?? undefined,
-            employeeName,
             managerEmail: inv.manager_email,
             managerName: inv.manager_name ?? undefined,
             certificateUrl,

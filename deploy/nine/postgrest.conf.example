@@ -1,0 +1,80 @@
+## PostgREST als eigene Daten-API fuer zeugnio.ch.
+##
+## Auf dem Server als ~/zeugnio/shared/postgrest.conf ablegen und `chmod 600` setzen:
+## die Datei enthaelt das Datenbankpasswort UND das JWT-Geheimnis. Sie liegt bewusst nicht
+## im Repository und nicht im Release-Ordner - ein Deployment darf sie nicht anfassen.
+##
+## Gestartet wird sie ueber den systemd-Benutzerdienst deploy/nine/postgrest.service,
+## absichtlich NICHT ueber PM2: PM2 wird beim Deployment neu gestartet, und die Daten-API
+## soll davon nichts merken.
+
+## --- Datenbank -------------------------------------------------------------------------
+## Die Rolle authenticator darf selbst nichts: sie ist NOINHERIT und wechselt pro Anfrage
+## per SET ROLE in anon, authenticated oder service_role. Ohne NOINHERIT laeuft der Teil
+## einer Anfrage VOR dem Rollenwechsel mit den Rechten aller geerbten Rollen - also mit
+## denen von service_role, und damit an der Zeilensicherheit vorbei.
+db-uri = "postgres://authenticator:PASSWORT@127.0.0.1:5432/nmd_zeugnio"
+db-schemas = "public"
+db-anon-role = "anon"
+
+## Datenbank auf derselben Maschine, kein Pooler dazwischen: vorbereitete Anweisungen
+## duerfen an bleiben. Bei einem Pooler im Transaction-Modus muesste hier false stehen.
+db-prepared-statements = true
+db-pool = 10
+db-pool-acquisition-timeout = 10
+
+## --- Anmeldung -------------------------------------------------------------------------
+## Hier steht ein EIGENES Geheimnis, nicht das von Supabase. Erzeugen mit:
+##   openssl rand -base64 48
+## Derselbe Wert gehoert in die .env als DATA_API_JWT_SECRET.
+##
+## Warum nicht das Supabase-Geheimnis, wie zuerst geplant: das Projekt stellt seine
+## Sitzungs-Token auf asymmetrische ES256-Schluessel um. Ein HS256-Geheimnis gibt es damit
+## nicht mehr dauerhaft, und das JWKS liesse sich hier nur als Datei hinterlegen - PostgREST
+## nimmt keine URL. Bei jeder Rotation des Signaturschluessels wuerde die Daten-API jedes
+## neue Token mit 401 abweisen, bis jemand eine Datei kopiert.
+##
+## Stattdessen stellt die Anwendung die Token fuer diese API selbst aus
+## (lib/db/rest-rewrite.ts), und zwar aus der Identitaet, die supabase-js ueber getUser()
+## ohnehin schon beim Auth-Server geprueft hat. PostgREST sieht damit nur Token aus
+## unserer eigenen Hand - welcher Algorithmus bei Supabase gilt, ist dafuer gleichgueltig.
+jwt-secret = "<eigenes Geheimnis, openssl rand -base64 48, gleich wie DATA_API_JWT_SECRET>"
+jwt-secret-is-base64 = false
+
+## Die Rolle steht im Anspruch role auf oberster Ebene - so stellt die Anwendung sie aus,
+## und so liest sie auch unsere Funktion auth.role().
+jwt-role-claim-key = ".role"
+
+## Die Anwendung setzt aud = authenticated. Prueft PostgREST das mit, werden Token mit
+## gueltiger Signatur aber falschem Zweck abgewiesen.
+jwt-aud = "authenticated"
+
+## Anspruechte als JSON unter request.jwt.claims bereitstellen - genau das lesen unsere
+## eigenen Funktionen auth.uid(), auth.role() und auth.jwt(). Mit den alten GUCs (true)
+## gaebe es stattdessen request.jwt.claim.<name>, und auth.uid() liefert NULL: jede
+## Zeilensicherheitsregel waere dann leise wirkungslos, ohne eine einzige Fehlermeldung.
+db-use-legacy-gucs = false
+
+## --- Netz ------------------------------------------------------------------------------
+## Nur 127.0.0.1. Die Daten-API ist von aussen nicht erreichbar; die Anwendung auf Port
+## 3010 spricht sie lokal an. Darum braucht sie weder vhost noch Zertifikat noch CORS.
+server-host = "127.0.0.1"
+server-port = 3011
+
+## Kleiner zweiter Port nur fuer /live und /ready - daran haengt der Gesundheitstest.
+admin-server-port = 3012
+
+## --- Betrieb ---------------------------------------------------------------------------
+## Das OpenAPI-Dokument beschreibt das ganze Datenmodell. Es hat fuer uns keinen Nutzen und
+## waere ein Geschenk an jeden, der die API findet.
+openapi-mode = "disabled"
+
+## log-level = error ist hier eine Datenschutzentscheidung, keine Bequemlichkeit: die
+## Stufen darunter schreiben Anfragepfade mit, und in einem PostgREST-Pfad stehen die
+## Filter - also Namen und Personendaten - im Klartext.
+log-level = "error"
+
+## Keine Datenbank-Benachrichtigungen, kein automatisches Neuladen des Schemas ueber
+## LISTEN/NOTIFY. Nach einer Migration wird der Schema-Cache bewusst neu gelesen:
+##   systemctl --user reload postgrest
+db-channel-enabled = false

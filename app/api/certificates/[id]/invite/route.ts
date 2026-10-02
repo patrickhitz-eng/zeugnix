@@ -59,7 +59,6 @@ export async function POST(
       { status: 400 },
     );
   }
-  const employeeName = `${employee.first_name} ${employee.last_name}`;
   const companyName = company.name;
 
   // Token generieren
@@ -100,9 +99,10 @@ export async function POST(
   ).toString();
 
   // E-Mail senden via Resend
+  // Der Name der beurteilten Person geht bewusst NICHT in die Mail – siehe den
+  // Kopf von lib/email/templates.ts. Er erscheint erst hinter dem Link.
   const mail = buildManagerInvitationEmail({
     managerName: manager_name,
-    employeeName,
     companyName,
     hrSenderName: hrProfile?.full_name ?? undefined,
     hrSenderEmail: hrProfile?.email ?? user.email ?? undefined,

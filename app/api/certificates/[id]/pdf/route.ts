@@ -1,6 +1,13 @@
+import { readFile } from "node:fs/promises";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
+import {
+  contentTypeForFile,
+  resolveLogoPath,
+  segmentsFromLogoUrl,
+} from "@/lib/uploads/logos";
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
@@ -127,7 +134,32 @@ export async function GET(
   // nur erlaubte (Supabase-Storage-)URLs, mit Timeout und Grössenlimit. Ein
   // Problem beim Logo überspringt nur das Logo, bricht aber nicht den PDF-Build.
   let logoDataUrl: string | undefined;
-  if (company.logo_url) {
+  // Seit dem Umzug liegen Logos auf der Platte und werden über /api/logos/…
+  // ausgeliefert (lib/uploads/logos.ts). Für diese Logos ist der Weg über das
+  // Netz unnötig – und damit entfällt für sie die ganze SSRF-Frage: es wird
+  // nichts abgerufen, sondern eine Datei gelesen, deren Pfad zwei engen Mustern
+  // entsprechen muss. Der Abruf unten bleibt für Logos aus der Zeit bei
+  // Supabase, solange nicht alle logo_url umgeschrieben sind.
+  const localLogo = company.logo_url ? segmentsFromLogoUrl(company.logo_url) : null;
+  if (localLogo) {
+    const file = resolveLogoPath(localLogo);
+    if (!file) {
+      console.warn("Logo-Pfad nicht zulässig, wird übersprungen");
+    } else {
+      try {
+        const bytes = await readFile(file);
+        if (bytes.byteLength > MAX_LOGO_BYTES) {
+          console.warn("Logo übersprungen: Datei überschreitet Limit:", bytes.byteLength);
+        } else {
+          logoDataUrl = `data:${contentTypeForFile(file)};base64,${bytes.toString("base64")}`;
+        }
+      } catch {
+        // Fehlende Datei ist kein Grund, das Zeugnis nicht zu erzeugen – es
+        // entsteht dann ohne Logo, wie bei einer Firma, die keines hinterlegt hat.
+        console.warn("Logo-Datei nicht lesbar, wird übersprungen");
+      }
+    }
+  } else if (company.logo_url) {
     if (!isAllowedLogoUrl(company.logo_url)) {
       console.warn(
         "Logo-URL nicht erlaubt (SSRF-Schutz), wird übersprungen:",

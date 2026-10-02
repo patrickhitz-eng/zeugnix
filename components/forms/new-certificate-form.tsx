@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/db/supabase-client";
-import { deriveLegacyType } from "@/lib/phrases/schlusssaetze";
 
 interface Props {
   companies: { id: string; name: string }[];
@@ -21,89 +19,50 @@ export function NewCertificateForm({ companies }: Props) {
     "schluss" | "zwischen" | "arbeitsbestaetigung"
   >("schluss");
 
-  // Neu angelegte Zeugnisse starten ohne Opt-ins; der Legacy-`type` folgt daraus.
-  const legacyType = deriveLegacyType(zeugnisTyp, {});
-
+  // Mitarbeitende und Zeugnis entstehen in einem Aufruf an /api/certificates.
+  // Bisher schrieb der Browser beide Datensätze direkt in die Datenbank. Der Weg
+  // über eine Server-Route hat zwei Gründe: die Daten-API auf dem eigenen Server
+  // lauscht nur auf 127.0.0.1 und muss nie ins Internet – und scheitert der
+  // zweite Schritt, nimmt die Route den ersten zurück. Bisher blieben in diesem
+  // Fall Name, Geburtsdatum und Funktion ohne zugehöriges Zeugnis liegen.
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
 
     const fd = new FormData(e.currentTarget);
-    const supabase = createClient();
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Nicht angemeldet");
+    try {
+      const response = await fetch("/api/certificates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_id: fd.get("company_id"),
+          zeugnis_typ: zeugnisTyp,
+          first_name: fd.get("first_name"),
+          last_name: fd.get("last_name"),
+          gender: fd.get("gender"),
+          date_of_birth: fd.get("date_of_birth") || null,
+          function_title: fd.get("function_title"),
+          entry_date: fd.get("entry_date"),
+          exit_date: fd.get("exit_date") || null,
+          employment_percentage: fd.get("employment_percentage"),
+          is_manager: fd.get("is_manager") === "on",
+          // Die Route trennt selbst an den Zeilenumbrüchen und wirft Leerzeilen weg.
+          tasks: fd.get("tasks"),
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.id) {
+        throw new Error(result.error ?? "Fehler beim Anlegen des Zeugnisses");
+      }
+
+      router.push(`/app/certificates/${result.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Anlegen des Zeugnisses");
       setSubmitting(false);
-      return;
     }
-
-    // 1. Employee anlegen
-    const { data: employee, error: empErr } = await supabase
-      .from("employees")
-      .insert({
-        company_id: fd.get("company_id"),
-        first_name: fd.get("first_name") as string,
-        last_name: fd.get("last_name") as string,
-        gender: fd.get("gender") as string,
-        date_of_birth: (fd.get("date_of_birth") as string) || null,
-        function_title: fd.get("function_title") as string,
-        entry_date: fd.get("entry_date"),
-        exit_date: (fd.get("exit_date") as string) || null,
-        employment_percentage: parseInt(fd.get("employment_percentage") as string) || 100,
-        is_manager: fd.get("is_manager") === "on",
-      })
-      .select()
-      .single();
-
-    if (empErr || !employee) {
-      setError(empErr?.message ?? "Fehler beim Anlegen der Mitarbeiterin");
-      setSubmitting(false);
-      return;
-    }
-
-    // 2. Certificate anlegen
-    const tasks = (fd.get("tasks") as string)
-      .split("\n")
-      .map((t) => t.trim())
-      .filter(Boolean);
-
-    const { data: cert, error: certErr } = await supabase
-      .from("certificates")
-      .insert({
-        company_id: fd.get("company_id"),
-        employee_id: employee.id,
-        type: legacyType,
-        zeugnis_typ: zeugnisTyp,
-        // Schlusssatz-Defaults; auf der Detailseite anpassbar (SchlusssatzControls).
-        austrittsgrund: zeugnisTyp === "schluss" ? "wunsch_an" : null,
-        optin_bedauern: false,
-        optin_reorg: false,
-        optin_vorgesetztenwechsel: false,
-        optin_interner_wechsel: false,
-        wertschaetzungsgrad: "standard",
-        tasks,
-        status: "draft",
-        // Dank ist im Schlusssatz-Katalog bereits enthalten.
-        thank_employee: zeugnisTyp === "schluss",
-        new_function_title: null,
-        new_company_name: null,
-        transition_date: null,
-        created_by_user_id: user.id,
-      })
-      .select()
-      .single();
-
-    if (certErr || !cert) {
-      setError(certErr?.message ?? "Fehler beim Anlegen des Zeugnisses");
-      setSubmitting(false);
-      return;
-    }
-
-    router.push(`/app/certificates/${cert.id}`);
   }
 
   return (

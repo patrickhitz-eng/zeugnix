@@ -1,0 +1,30 @@
+# systemd-Benutzerdienst: startet PM2 (und damit zeugnio) nach einem Neustart des Servers wieder.
+# Vorlage aus der nine-Dokumentation "Run Node.js Applications", Node-Version passend zu .nvmrc.
+#
+# Installation (als Benutzer www-zeugnio):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/nine/pm2.service ~/.config/systemd/user/pm2.service
+#   systemctl --user daemon-reload && systemctl --user enable pm2
+#
+# Danach einmalig als Hauptbenutzer, sonst endet der Dienst beim Abmelden:
+#   sudo loginctl enable-linger www-zeugnio
+
+[Unit]
+Description=PM2 process manager (zeugnio.ch)
+Documentation=https://pm2.keymetrics.io/
+
+[Service]
+Type=forking
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+Environment=NODE_ENV=production
+Environment=NODE_VERSION=22
+Environment=PM2_HOME=%h/.pm2
+PIDFile=%h/.pm2/pm2.pid
+ExecStart=%h/.nvm/nvm-exec pm2 resurrect
+ExecReload=%h/.nvm/nvm-exec pm2 reload all
+ExecStop=%h/.nvm/nvm-exec pm2 kill
+
+[Install]
+WantedBy=default.target

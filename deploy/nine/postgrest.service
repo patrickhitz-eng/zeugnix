@@ -1,0 +1,43 @@
+# systemd-Benutzerdienst fuer die eigene Daten-API (PostgREST) von zeugnio.ch.
+#
+# Bewusst ein eigener Dienst und nicht Teil von PM2: ein Deployment startet PM2 neu, und
+# die Daten-API soll dabei durchlaufen. Umgekehrt soll ein Neustart der Daten-API nach
+# einer Migration die Anwendung nicht mitnehmen.
+#
+# Installation (als Benutzer www-zeugnio):
+#   mkdir -p ~/.config/systemd/user
+#   cp deploy/nine/postgrest.service ~/.config/systemd/user/postgrest.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now postgrest
+#   systemctl --user status postgrest
+#
+# Nach einer Migration den Schema-Cache neu lesen - kein Neustart, keine Unterbrechung:
+#   systemctl --user reload postgrest
+
+[Unit]
+Description=PostgREST data API (zeugnio.ch)
+Documentation=https://postgrest.org/
+After=network-online.target
+Wants=network-online.target
+# Nicht endlos neu starten, wenn die Datenbank weg ist: sonst verdeckt die Neustart-
+# Schleife die eigentliche Ursache und fuellt das Log.
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Die Konfiguration liegt ausserhalb der Release-Ordner und enthaelt Geheimnisse (chmod 600).
+ExecStart=%h/opt/postgrest/postgrest %h/zeugnio/shared/postgrest.conf
+# SIGUSR1 laesst PostgREST den Schema-Cache neu einlesen, ohne Verbindungen zu verlieren.
+ExecReload=/bin/kill -USR1 $MAINPID
+Restart=always
+RestartSec=5
+# Neu angelegte Dateien nur fuer den eigenen Benutzer.
+UMask=0077
+NoNewPrivileges=yes
+# Die uebrigen Absicherungen von systemd (ProtectSystem, PrivateTmp und Verwandte) sind
+# hier absichtlich nicht gesetzt: in einem Benutzerdienst ohne Root greifen sie nicht
+# zuverlaessig, und ein Fehlschlag davon wuerde den Dienst am Start hindern.
+
+[Install]
+WantedBy=default.target

@@ -3,10 +3,13 @@
   "version": "0.2.0",
   "private": true,
   "description": "zeugnix.ch – Schweizer Arbeitszeugnis-Plattform mit Hash-Verifikation und Klartext-Analyse",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "predev": "npm run copy:pdfjs",
     "dev": "next dev",
-    "prebuild": "npm run test:themes && npm run copy:pdfjs",
+    "prebuild": "npm run test:themes && npm run test:dataapi && npm run copy:pdfjs",
     "build": "next build",
     "copy:pdfjs": "tsx scripts/copy-pdf-worker.ts",
     "start": "next start",
@@ -17,7 +20,10 @@
     "test:domain": "tsx scripts/test-domain.ts",
     "test:tiptap": "tsx scripts/test-tiptap.ts",
     "test:themes": "tsx scripts/test-themes.ts",
+    "test:dataapi": "tsx scripts/test-data-api-token.ts",
     "backfill:hash": "tsx scripts/backfill-hash.ts",
+    "check:env": "node --env-file=.env scripts/check-env.mjs",
+    "migrate": "node --env-file=.env scripts/migrate.mjs",
     "postbuild": "node scripts/check-nonce-routes.mjs",
     "check:nonce": "node scripts/check-nonce-routes.mjs"
   },

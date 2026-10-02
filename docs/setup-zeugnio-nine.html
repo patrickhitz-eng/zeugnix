@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>zeugnio auf advisori01</title>
+<style>
+  :root {
+    --ink: #1a1d22; --ink-700: #3a3f46; --ink-500: #6b7280; --ink-200: #e4e6ea;
+    --ink-50: #f7f8f9; --accent: #0f7a6b; --warn: #b45309; --danger: #b91c1c;
+    --bg: #ffffff; --code-bg: #f4f5f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e8eaed; --ink-700: #c3c7cc; --ink-500: #9aa0a6; --ink-200: #33383f;
+      --ink-50: #1e2126; --accent: #4db6a4; --warn: #d99a3d; --danger: #f87171;
+      --bg: #14171a; --code-bg: #1e2126;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e8eaed; --ink-700: #c3c7cc; --ink-500: #9aa0a6; --ink-200: #33383f;
+    --ink-50: #1e2126; --accent: #4db6a4; --warn: #d99a3d; --danger: #f87171;
+    --bg: #14171a; --code-bg: #1e2126;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 16px 96px; }
+  h1 { font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 8px; line-height: 1.2; }
+  h2 {
+    font-size: 21px; font-weight: 600; letter-spacing: -0.01em;
+    margin: 56px 0 4px; padding-top: 24px; border-top: 1px solid var(--ink-200);
+  }
+  h3 { font-size: 16px; font-weight: 600; margin: 32px 0 4px; }
+  p, li { color: var(--ink-700); }
+  .lead { font-size: 16.5px; color: var(--ink-700); }
+  code {
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    background: var(--code-bg); padding: 1.5px 5px; border-radius: 4px;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--ink-200); border-radius: 8px;
+    padding: 14px 16px; overflow-x: auto; margin: 12px 0;
+  }
+  pre code { background: none; padding: 0; font-size: 12.5px; }
+  .note, .warn, .danger {
+    border-left: 3px solid var(--accent); background: var(--ink-50);
+    padding: 12px 16px; border-radius: 0 6px 6px 0; margin: 16px 0;
+  }
+  .warn { border-left-color: var(--warn); }
+  .danger { border-left-color: var(--danger); }
+  .note p:first-child, .warn p:first-child, .danger p:first-child { margin-top: 0; }
+  .note p:last-child, .warn p:last-child, .danger p:last-child { margin-bottom: 0; }
+  .label { font-weight: 600; color: var(--ink); }
+  .step { color: var(--ink-500); font-variant-numeric: tabular-nums; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--ink-200); vertical-align: top; }
+  th { font-weight: 600; color: var(--ink); }
+  ol, ul { padding-left: 22px; }
+  li { margin: 4px 0; }
+  .toc { background: var(--ink-50); border-radius: 8px; padding: 16px 20px; margin: 28px 0; }
+  .toc ol { margin: 8px 0 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .meta { color: var(--ink-500); font-size: 13.5px; margin: 0 0 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>zeugnio auf advisori01</h1>
+<p class="meta">Runbook für den Umzug von Vercel und Supabase auf den eigenen Schweizer Server bei
+nine.ch · Stand 28. September 2026</p>
+
+<p class="lead">Diese Anleitung ist zum Mitlesen beim Arbeiten gedacht, nicht zum Vorablesen.
+Sie geht von oben nach unten durch. Zwei Schritte sind Tore: ohne
+<a href="#s1">Abschnitt 1</a> keine Datenbank, und ohne die Gegenprobe in
+<a href="#s7">Abschnitt 7</a> kein Cutover. Die Reihenfolge ist nicht Geschmack, sondern ergibt
+sich aus Abhängigkeiten, die jeweils dort erklärt sind.</p>
+
+<div class="note">
+<p><span class="label">Was hier nicht drinsteht.</span> Die eigene Anmeldung (Cutover B), der
+Wechsel des Mailanbieters auf mailomat.swiss, der Umzug der DNS-Zone zu nine sowie Benchmark und
+Pre-Inkasso. Alles davon kommt nach dem Datenumzug und ist absichtlich davon getrennt.</p>
+</div>
+
+<div class="toc">
+<span class="label">Reihenfolge</span>
+<ol>
+  <li><a href="#s0">Bevor es losgeht: vier Angaben aus dem Supabase-Dashboard</a></li>
+  <li><a href="#s1">Bestandsaufnahme auf dem Server (Tor)</a></li>
+  <li><a href="#s2">Benutzer, Node, PM2, Cron</a></li>
+  <li><a href="#s3">Datenbank anlegen</a></li>
+  <li><a href="#s4">Bootstrap: Rollen, auth-Schema, extensions</a></li>
+  <li><a href="#s5">Schema aus der Produktion übernehmen</a></li>
+  <li><a href="#s6">Eigentum, Rechte, Auth-Brücke</a></li>
+  <li><a href="#s7">Gegenprobe (Tor)</a></li>
+  <li><a href="#s8">Daten-API: PostgREST</a></li>
+  <li><a href="#s9">Erstes Deployment auf der Testadresse</a></li>
+  <li><a href="#s10">Vollprobe</a></li>
+  <li><a href="#s11">Cutover A</a></li>
+  <li><a href="#s12">Rollback</a></li>
+  <li><a href="#s13">Betrieb: Sicherungen, Cron, Restore-Übung</a></li>
+</ol>
+</div>
+
+<div class="danger">
+<p><span class="label">Drei Dinge, die nie passieren dürfen.</span></p>
+<ul>
+<li><code>npm run backfill:hash</code> <strong>nie wieder ausführen.</strong> Das Skript schreibt
+die Hashes bestehender Zeugnisse neu. Jedes bereits ausgestellte Zeugnis wäre danach nicht mehr
+prüfbar — und die QR-Codes auf gedruckten Exemplaren zeigen ins Leere.</li>
+<li><span class="label">Den Signaturschlüssel nicht neu erzeugen.</span>
+<code>ZEUGNIO_SIGNING_PRIVATE_KEY</code> kommt aus dem Passwort-Manager. Ein neuer Schlüssel macht
+alle bisherigen Signaturen unprüfbar. Er wird auch nicht rotiert.</li>
+<li><span class="label">Keine Produktionsdaten für Versuche.</span> Die Rechteprobe in Abschnitt 1
+und die Vollprobe in Abschnitt 10 laufen mit erfundenen Namen. Ein Zeugnis, das während der Probe
+finalisiert wird, trägt die Testadresse dauerhaft im QR-Code.</li>
+</ul>
+</div>
+
+<h2 id="s0">1 · Der Ausgangszustand bei Supabase</h2>
+
+<p>Projekt <code>swnycyrhqilzmqnmclcp</code> — nicht das pausierte Projekt aus der lokalen
+<code>.env.local</code>. Am 1. Oktober 2026 nachgesehen; zwei der vier Antworten haben den Plan
+geändert.</p>
+
+<table>
+<tr><th>Was</th><th>Antwort</th><th>Folge für den Umzug</th></tr>
+<tr>
+  <td>PostgreSQL-Version</td>
+  <td><strong>17</strong></td>
+  <td><strong>Plan geändert.</strong> Auf advisori01 läuft 16. Das Schema kommt darum aus dem
+  Repository, nicht aus einem Auszug — siehe Abschnitt 6. Für den Datenauszug braucht es einen
+  17er Client auf dem Server.</td>
+</tr>
+<tr>
+  <td>Region</td>
+  <td><strong>Frankfurt</strong> (EU)</td>
+  <td>Keine Überraschung, bestätigt die Annahme im README. Die Daten liegen heute in der EU, nicht
+  in der Schweiz. Der Zwischenschritt „Datenbank nach Zürich" aus Christophs Mail entfällt damit —
+  er wäre ein eigener Umstellungstermin für nichts.</td>
+</tr>
+<tr>
+  <td>API-Schlüssel</td>
+  <td>neu: <code>sb_publishable_…</code> / <code>sb_secret_…</code><br>
+      <strong>alte <code>anon</code> und <code>service_role</code> noch aktiv</strong></td>
+  <td>Die neuen Schlüssel sind undurchsichtige Zeichenketten, keine JWTs, und gehören in die
+  <code>apikey</code>-Kopfzeile. Als Bearer-Token geprüft scheitern sie — die eigene Daten-API
+  würde mit 401 antworten. Dass die alten noch aktiv sind, heisst: der Cutover ist nicht
+  blockiert. Darauf stützen sollte man sich trotzdem nicht, sie sind zur Abschaltung vorgesehen.</td>
+</tr>
+<tr>
+  <td>Signatur der Sitzungs-Token</td>
+  <td>Wechsel auf <strong>asymmetrisch, ES256</strong></td>
+  <td><strong>Plan geändert.</strong> Das alte HS256-Geheimnis ist kein Fundament mehr. Es wird
+  darum nicht in <code>postgrest.conf</code> eingetragen: dort steht ein <em>eigenes</em>
+  Geheimnis, und die Anwendung stellt die Token für die Daten-API selbst aus — aus der Identität,
+  die <code>getUser()</code> ohnehin schon beim Auth-Server geprüft hat. Siehe Abschnitt 9.</td>
+</tr>
+</table>
+
+<div class="note">
+<p><span class="label">Warum nicht das JWKS in <code>postgrest.conf</code>.</span> PostgREST nimmt
+ein JWKS an, aber nur inline oder als Datei — <strong>keine URL</strong>. Rotiert Supabase den
+Signaturschlüssel, lehnt die Daten-API jedes neue Token mit 401 ab, bis jemand eine Datei kopiert.
+Das wäre ein Ausfall, der niemandem auffällt, bis die Anrufe kommen. Die Prüfung gehört deshalb
+dorthin, wo eine URL erlaubt ist: in die Anwendung.</p>
+</div>
+
+<p>Dazu die Prüfsummen der ausgestellten Zeugnisse — sie werden im Cutover mit der eigenen
+Datenbank verglichen. Im SQL Editor von Supabase den Abschnitt 11 aus
+<code>supabase/903_nine_verify.sql</code> ausführen und die Zeile aufbewahren.</p>
+
+<h2 id="s1">2 · Bestandsaufnahme auf dem Server (Tor)</h2>
+
+<p>Das Prüfskript liest nur: es legt keine Datei an, startet keinen Dienst und führt in der
+Datenbank ausser <code>SELECT</code> und <code>SHOW</code> nichts aus. Es gibt auch kein Geheimnis
+aus, die Ausgabe darf also unbesehen weitergegeben werden.</p>
+
+<pre><code># auf dem eigenen Rechner: Skript auf den Server bringen
+scp deploy/nine/check-advisori01.sh advisori@advisori01.nine.ch:~/
+
+# auf dem Server
+chmod +x ~/check-advisori01.sh
+~/check-advisori01.sh                      # erster Durchlauf: nur lesen
+PROBE_WRITE=1 ~/check-advisori01.sh        # zweiter Durchlauf: Rechte wirklich ausprobieren</code></pre>
+
+<div class="note">
+<p>Der zweite Durchlauf führt <code>CREATE ROLE</code>, <code>CREATE SCHEMA</code>,
+<code>ALTER … OWNER TO</code> und <code>CREATE EXTENSION</code> tatsächlich aus — jedes in einer
+eigenen Transaktion, die mit <code>ROLLBACK</code> endet. In PostgreSQL sind diese Befehle
+transaktional, es bleibt nichts zurück; die Gegenprobe am Ende des Abschnitts weist das nach.
+Beide Durchläufe sind nötig, weil bei verwalteten Datenbanken die Rechteabfrage und das
+tatsächliche Verhalten regelmässig auseinanderfallen.</p>
+</div>
+
+<p>Vier Antworten entscheiden über das weitere Vorgehen:</p>
+
+<table>
+<tr><th>Antwort</th><th>Folge</th></tr>
+<tr>
+  <td><code>CREATE ROLE</code> nicht erlaubt</td>
+  <td>Ticket an nine: die vier Rollen <code>anon</code>, <code>authenticated</code>,
+  <code>service_role</code>, <code>authenticator</code> anlegen <strong>und dem Datenbankbenutzer
+  mit <code>WITH ADMIN OPTION</code> zuweisen</strong>. Ohne diesen Zusatz können wir die Rollen
+  nicht weitergeben und stehen beim nächsten Schritt wieder an.</td>
+</tr>
+<tr>
+  <td>Abschnitt „FORCE ROW LEVEL SECURITY" nicht leer</td>
+  <td>Halt. Dann trägt das Eigentümer-Modell nicht, mit dem <code>service_role</code> die
+  Zeilensicherheit umgeht, und die Architektur muss neu bewertet werden.</td>
+</tr>
+<tr>
+  <td><code>uuid-ossp</code> oder <code>pgcrypto</code> nicht „trusted"</td>
+  <td>Ticket an nine: Extensions einmalig installieren. Ohne sie lässt sich das Schema nicht
+  einspielen.</td>
+</tr>
+<tr>
+  <td><code>client_max_body_size</code> nicht gefunden</td>
+  <td>Dann gilt die nginx-Vorgabe von 1 MB, und der Logo-Upload (2 MB) scheitert mit 413, ohne
+  dass die Anwendung davon erfährt. Wert in den eigenen vhost eintragen.</td>
+</tr>
+</table>
+
+<h2 id="s2">3 · Benutzer, Node, PM2, Cron</h2>
+
+<p>Ein eigener Linux-Benutzer pro Produkt — so liegen die Geheimnisse der Anwendungen nicht
+gegenseitig offen. Als Hauptbenutzer:</p>
+
+<pre><code>sudo adduser --disabled-password --gecos "" www-zeugnio
+sudo loginctl enable-linger www-zeugnio     # Dienste überleben das Abmelden und einen Neustart
+sudo su - www-zeugnio</code></pre>
+
+<p>Ab hier als <code>www-zeugnio</code>:</p>
+
+<pre><code>mkdir -p ~/zeugnio/{shared,releases,backups,logs}
+mkdir -p ~/zeugnio/shared/uploads/logos
+chmod 700 ~/zeugnio/shared
+
+# Node aus der .nvmrc (22) und PM2
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+. ~/.nvm/nvm.sh
+nvm install 22 && nvm use 22
+npm install -g pm2
+
+# Lesezugriff auf das Repository (Deploy-Key, nur lesen)
+ssh-keygen -t ed25519 -C "advisori01 zeugnio deploy" -f ~/.ssh/id_ed25519 -N ""
+cat ~/.ssh/id_ed25519.pub</code></pre>
+
+<p>Den öffentlichen Schlüssel in GitHub unter <em>Settings → Deploy keys</em> des Repositories
+<code>patrickhitz-eng/zeugnix</code> eintragen, <strong>ohne</strong> Schreibrecht. Dann prüfen:</p>
+
+<pre><code>ssh -T git@github.com    # "successfully authenticated" genügt</code></pre>
+
+<h3>Umgebung anlegen</h3>
+
+<pre><code>git clone --depth 1 git@github.com:patrickhitz-eng/zeugnix.git /tmp/zeugnio-setup
+cp /tmp/zeugnio-setup/deploy/nine/env.production.example ~/zeugnio/shared/.env
+chmod 600 ~/zeugnio/shared/.env
+nano ~/zeugnio/shared/.env</code></pre>
+
+<div class="warn">
+<p><span class="label">Die wichtigste Zeile dieser Datei.</span>
+<code>NEXT_PUBLIC_SUPABASE_URL</code> bleibt im Cutover A auf der Supabase-Adresse stehen. Wer sie
+auf eine eigene Adresse umbiegt, schickt die Anmeldung ins Leere <em>und</em> entwertet in derselben
+Sekunde stillschweigend jede bestehende Sitzung: supabase-js leitet aus dieser einen Adresse alle
+Endpunkte ab und bildet daraus auch den Namen des Sitzungs-Cookies. Die Daten werden über
+<code>DATA_API_URL</code> umgelenkt, nicht hier. <code>scripts/check-env.mjs</code> bricht ab, wenn
+diese Regel verletzt wird.</p>
+<p>Zweitens: <code>DATA_API_URL</code> bleibt zunächst <strong>leer</strong>. Solange sie leer ist,
+läuft alles unverändert über Supabase — genau so wird vor dem Cutover getestet.</p>
+</div>
+
+<pre><code># Dienste und Log-Rotation einrichten
+mkdir -p ~/.config/systemd/user
+cp /tmp/zeugnio-setup/deploy/nine/pm2.service ~/.config/systemd/user/pm2.service
+systemctl --user daemon-reload && systemctl --user enable pm2
+cat /tmp/zeugnio-setup/deploy/nine/logrotate.conf >> ~/.logrotate.conf
+
+# Schlüssel für die eigene Sicherung
+openssl rand -base64 48 > ~/zeugnio/shared/backup.key
+chmod 600 ~/zeugnio/shared/backup.key</code></pre>
+
+<div class="danger">
+<p><span class="label">Diesen Schlüssel sofort in den Passwort-Manager.</span> Ohne ihn ist jede
+Sicherung unbrauchbar — und zwar auch dann, wenn der Server noch steht. Er liegt danach an genau
+zwei Stellen: auf dem Server und im Passwort-Manager.</p>
+</div>
+
+<h2 id="s3">4 · Datenbank anlegen</h2>
+
+<pre><code>sudo nine-manage-databases database create \
+  --database-type=postgresql --user=nmd_zeugnio nmd_zeugnio</code></pre>
+
+<p>Das ausgegebene Passwort in <code>~/zeugnio/shared/.env</code> unter
+<code>DATABASE_URL</code> eintragen (Sonderzeichen URL-kodieren: <code>@</code> wird
+<code>%40</code>) und zusätzlich eine <code>~/.pgpass</code> anlegen, damit <code>psql</code> nicht
+nachfragt:</p>
+
+<pre><code>echo "127.0.0.1:5432:nmd_zeugnio:nmd_zeugnio:PASSWORT" > ~/.pgpass
+chmod 600 ~/.pgpass
+psql -w -d nmd_zeugnio -c "select current_user, current_database();"</code></pre>
+
+<div class="warn">
+<p><span class="label">Die Nachbar-Datenbank abdichten.</span> In derselben PostgreSQL-Instanz
+liegt <code>nmd_albisrun</code> (EHC-Sponsorenlauf). Ohne diese beiden Zeilen könnte sich unsere
+Rolle <code>authenticator</code> dort einwählen:</p>
+<pre><code>psql -w -d nmd_albisrun -c "revoke connect on database nmd_albisrun from public;"
+psql -w -d nmd_albisrun -c "grant connect on database nmd_albisrun to nmd_albisrun;"</code></pre>
+<p>Beide Zeilen gehören zusammen. Nur die erste auszuführen sperrt den Sponsorenlauf aus seiner
+eigenen Datenbank.</p>
+</div>
+
+<h2 id="s4">5 · Bootstrap: Rollen, auth-Schema, extensions</h2>
+
+<pre><code>cd /tmp/zeugnio-setup
+psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/900_nine_bootstrap.sql
+
+# Passwort für die Rolle, mit der PostgREST sich verbindet
+openssl rand -base64 32          # Wert notieren, kommt in postgrest.conf
+psql -w -d nmd_zeugnio -c "alter role authenticator with password 'DER_WERT';"</code></pre>
+
+<p>Was diese Datei herstellt und warum, steht in ihrem Kopf. Drei Punkte, die im Betrieb
+wiederkommen:</p>
+
+<ul>
+<li>Die Rollennamen sind <strong>nicht frei wählbar</strong>. Vier Trigger vergleichen wörtlich
+<code>current_user = 'service_role'</code>. Ein Präfix wie <code>nmd_service_role</code> würde
+Widerruf und PII-Cleanup lautlos blockieren.</li>
+<li><code>authenticator</code> ist <code>NOINHERIT</code>. Ohne das läuft der Teil jeder Anfrage
+vor dem Rollenwechsel mit den Rechten von <code>service_role</code> — also an der
+Zeilensicherheit vorbei.</li>
+<li>Das Schema <code>extensions</code> wird angelegt, weil Supabase <code>uuid-ossp</code> und
+<code>pgcrypto</code> dort ablegt. Die Spaltenvorgaben im Auszug zeigen deshalb auf
+<code>extensions.uuid_generate_v4()</code>. Fehlt das Schema, scheitert das Einspielen — oder,
+schlimmer, erst der erste <code>INSERT</code>.</li>
+</ul>
+
+<h2 id="s5">6 · Schema: aus dem Repository, nicht aus der Produktion</h2>
+
+<div class="warn">
+<p><span class="label">Hier ist der Plan am 1. Oktober geändert worden.</span> Ursprünglich sollte
+das Schema aus einem Auszug der Produktionsdatenbank kommen und die Migrationen 001–025 nur als
+„eingespielt" vermerkt werden. Das trägt nicht: in der Produktion läuft <strong>PostgreSQL
+17</strong>, hier steht <strong>16</strong>. Ein Auszug ist aufwärtskompatibel, nicht abwärts —
+ihn in eine ältere Version zu laden ist nicht vorgesehen und scheitert je nach Inhalt sofort oder,
+schlimmer, erst später an einer Einzelheit.</p>
+<p>Statt nine um PostgreSQL 17 zu bitten (weiterer Complex Service, Vorlauf, Kosten) wird die
+Richtung umgedreht: <strong>das Repository ist die Quelle der Wahrheit für das Schema, die
+Produktion nur für die Daten.</strong> Daten kommen als <code>COPY</code> heraus und sind reiner
+Text ohne Versionsbezug. Der Schema-Auszug wird trotzdem gezogen — aber nur zum Vergleichen, nie
+zum Einspielen.</p>
+</div>
+
+<h3>Migrationen einspielen</h3>
+
+<pre><code>cd /tmp/zeugnio-setup
+ln -sf ~/zeugnio/shared/.env .env
+node --env-file=.env scripts/migrate.mjs --status     # zeigt, was ansteht
+node --env-file=.env scripts/migrate.mjs              # 001-026 wirklich ausführen
+</code></pre>
+
+<p>Der Läufer nimmt <code>007_storage_logos.sql</code> selbst heraus und sagt auch, warum: sie legt
+den Supabase-Storage-Bucket an und setzt Regeln auf <code>storage.objects</code> — ein Schema, das
+es hier nicht gibt. Kein Verlust, die Firmenlogos liegen seit der Umstellung auf der Platte. Alle
+übrigen Migrationen brauchen nur <code>auth.users</code> und <code>auth.uid()</code>, und die hat
+Abschnitt 5 schon angelegt.</p>
+
+<h3>Abgleich mit der Produktion — der Schritt, der Drift findet</h3>
+
+<p>Dafür braucht es einen <strong>17er Client</strong>; <code>pg_dump 16</code> verweigert einen
+17er Server. Abschnitt 4 des Prüfskripts sagt, ob <code>postgresql-client-17</code> im
+Paketspeicher liegt. Liegt er nicht, geht eine Zeile ans Ticket an nine.</p>
+
+<pre><code># Verbindung über den Session-Pooler — der direkte Datenbank-Host von Supabase
+# ist nur über IPv6 erreichbar, und advisori01 hat kein IPv6.
+export PGPASSWORD='DAS_SUPABASE_DB_PASSWORT'
+/usr/lib/postgresql/17/bin/pg_dump \
+  --host=aws-0-eu-central-1.pooler.supabase.com --port=5432 \
+  --username=postgres.swnycyrhqilzmqnmclcp --dbname=postgres \
+  --schema-only --schema=public --no-owner --no-privileges \
+  --file=/tmp/prod-schema.sql
+unset PGPASSWORD
+
+# Dasselbe von der eigenen Datenbank, damit die zwei vergleichbar sind
+pg_dump --schema-only --schema=public --no-owner --no-privileges \
+  -d nmd_zeugnio --file=/tmp/eigen-schema.sql
+
+# Nur die Strukturzeilen gegenüberstellen
+grep -E "^(CREATE TABLE|    [a-z_]+ )" /tmp/prod-schema.sql  | sed 's/,$//' | sort > /tmp/a.txt
+grep -E "^(CREATE TABLE|    [a-z_]+ )" /tmp/eigen-schema.sql | sed 's/,$//' | sort > /tmp/b.txt
+diff /tmp/a.txt /tmp/b.txt && echo "deckungsgleich"</code></pre>
+
+<div class="warn">
+<p><span class="label">Abweichungen hier sind keine Formalität.</span> Jede Zeile, die nur links
+steht, ist etwas, das in der Produktion von Hand geändert wurde und in keiner Migration steht.
+Nach dem Umzug wäre es weg. Also: anschauen, verstehen, und als neue Migration mit der nächsten
+Nummer nachziehen — nicht in eine bestehende Datei hineinschreiben,
+<code>scripts/migrate.mjs</code> erkennt das über die Prüfsumme und bricht ab.</p>
+<p>Erwartet werden 16 Tabellen. <code>grep -c "^CREATE TABLE" /tmp/eigen-schema.sql</code>
+beantwortet das in einer Zeile.</p>
+</div>
+
+<h2 id="s6">7 · Eigentum, Rechte, Auth-Brücke</h2>
+
+<pre><code>psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/901_nine_ownership.sql
+psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/902_auth_bridge.sql</code></pre>
+
+<p><code>901</code> überträgt das Eigentum an allen Objekten auf <code>service_role</code>. Das ist
+der Ersatz für <code>BYPASSRLS</code>, das Superuser-Rechte bräuchte: PostgreSQL wendet die
+Zeilensicherheit auf den Eigentümer einer Tabelle nicht an. Die Datei bricht selbst ab, falls
+irgendeine Tabelle <code>FORCE ROW LEVEL SECURITY</code> trägt.</p>
+
+<p><code>902</code> schliesst die Lücke zwischen den beiden Cutovers: solange Supabase anmeldet und
+die Daten schon hier liegen, kennt die eigene <code>auth.users</code> neue Benutzer nicht, und der
+Fremdschlüssel von <code>public.profiles</code> greift nicht. Das trifft nicht einen Randfall,
+sondern jede neue Registrierung.</p>
+
+<h2 id="s7">8 · Gegenprobe (Tor)</h2>
+
+<pre><code>psql -w -d nmd_zeugnio -f supabase/903_nine_verify.sql | tee ~/zeugnio/logs/verify-$(date +%F).txt</code></pre>
+
+<p>Diese Datei ändert nichts. Sie ist der eigentliche Abschluss der Datenbankarbeit, denn der
+gefährlichste Fehler bei diesem Umzug ist keine Fehlermeldung, sondern ein leeres Ergebnis:
+liefert <code>auth.uid()</code> NULL, greift keine der 45 Zeilensicherheitsregeln, und die
+Anwendung zeigt einfach nichts an. <strong>„Die App startet" ist kein Beleg.</strong></p>
+
+<p>Es muss gelten:</p>
+
+<table>
+<tr><th>Abschnitt</th><th>Erwartung</th></tr>
+<tr><td>3</td><td>leer — kein <code>FORCE ROW LEVEL SECURITY</code></td></tr>
+<tr><td>4</td><td>leer — alles gehört <code>service_role</code></td></tr>
+<tr><td>6</td><td>leer — <code>anon</code> darf nichts schreiben</td></tr>
+<tr><td>7</td><td>leer — keine View umgeht die Zeilensicherheit</td></tr>
+<tr><td>9</td><td><code>handle_new_user</code>: <code>anon</code> und <code>authenticated</code> = false</td></tr>
+<tr><td>10</td><td>zeigt <code>on_auth_user_created</code></td></tr>
+<tr><td>13a</td><td><code>auth_uid</code> und <code>auth_role</code> gefüllt, nicht NULL</td></tr>
+<tr><td>13b</td><td><strong>0 Zeilen und kein Fehler.</strong> Ein Fehler hiesse fehlende Rechte,
+eine Zahl über 0 eine wirkungslose Regel</td></tr>
+<tr><td>13c</td><td>alle Zeilen sichtbar</td></tr>
+</table>
+
+<h2 id="s8">9 · Daten-API: PostgREST</h2>
+
+<pre><code>cd /tmp/zeugnio-setup
+./deploy/nine/install-postgrest.sh                 # zeigt nur die Prüfsumme, installiert nicht</code></pre>
+
+<p>Die ausgegebene Prüfsumme mit der Angabe auf der Release-Seite von PostgREST vergleichen — von
+Hand, von einem Menschen. Die Prüfsumme aus derselben Quelle zu laden wie das Archiv wäre keine
+Prüfung, sondern nur ein zweiter Download. Dann:</p>
+
+<pre><code>POSTGREST_SHA256=DIE_GEPRUEFTE_SUMME ./deploy/nine/install-postgrest.sh
+
+cp deploy/nine/postgrest.conf.example ~/zeugnio/shared/postgrest.conf
+chmod 600 ~/zeugnio/shared/postgrest.conf
+nano ~/zeugnio/shared/postgrest.conf    # db-uri und jwt-secret ausfüllen
+
+cp deploy/nine/postgrest.service ~/.config/systemd/user/postgrest.service
+systemctl --user daemon-reload
+systemctl --user enable --now postgrest
+systemctl --user status postgrest</code></pre>
+
+<h3>Drei Prüfungen, bevor die Anwendung sie benutzt</h3>
+
+<pre><code># 1. lebt und ist bereit
+curl -sS http://127.0.0.1:3012/live
+curl -sS http://127.0.0.1:3012/ready
+
+# 2. Gegenprobe, die wichtiger ist als die Probe: von aussen darf NICHTS antworten
+curl -sS --max-time 5 http://5.148.171.221:3011/ || echo "gut: von aussen tot"
+
+# 3. mit dem anon-Schlüssel: eine Tabelle mit Zeilensicherheit muss LEER antworten,
+#    nicht mit einem Fehler
+curl -sS -H "Authorization: Bearer DER_ANON_SCHLUESSEL" \
+  "http://127.0.0.1:3011/certificates?select=id&limit=1"</code></pre>
+
+<div class="note">
+<p>Antwortet Prüfung 3 mit <code>[]</code>, arbeitet die Kette wie gedacht. Antwortet sie mit einer
+Zeile, greift die Zeilensicherheit nicht — dann zurück zu Abschnitt 8. Antwortet sie mit 401, ist
+der Schlüssel kein JWT (siehe Abschnitt 1, vierte Angabe).</p>
+</div>
+
+<h2 id="s9">10 · Erstes Deployment auf der Testadresse</h2>
+
+<pre><code># vhost auf der nine-Testadresse, noch ohne Zertifikat und ohne DNS
+sudo nine-manage-vhosts virtual-host create zeugnio.ch.advisori01.nine.ch \
+  --template=proxy --proxy-port=3010
+
+# Upload-Grenze und Antwortzeit: ohne diese zwei Werte scheitert der Logo-Upload
+# mit 413, und die PDF-Route kann in ein Zeitlimit laufen.
+#   client_max_body_size 4m;
+#   proxy_read_timeout   60s;</code></pre>
+
+<pre><code>cp /tmp/zeugnio-setup/deploy/nine/deploy.sh ~/deploy-zeugnio.sh   # nur für den ersten Lauf
+chmod +x ~/deploy-zeugnio.sh
+~/deploy-zeugnio.sh --check      # prüft Rechte, Dienste, Zugriff — ändert nichts
+~/deploy-zeugnio.sh main</code></pre>
+
+<p>Ab dem zweiten Mal läuft das Deployment aus dem Release-Ordner selbst:</p>
+
+<pre><code>~/zeugnio/current/deploy/nine/deploy.sh main</code></pre>
+
+<h2 id="s10">11 · Vollprobe</h2>
+
+<p>Auf <code>https://zeugnio.ch.advisori01.nine.ch</code>, <strong>bevor DNS irgendetwas
+sieht</strong> und ausschliesslich mit erfundenen Namen. Der ganze Weg, nicht nur der Start:</p>
+
+<ol>
+<li>Firma anlegen, Logo hochladen (PNG, knapp unter 2 MB)</li>
+<li>Logo erneut hochladen, diesmal <strong>über 2 MB</strong> → muss eine verständliche Meldung
+geben, nicht einen Abbruch. Ebenso eine als <code>.png</code> umbenannte Textdatei: die Prüfung
+sieht die ersten Bytes an, nicht den Dateinamen</li>
+<li>Zeugnis anlegen, Einladung verschicken → im Betreff steht <strong>kein Name</strong>, nur die
+Firma</li>
+<li>Beurteilung abgeben, Text erzeugen, finalisieren</li>
+<li>PDF herunterladen und ansehen: Logo im Briefkopf, QR-Code, und die Schrift muss
+<strong>Inter</strong> sein. Helvetica heisst, dass die Schriftdateien am erwarteten Ort fehlen —
+<code>/api/health</code> sagt das auch</li>
+<li><code>/verify</code> mit diesem PDF, danach mit einem <strong>echten, bereits ausgestellten</strong>
+Zeugnis aus dem Bestand</li>
+<li>Neue Registrierung mit einer noch nie verwendeten Adresse — das ist der Fall, den
+<code>/api/auth/sync</code> abdeckt</li>
+<li>Widerruf eines Testzeugnisses (prüft den <code>service_role</code>-Pfad durch die Trigger)</li>
+<li>Cron mit falschem Token → muss 401 geben:
+<pre><code>curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer falsch" \
+  http://127.0.0.1:3010/api/cron/pii-cleanup</code></pre></li>
+<li>Entwicklerwerkzeuge des Browsers auf Startseite, Login und <code>/verify</code>:
+<strong>keine einzige Anfrage</strong> ausserhalb der eigenen Domain, CSP-Konsole leer</li>
+<li>Logs durchsehen: keine Personendaten
+<pre><code>pm2 logs zeugnio --lines 200 --nostream | grep -iE "@|[A-Z][a-z]+ [A-Z][a-z]+"</code></pre></li>
+</ol>
+
+<h3>Restore-Übung — Tor für den Cutover</h3>
+
+<p>Eine Sicherung, die nie zurückgespielt wurde, ist eine Vermutung. Die Übung misst zugleich, wie
+lange es im Ernstfall dauert:</p>
+
+<pre><code>node ~/zeugnio/current/deploy/nine/db-backup.mjs --full
+sudo nine-manage-databases database create --database-type=postgresql \
+  --user=nmd_zeugnio nmd_zeugprobe
+
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+  -pass file:$HOME/zeugnio/shared/backup.key \
+  -in ~/zeugnio/backups/zeugnio-....pg.sql.gz.enc | gunzip > /tmp/restore.sql
+
+time psql -w -v ON_ERROR_STOP=1 -d nmd_zeugprobe -f /tmp/restore.sql
+rm -f /tmp/restore.sql</code></pre>
+
+<div class="warn">
+<p>Der Auszug enthält Eigentümer und Rechte — das ist Absicht, siehe den Kopf von
+<code>db-backup.mjs</code>. In eine <em>leere</em> Datenbank gehört deshalb zuerst
+<code>900_nine_bootstrap.sql</code>, damit die Rollen existieren. Und danach die Testdatenbank
+wieder löschen: sie enthält Personendaten.</p>
+</div>
+
+<h2 id="s11">12 · Cutover A</h2>
+
+<p>Dienstag bis Donnerstag, 06:00, 45 bis 75 Minuten. Nicht Freitag: der erste Werktag danach
+gehört zur Umstellung.</p>
+
+<h3>T−2 Tage</h3>
+
+<div class="danger">
+<p><span class="label">HSTS senken, und zwar vorher.</span> In
+<code>next.config.mjs</code> steht heute <code>max-age=63072000; includeSubDomains</code> — zwei
+Jahre, live. Solange das gilt, ist das Fenster zwischen DNS-Umstellung und fertigem Zertifikat
+eine harte Downtime ohne „Trotzdem fortfahren" im Browser. Den Wert auf <code>300</code> senken
+und <strong>nach Vercel deployen</strong>, damit Bestandsbesucher den kurzen Wert noch abholen.
+Nach dem Cutover wieder hochsetzen.</p>
+</div>
+
+<ul>
+<li>TTL der Einträge <code>zeugnio.ch</code> und <code>www</code> auf 300 senken; die jetzigen
+Werte notieren — sie sind der Rollback</li>
+<li>Vercel-Cron abschalten (sonst laufen zwei PII-Cleanups)</li>
+<li>Prüfsummen aus Abschnitt 11 von <code>903</code> auf der Supabase-Seite erneut ziehen</li>
+</ul>
+
+<h3>Am Tag selbst</h3>
+
+<pre><code># 1. Supabase schreibgeschützt setzen
+#    (im SQL Editor, für alle drei Rollen)
+alter role anon          set default_transaction_read_only = on;
+alter role authenticated set default_transaction_read_only = on;
+alter role service_role  set default_transaction_read_only = on;
+select pg_terminate_backend(pid) from pg_stat_activity
+ where datname = current_database() and pid &lt;&gt; pg_backend_pid();</code></pre>
+
+<pre><code># 2. Daten holen — auf dem Server, über den Pooler, mit dem 17er Client.
+#    Nur --data-only: das Schema steht schon (Abschnitt 6). Daten kommen als COPY
+#    heraus und sind reiner Text ohne Versionsbezug, 17 nach 16 ist hier unkritisch.
+export PGPASSWORD='DAS_SUPABASE_DB_PASSWORT'
+/usr/lib/postgresql/17/bin/pg_dump \
+  --host=aws-0-eu-central-1.pooler.supabase.com --port=5432 \
+  --username=postgres.swnycyrhqilzmqnmclcp --dbname=postgres \
+  --data-only --schema=public --no-owner --no-privileges \
+  --file=/tmp/prod-data.sql
+
+# auth.users getrennt und mit EINZELN benannten Spalten: Supabases Tabelle hat
+# über dreissig, unsere sieben.
+psql -w "host=aws-0-REGION.pooler.supabase.com port=5432 \
+  user=postgres.swnycyrhqilzmqnmclcp dbname=postgres" \
+  -c "\copy (select id, email, created_at, updated_at, last_sign_in_at, \
+      email_confirmed_at, raw_user_meta_data from auth.users) \
+      to '/tmp/auth-users.csv' with (format csv)"
+unset PGPASSWORD</code></pre>
+
+<pre><code># 3. auth.users zuerst, Trigger vorher abschalten — sonst legt er für jede Zeile
+#    ein Profil an, und die Profile kommen gleich danach aus dem Auszug.
+psql -w -d nmd_zeugnio -c "alter table auth.users disable trigger on_auth_user_created;"
+psql -w -d nmd_zeugnio -c "\copy auth.users (id, email, created_at, updated_at, \
+  last_sign_in_at, email_confirmed_at, raw_user_meta_data) from '/tmp/auth-users.csv' \
+  with (format csv)"
+psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f /tmp/prod-data.sql
+psql -w -d nmd_zeugnio -c "alter table auth.users enable trigger on_auth_user_created;"</code></pre>
+
+<pre><code># 4. Logos herunterziehen und die Adressen umschreiben.
+#    Es sind sechs Dateien (Stand 02.10.2026, gezählt mit 905_prod_definitionen.sql).
+#    Der Bucket company-logos ist öffentlich, die Adressen brauchen also keinen
+#    Schlüssel — ein curl pro Zeile genügt. Die drei übrigen Buckets (certificates,
+#    reports, uploads) sind leer: PDFs entstehen bei jedem Abruf neu und werden nicht
+#    abgelegt. Ausser diesen sechs Dateien ist nichts zu übertragen.
+psql -w -d nmd_zeugnio -t -A -F' ' -c \
+  "select id, logo_url from companies where logo_url like 'http%';" \
+  | while read -r id url; do
+      datei="$(basename "${url%%\?*}")"
+      mkdir -p ~/zeugnio/shared/uploads/logos/"$id"
+      curl -fsS "$url" -o ~/zeugnio/shared/uploads/logos/"$id"/"$datei" \
+        && psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -c \
+             "update companies set logo_url = '/api/logos/$id/$datei' where id = '$id';" \
+        || echo "FEHLGESCHLAGEN: $id $url"
+    done
+
+# Gegenprobe: keine Firma darf danach noch auf eine fremde Adresse zeigen.
+psql -w -d nmd_zeugnio -t -A -c \
+  "select count(*) from companies where logo_url like 'http%';"   # muss 0 sein</code></pre>
+
+<p>Die Adresse wird erst nach erfolgreichem <code>curl</code> umgeschrieben — scheitert der
+Download, bleibt der alte Verweis stehen und das Logo lädt weiter aus dem Supabase-Storage.
+Umgekehrt hätte man einen Verweis ins Leere und ein kaputtes Bild ohne Fehlermeldung.</p>
+
+<div class="danger">
+<p><span class="label">Integritätsprüfung — Abbruchkriterium.</span> Jetzt Abschnitt 11 aus
+<code>903_nine_verify.sql</code> auf der eigenen Datenbank ausführen und mit der Zeile von Supabase
+vergleichen. <strong>Weicht eine der Prüfsummen ab, wird abgebrochen und zurückgerollt.</strong>
+Sie ist das einzige Kriterium, das die Unversehrtheit bereits ausgestellter Zeugnisse belegt; ein
+QR-Code, der ins Leere zeigt, ist danach nicht zu heilen.</p>
+</div>
+
+<pre><code># 5. Umschalten
+nano ~/zeugnio/shared/.env          # DATA_API_URL=http://127.0.0.1:3011 setzen
+~/zeugnio/current/deploy/nine/deploy.sh main
+curl -sS http://127.0.0.1:3010/api/health     # "datenquelle":"eigene" muss dastehen
+
+# 6. Smoke-Test auf der Testadresse: anmelden, Zeugnis öffnen, PDF erzeugen, /verify
+
+# 7. DNS umstellen: A-Record zeugnio.ch und www auf 5.148.171.221
+sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --proxy-port=3010
+sudo nine-manage-vhosts certificate create zeugnio.ch
+sudo nine-manage-vhosts virtual-host update zeugnio.ch \
+  --template=proxy_letsencrypt_https_redirect --proxy-port=3010</code></pre>
+
+<h3>Rollback-Kriterien</h3>
+
+<p>Eines davon genügt — nicht diskutieren, zurückrollen:</p>
+
+<ul>
+<li>Zertifikat nicht innerhalb von 20 Minuten ausgestellt</li>
+<li><code>/verify</code> antwortet nicht mit 200</li>
+<li>eine echte QR-URL aus einem ausgestellten PDF ist tot</li>
+<li>PDF-Erzeugung dauert über 30 Sekunden</li>
+<li>Anmeldung bricht</li>
+<li>Fehlerrate über 1 % während 10 Minuten</li>
+</ul>
+
+<h2 id="s12">13 · Rollback</h2>
+
+<pre><code># 1. DNS zurück auf Vercel (die notierten Werte von T−2)
+# 2. Schreibschutz bei Supabase aufheben — das wird am häufigsten vergessen
+alter role anon          set default_transaction_read_only = off;
+alter role authenticated set default_transaction_read_only = off;
+alter role service_role  set default_transaction_read_only = off;
+# 3. Vercel-Cron wieder einschalten</code></pre>
+
+<div class="note">
+<p>Was beim Zurückrollen <strong>nicht</strong> zurückkommt: alles, was zwischen dem Schreibschutz
+und dem Rollback auf dem neuen Server entstanden ist. Darum steht der Schreibschutz am Anfang —
+solange er gilt, entsteht bei Supabase nichts Neues, und bis zum Umschalten der Anwendung
+entsteht auch auf dem neuen Server nichts. Das Fenster, in dem Arbeit verloren gehen kann, ist
+damit die Zeit zwischen Schritt 5 und der Rollback-Entscheidung.</p>
+</div>
+
+<p>Die Anwendung selbst rollt eigenständig zurück, wenn eine neue Version nicht antwortet. Von
+Hand:</p>
+
+<pre><code>~/zeugnio/current/deploy/nine/deploy.sh --rollback   # Code zurück, Datenbank bleibt</code></pre>
+
+<h2 id="s13">14 · Betrieb</h2>
+
+<h3>Cron einrichten (als <code>www-zeugnio</code>, <code>crontab -e</code>)</h3>
+
+<pre><code>CRON_TZ=UTC
+
+# Löschfristen für Personendaten (ersetzt den Vercel-Cron)
+15 2 * * * cd $HOME/zeugnio/current && $HOME/.nvm/nvm-exec node deploy/nine/cron-pii-cleanup.mjs >> $HOME/zeugnio/logs/cron-pii.log 2>&1
+
+# Sicherung: stündlich das Journal, nachts der ganze Auszug
+7 * * * * cd $HOME/zeugnio/current && $HOME/.nvm/nvm-exec node deploy/nine/db-backup.mjs --journal-only >> $HOME/zeugnio/logs/backup.log 2>&1
+40 1 * * * cd $HOME/zeugnio/current && $HOME/.nvm/nvm-exec node deploy/nine/db-backup.mjs >> $HOME/zeugnio/logs/backup.log 2>&1
+
+# Lebenszeichen
+*/5 * * * * cd $HOME/zeugnio/current && $HOME/.nvm/nvm-exec node deploy/nine/cron-watchdog.mjs >> $HOME/zeugnio/logs/watchdog.log 2>&1
+
+# Log-Rotation
+30 3 * * * /usr/sbin/logrotate -s $HOME/.logrotate.state $HOME/.logrotate.conf</code></pre>
+
+<p><code>CRON_TZ=UTC</code> ist nicht Kosmetik: ohne die Angabe läuft jeder Eintrag in der Zeitzone
+des Servers, und bei der Zeitumstellung läuft er entweder zweimal oder gar nicht.</p>
+
+<h3>Am Morgen nach dem Cutover</h3>
+
+<ul>
+<li><span class="label">Grösse des Nachtauszugs von nine vergleichen.</span> Das Eigentum an den
+Tabellen liegt jetzt bei <code>service_role</code>. Läuft nines Auszug als Datenbankbenutzer ohne
+diese Mitgliedschaft, fehlen Tabellen — lautlos. <code>900</code> setzt die Mitgliedschaft, aber
+die Bestätigung ist die Dateigrösse.</li>
+<li><code>~/zeugnio/logs/backup.log</code> ansehen: liegen Journal und Auszug im Object Storage?</li>
+<li><span class="label">Prüfen, dass der Logo-Rückfallweg nicht mehr betreten wird.</span> Solange
+die Produktion auf Vercel lief, gingen neue Logos in den Supabase-Storage; auf dem eigenen Server
+gehören sie auf die Platte. Ein Logo hochladen und danach:
+<pre><code>pm2 logs zeugnio --lines 200 --nostream | grep "\[logo\]"</code></pre>
+Erscheint dort „Rückfall auf den Supabase-Storage", zeigt <code>ZEUGNIO_UPLOAD_DIR</code> nicht auf
+ein beschreibbares Verzeichnis — und die Logos verlassen weiter die Schweiz, ohne dass sonst etwas
+darauf hinweist.</li>
+<li>HSTS wieder hochsetzen und deployen.</li>
+<li><code>vercel.json</code> erst <strong>48 Stunden</strong> nach dem Cutover entfernen — vorher
+ist es der Rückweg.</li>
+</ul>
+
+<h3>Was ab jetzt unsere Aufgabe ist und nicht die von nine</h3>
+
+<table>
+<tr><th>Gegenstand</th><th>Rhythmus</th></tr>
+<tr><td>PostgREST aktualisieren (Version und Prüfsumme in <code>install-postgrest.sh</code>)</td><td>quartalsweise</td></tr>
+<tr><td>Node 22 (nvm) und Next.js</td><td>quartalsweise</td></tr>
+<tr><td>Gerenderten nginx-vhost mit der Kopie in <code>docs/</code> vergleichen</td><td>nach jedem Wartungsfenster von nine</td></tr>
+<tr><td><code>903_nine_verify.sql</code> laufen lassen</td><td>nach jeder Migration, die Tabellen anlegt</td></tr>
+<tr><td>Restore-Übung</td><td>halbjährlich</td></tr>
+</table>
+
+<div class="note">
+<p><span class="label">Nach jeder Migration.</span> PostgREST hält das Schema im
+Zwischenspeicher. Ohne <code>systemctl --user reload postgrest</code> antwortet die Daten-API auf
+eine neue Spalte mit „column does not exist", obwohl sie existiert. <code>deploy.sh</code> macht
+das selbst; von Hand eingespielte Migrationen nicht.</p>
+</div>
+
+<h3>Offene Punkte, die nicht in dieser Anleitung gelöst sind</h3>
+
+<ul>
+<li><span class="label">Auftragsbearbeitungsvertrag mit nine</span> und die schriftliche
+Bestätigung, dass Datenbank, Sicherungen, Object Storage und Logs ausschliesslich in der Schweiz
+liegen. Ohne dieses Papier ist die Zusage an die Kundschaft nicht belegbar — der Serverumzug
+allein belegt sie nicht.</li>
+<li><span class="label">Arbeitsspeicher.</span> Vier Anwendungen auf 8 GB, ein
+<code>next build</code> braucht 2 bis 2,5 GB. Swap bei nine anfragen (4–8 GB). Die serverweite
+Build-Sperre in <code>deploy.sh</code> wirkt nur, wenn die Sperrdatei in <code>/tmp</code> für alle
+Anwendungsbenutzer beschreibbar ist; sonst weicht sie auf die Prozessliste aus, und die hilft nur,
+wenn <code>/proc</code> nicht mit <code>hidepid</code> abgeschirmt ist. Abschnitt 2 des
+Prüfskripts sagt, welcher Fall gilt. <strong>Der EHC-Sponsorenlauf hat diese Sperre noch nicht</strong>
+— solange beide Anwendungen hier liegen, gehört sie dort nachgetragen.</li>
+<li><span class="label">Kein SLA, kein Pikettdienst.</span> nine antwortet Montag bis Freitag,
+09–18 Uhr. Für einen Managed Server ist ein SLA zubuchbar; Preis und Reaktionszeit sind noch
+nicht erfragt.</li>
+<li><span class="label">Kein Point-in-Time-Recovery.</span> Die stündliche Sicherung und das
+Journal sind der Ersatz, kein Gleichwertiges.</li>
+<li><span class="label">Geheimnisse liegen im Klartext auf der Platte</span>
+(<code>shared/.env</code>, <code>postgrest.conf</code>, <code>backup.key</code>), und das Personal
+von nine hat Root. Das gehört in den Auftragsbearbeitungsvertrag und ins Verzeichnis der
+Bearbeitungstätigkeiten, nicht in eine Fussnote.</li>
+</ul>
+
+</div>
+</body>
+</html>
