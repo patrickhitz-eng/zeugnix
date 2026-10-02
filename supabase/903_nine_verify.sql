@@ -17,7 +17,7 @@
 --   psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/903_nine_verify.sql
 --
 -- Vor dem Cutover auch auf der Produktionsdatenbank bei Supabase laufen lassen
--- (Abschnitt 9 – die Prüfsummen müssen auf beiden Seiten gleich sein).
+-- (Abschnitt 11 – die Prüfsummen müssen auf beiden Seiten gleich sein).
 -- ============================================================================
 \pset pager off
 \timing off
