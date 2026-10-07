@@ -28,12 +28,25 @@
 -- Idempotent.
 -- ============================================================================
 
--- Tabellen, die NICHT in die Daten-API gehören und darum von den
--- Sammel-Rechten ausgenommen sind. PostgREST liefert jede Tabelle aus, auf die
--- die Rolle Rechte hat – die Buchführung über die Migrationen gehört nicht dazu.
-create temporary table if not exists _nicht_ausliefern (tablename text primary key);
-insert into _nicht_ausliefern (tablename) values ('schema_migrations')
-  on conflict do nothing;
+-- ----------------------------------------------------------------------------
+-- Tabellen, die NICHT in die Daten-API gehören
+-- ----------------------------------------------------------------------------
+-- PostgREST liefert jede Tabelle aus, auf die die Rolle Rechte hat – die
+-- Buchführung über die Migrationen gehört nicht dazu.
+--
+-- Diese Liste stand früher in einer temporären Tabelle. Das geht auf advisori01
+-- nicht: nine hat `TEMPORARY` auf der Datenbank entzogen, gemessen am 7.10.2026
+-- mit has_database_privilege('nmd_zeugnio_rw', current_database(), 'TEMP') = f.
+-- Eine temporäre Tabelle hätte dieses Skript also in der ersten Anweisung
+-- abgebrochen. Statt nine um dieses Recht zu bitten, kommt die Liste jetzt als
+-- Array-Literal – sie hat genau einen Eintrag, und ein zusätzliches Recht für
+-- eine einelementige Liste wäre schlecht eingekauft.
+--
+-- ACHTUNG: Das Literal steht an ZWEI Stellen (Abschnitt 2 und Abschnitt 4).
+-- Kommt eine Tabelle hinzu, muss sie an beiden Stellen eingetragen werden,
+-- sonst bekommt sie in Abschnitt 2 keine Rechte und wird in Abschnitt 4 nicht
+-- verschlossen. 903_nine_verify.sql prüft das Ergebnis und würde die
+-- Abweichung melden.
 
 -- ----------------------------------------------------------------------------
 -- 1) Eigentum an allen Objekten in public auf service_role
@@ -120,7 +133,8 @@ begin
       join pg_namespace ns on ns.oid = c.relnamespace
      where ns.nspname = 'public'
        and c.relkind in ('r', 'p', 'v')
-       and c.relname not in (select tablename from _nicht_ausliefern)
+       -- Liste siehe Kopf dieser Datei. Zweite Stelle: Abschnitt 4.
+       and c.relname <> all (array['schema_migrations']::text[])
   loop
     execute format('grant select, insert, update, delete on public.%I to authenticated', r.relname);
     execute format('grant select on public.%I to anon', r.relname);
@@ -162,7 +176,8 @@ do $$
 declare
   r record;
 begin
-  for r in select tablename from _nicht_ausliefern loop
+  -- Liste siehe Kopf dieser Datei. Erste Stelle: Abschnitt 2.
+  for r in select unnest(array['schema_migrations']::text[]) as tablename loop
     if exists (select 1 from pg_tables where schemaname = 'public' and tablename = r.tablename) then
       execute format('revoke all on public.%I from anon, authenticated', r.tablename);
     end if;

@@ -321,6 +321,49 @@ gehört ebenfalls hierher, lässt sich aber erst nach Abschnitt 5 ausführen –
 
 <h2 id="s4">5 · Bootstrap: Rollen, auth-Schema, extensions</h2>
 
+<div class="warn">
+<p><span class="label">Halt – dieser Abschnitt braucht zwei Rechte von nine.</span>
+Gemessen am 7.10.2026 auf advisori01:</p>
+<pre><code>rolname        | rolcanlogin | rolcreaterole | rolconfig
+nmd_zeugnio    | t           | f             | {role=nmd_zeugnio_rw}
+nmd_zeugnio_ro | f           | f             |
+nmd_zeugnio_rw | f           | f             |</code></pre>
+<p><strong>Keine der drei Rollen darf Rollen anlegen</strong>, und
+<code>nmd_zeugnio</code> ist nur Mitglied von <code>nmd_zeugnio_rw</code> – das hilft nicht
+weiter, denn dort steht <code>rolcreaterole</code> ebenfalls auf <code>f</code>.
+<code>900_nine_bootstrap.sql</code> legt vier Rollen an
+(<code>anon</code>, <code>authenticated</code>, <code>service_role</code>,
+<code>authenticator</code>) und scheitert deshalb mit
+<code>permission denied to create role</code>.</p>
+<p>Die Namen sind <strong>nicht verhandelbar</strong>: vier Trigger aus den Migrationen
+vergleichen wörtlich <code>current_user = 'service_role'</code>. Die bestehenden
+<code>_rw</code>/<code>_ro</code>-Rollen ersatzweise einzusetzen würde Widerruf,
+PII-Cleanup und Unveränderlichkeit lautlos stilllegen – ein Widerruf würde angenommen
+und nicht ausgeführt.</p>
+<p>Zu bestellen sind darum zwei Dinge:</p>
+<ol>
+<li><code>ALTER ROLE nmd_zeugnio CREATEROLE;</code> – damit laufen 900 und 901 unverändert.
+Seit PostgreSQL 16 ist <code>CREATEROLE</code> eng gefasst: eine solche Rolle kann nur
+Rollen verwalten, die sie selbst angelegt hat, und keine Rechte vergeben, die sie nicht
+selbst besitzt.</li>
+<li><code>GRANT CONNECT ON DATABASE nmd_zeugnio TO authenticator;</code> – nachdem wir die
+Rolle angelegt haben. Grund: <code>PUBLIC</code> hat auf dieser Datenbank kein
+<code>CONNECT</code> (siehe Kästchen in Abschnitt 4), eine neue Rolle erbt also keines, und
+<code>nmd_zeugnio_rw</code> hält das Recht ohne Weitergaberecht. Alternativ und dauerhafter:
+<code>GRANT CONNECT ON DATABASE nmd_zeugnio TO nmd_zeugnio_rw WITH GRANT OPTION;</code> –
+dann erledigen wir es künftig selbst.</li>
+</ol>
+<p>Was wir <strong>nicht</strong> brauchen und darum auch nicht bestellen:
+<code>TEMPORARY</code> (901 arbeitet ohne temporäre Tabelle),
+Datenbankeigentum (<code>search_path</code> setzt <code>scripts/migrate.mjs</code> pro
+Migration selbst) und eine Lesekonto-Rolle für die Sicherung
+(<code>nmd_zeugnio_ro</code> gibt es schon – zum Dump aber <em>nicht</em> geeignet, siehe
+Abschnitt 11).</p>
+<p>Bereits bestätigt und kein Hindernis: <code>CREATE</code> auf dem Schema
+<code>public</code> und auf der Datenbank stehen beide auf <code>t</code>. Tabellen und das
+Schema <code>extensions</code> können wir selbst anlegen.</p>
+</div>
+
 <pre><code>cd /tmp/zeugnio-setup
 psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/900_nine_bootstrap.sql
 
@@ -363,30 +406,35 @@ schlimmer, erst der erste <code>INSERT</code>.</li>
 </ul>
 
 <div class="warn">
-<p><span class="label">Jetzt die eigene Datenbank abdichten.</span> Auf dieser
-PostgreSQL-Instanz liegen auch die Datenbanken anderer Anwendungen – welche, sagt
-<code>nine-manage-databases database list</code>. <code>PUBLIC</code> hat auf jeder Datenbank
-standardmässig <code>CONNECT</code>; jede Login-Rolle der Nachbaranwendungen kann sich also in
-<code>nmd_zeugnio</code> einwählen. Die Zeilensicherheit hilft dagegen nur begrenzt – sie
-greift nicht gegen einen Tabelleneigentümer, und wer einmal verbunden ist, sieht das ganze
-Schema. Darum:</p>
-<pre><code>psql -w -d nmd_zeugnio -c "revoke connect on database nmd_zeugnio from public;"
-psql -w -d nmd_zeugnio -c "grant connect on database nmd_zeugnio to nmd_zeugnio, authenticator;"</code></pre>
-<p><strong>Beide Zeilen gehören zusammen</strong>, und die zweite ist die wichtigere: nach dem
-<code>revoke</code> hat <em>niemand</em> mehr <code>CONNECT</code>, auch PostgREST nicht –
-dessen Rolle <code>authenticator</code> hatte das Recht ausschliesslich über
-<code>PUBLIC</code>. Nur die erste Zeile auszuführen sperrt also die eigene Anwendung aus.
-<code>anon</code>, <code>authenticated</code> und <code>service_role</code> brauchen kein
-<code>CONNECT</code>: sie sind <code>nologin</code> und werden nur per <code>SET ROLE</code>
-innerhalb einer bestehenden Sitzung angenommen – <code>CONNECT</code> prüft PostgreSQL allein
-beim Verbindungsaufbau.</p>
-<p>Scheitert schon die erste Zeile mit <code>must be owner of database</code>, gehört
-<code>nmd_zeugnio</code> die Datenbank nicht. Das ist dann ein Ticket an nine und keine
-Fussnote: ohne diese Trennung liegen zeugnio-Personendaten in einer Datenbank, in die sich
-fremde Rollen einwählen können. Abschnitt 6 des Prüfskripts beantwortet die Eigentumsfrage
-vorab.</p>
-<p>Gegenprobe – muss eine leere Liste zeigen:</p>
-<pre><code>psql -w -d nmd_zeugnio -c "select datname, coalesce(datacl::text, 'kein ACL = PUBLIC darf verbinden') from pg_database where datname = 'nmd_zeugnio';"</code></pre>
+<p><span class="label">Mandantentrennung: nine hat sie schon gemacht – nur prüfen.</span>
+Gemessen am 7.10.2026 sieht die Rechtelage der drei Datenbanken auf advisori01 so aus:</p>
+<pre><code>nmd          | nmd | {=T/nmd,nmd=CTc/nmd}
+nmd_albisrun | nmd | {nmd=CTc/nmd,nmd_albisrun_ro=c/nmd,nmd_albisrun_rw=Cc/nmd}
+nmd_zeugnio  | nmd | {nmd=CTc/nmd,nmd_zeugnio_ro=c/nmd,nmd_zeugnio_rw=Cc/nmd}</code></pre>
+<p>Die Buchstaben sind <code>C</code>=CREATE, <code>T</code>=TEMPORARY, <code>c</code>=CONNECT,
+nach dem Schrägstrich steht, wer das Recht vergeben hat. Entscheidend ist, was
+<strong>fehlt</strong>: bei <code>nmd_zeugnio</code> gibt es keinen Eintrag für
+<code>PUBLIC</code> – der stünde als <code>=…/nmd</code> ohne Namen davor da, so wie bei der
+Datenbank <code>nmd</code> selbst. <code>PUBLIC</code> hat hier also <em>kein</em>
+<code>CONNECT</code>, obwohl das PostgreSQLs Vorgabe wäre. nine vergibt es pro Datenbank
+einzeln an deren eigene <code>_ro</code>- und <code>_rw</code>-Rolle. Die Rollen des
+Sponsorenlaufs kommen damit nicht in <code>nmd_zeugnio</code> und umgekehrt.</p>
+<p><strong>Also kein <code>revoke connect</code> ausführen.</strong> Es wäre nicht nur
+unnötig, es würde mit <code>must be owner of database</code> abbrechen: Eigentümerin aller
+drei Datenbanken ist nines Verwaltungsrolle <code>nmd</code>. Nur prüfen, dass es so
+geblieben ist:</p>
+<pre><code>psql -w -d nmd_zeugnio -c "select datname, pg_get_userbyid(datdba) as eigentuemer, coalesce(datacl::text,'KEIN ACL -> PUBLIC darf verbinden') as rechte from pg_database where datname not in ('postgres','template0','template1') order by 1;"</code></pre>
+<p><span class="label">Die Kehrseite, und sie blockiert PostgREST.</span> Weil
+<code>PUBLIC</code> kein <code>CONNECT</code> hat, bekommt eine <strong>neu angelegte Rolle
+auch keines</strong> – sie kann nichts erben, wo nichts vergeben ist. Die Rolle
+<code>authenticator</code>, mit der sich PostgREST verbindet und die
+<code>900_nine_bootstrap.sql</code> anlegt, könnte sich also nicht anmelden. Und wir können
+ihr das Recht nicht selbst geben: <code>nmd_zeugnio_rw</code> hält <code>CONNECT</code> als
+<code>Cc/nmd</code>, nicht als <code>Cc*/nmd</code> – das fehlende Sternchen heisst „ohne
+Weitergaberecht". Ein <code>grant connect … to authenticator</code> scheitert darum mit
+<code>permission denied for database</code>.</p>
+<p>Das ist einer der beiden Punkte, die nine erledigen muss. Der andere ist
+<code>CREATEROLE</code>, siehe Abschnitt 5.</p>
 </div>
 
 <h2 id="s5">6 · Schema: aus dem Repository, nicht aus der Produktion</h2>
