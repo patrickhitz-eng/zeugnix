@@ -19,6 +19,7 @@ interface Company {
   signatory_1_role?: string | null;
   signatory_2_name?: string | null;
   signatory_2_role?: string | null;
+  certificate_footer?: string | null;
 }
 
 interface Employee {
@@ -131,6 +132,13 @@ export function CertificatePreview({
 
   // Text in Absätze splitten
   const paragraphs = text.split(/\n\n+/).map((p) => p.trim()).filter(Boolean);
+
+  // Ausstellerspezifische Fusszeile (mehrzeilig, leere Zeilen entfernt) –
+  // identisch zur Logik im PDF (lib/pdf/certificate.tsx).
+  const footerLines = (company.certificate_footer ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
 
   return (
     <div className="overflow-hidden rounded-md bg-ink-100 p-4 sm:p-6">
@@ -279,6 +287,16 @@ export function CertificatePreview({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={qrDataUrl} alt="QR-Code zur Echtheitsprüfung" style={css.qrCode} />
             )}
+          </div>
+        )}
+
+        {/* Ausstellerspezifische Fusszeile – absolut am unteren Blattrand,
+            Gegenstück zur fixen Fusszeile im PDF (lib/pdf/certificate.tsx). */}
+        {footerLines.length > 0 && (
+          <div style={css.footer}>
+            {footerLines.map((line, i) => (
+              <div key={i}>{line}</div>
+            ))}
           </div>
         )}
           </div>

@@ -259,6 +259,7 @@ export async function GET(
       companyEmail: company.email ?? undefined,
       companyWebsite: company.website ?? undefined,
       companyLogoDataUrl: logoDataUrl,
+      companyFooter: company.certificate_footer ?? undefined,
 
       employeeFirstName: employee.first_name,
       employeeLastName: employee.last_name,

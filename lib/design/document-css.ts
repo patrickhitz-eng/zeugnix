@@ -50,6 +50,8 @@ export interface DocumentCss {
   hashLabel: React.CSSProperties;
   hashValue: React.CSSProperties;
   qrCode: React.CSSProperties;
+  /** Ausstellerspezifische Fusszeile, absolut am unteren Blattrand. */
+  footer: React.CSSProperties;
 }
 
 /** Halber Zwischenraum der Unterschriftszellen (PDF: ein 20pt-Spacer). */
@@ -213,6 +215,22 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       height: cssPt(T.qr.size),
       flexShrink: 0,
       display: "block",
+    },
+
+    // Gegenstück zu styles.footer im PDF: absolut am unteren Rand des A4-Blatts.
+    // Das Vorschau-Blatt (sheetRef) ist positioniert, daher greift bottom hier
+    // relativ zum Blatt – wie die fixe Fusszeile auf der PDF-Seite.
+    footer: {
+      position: "absolute",
+      bottom: cssPt(T.space.footerBottom),
+      left: cssPt(T.page.paddingHorizontal),
+      right: cssPt(T.page.paddingHorizontal),
+      paddingTop: cssPt(T.space.footerPaddingTop),
+      borderTop: `${cssPt(T.border.hairline)} solid ${c.rule}`,
+      textAlign: "center",
+      fontSize: cssPt(T.fontSize.footer),
+      color: c.textSecondary,
+      lineHeight: cssLh(T.lineHeight.hash),
     },
   };
 }

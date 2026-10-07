@@ -63,6 +63,7 @@ export const BASE_TOKENS = {
     signatureEmail: 8 as Pt,
     hash: 7.5 as Pt,
     hashLabel: 7 as Pt,
+    footer: 7.5 as Pt,
     sentinel: 6 as Pt,
   },
 
@@ -107,6 +108,12 @@ export const BASE_TOKENS = {
     hashLabelMarginBottom: 3 as Pt,
     hashValueMarginBottom: 4 as Pt,
     hashLinkMarginTop: 3 as Pt,
+
+    // Fusszeile: Abstand vom unteren Blattrand und Innenabstand über der
+    // Trennlinie. 24pt liegen innerhalb des 60pt-Unterrands (paddingBottom),
+    // damit die (absolut positionierte) Fusszeile nie den Fliesstext überlappt.
+    footerBottom: 24 as Pt,
+    footerPaddingTop: 6 as Pt,
   },
 
   border: {

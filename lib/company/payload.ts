@@ -29,6 +29,9 @@ const TEXT_FIELDS = [
   "signatory_1_role",
   "signatory_2_name",
   "signatory_2_role",
+  // Ausstellerspezifische Fusszeile (mehrzeilig). trimmedOrNull trimmt nur aussen
+  // und erhält interne Zeilenumbrüche; Länge wird unten begrenzt.
+  "certificate_footer",
 ] as const;
 
 export type CompanyPayload = Record<string, string | null>;
@@ -60,6 +63,12 @@ export function pickCompanyFields(
   if ("name" in body) {
     if (!data.name) return { data, error: "Der Firmenname ist Pflicht." };
     if (data.name.length > 200) return { data, error: "Der Firmenname ist zu lang." };
+  }
+
+  // Fusszeile: wenige Zeilen Branding/Pflichtangaben, kein Fliesstext. Die Grenze
+  // schützt das Layout (die Fusszeile sitzt im Seitenunterrand) und die DB.
+  if (data.certificate_footer && data.certificate_footer.length > 500) {
+    return { data, error: "Die Fusszeile ist zu lang (max. 500 Zeichen)." };
   }
 
   // logo_url wird hier nur durchgelassen, um ein Logo zu ENTFERNEN. Gesetzt wird

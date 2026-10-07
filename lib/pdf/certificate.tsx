@@ -64,6 +64,13 @@ interface RenderInput {
   companyEmail?: string;
   companyWebsite?: string;
   companyLogoDataUrl?: string;
+  /**
+   * Ausstellerspezifische Fusszeile (companies.certificate_footer). Erscheint
+   * fix am unteren Rand jeder Seite. Mehrzeilig (Umbrüche bleiben erhalten).
+   * Bewusst NICHT Teil des Hash – reines Aussteller-Branding, ausserhalb der
+   * Body-/Meta-Sentinels.
+   */
+  companyFooter?: string;
 
   employeeFirstName: string;
   employeeLastName: string;
@@ -183,6 +190,12 @@ function CertificateDocument(props: DocProps) {
   const qrDataUrl = s(props.qrDataUrl);
   const metaBlockEncoded = s(props.metaBlockEncoded);
   const signatureBlockEncoded = s(props.signatureBlockEncoded);
+  // Ausstellerspezifische Fusszeile: mehrzeilig, leere Zeilen entfernt (damit
+  // ein versehentlicher Doppelumbruch keine Lücke in der fixen Fusszeile reisst).
+  const footerLines = s(props.companyFooter)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
   // Handunterschrift: Fläche zum Unterschreiben schaffen und die Namen bündig an
   // die Trennlinie über dem Hash rücken (der „Digital ausgestellt durch"-Kopf
   // entfällt in diesem Modus).
@@ -333,6 +346,17 @@ function CertificateDocument(props: DocProps) {
             <Image src={qrDataUrl} style={styles.qrCode} />
           ) : null}
         </View>
+
+        {/* Ausstellerspezifische Fusszeile – fix am unteren Rand JEDER Seite.
+            Ausserhalb aller Body-/Meta-Sentinels, daher ohne Einfluss auf den
+            Echtheits-Hash (reines Aussteller-Branding, wie der Briefkopf). */}
+        {footerLines.length > 0 ? (
+          <View style={styles.footer} fixed>
+            {footerLines.map((line: string, i: number) => (
+              <Text key={"footer-" + i}>{line}</Text>
+            ))}
+          </View>
+        ) : null}
       </Page>
     </Document>
   );

@@ -166,5 +166,22 @@ export function buildPdfStyles(theme: DocumentTheme) {
       color: c.brandAccent,
     },
     qrCode: { width: T.qr.size, height: T.qr.size },
+
+    // Ausstellerspezifische Fusszeile: absolut am unteren Blattrand, auf jeder
+    // Seite wiederholt (fixed). Steht im Unterrand (paddingBottom) und damit
+    // ausserhalb des Textflusses – kein Überlappen mit dem Fliesstext.
+    footer: {
+      position: "absolute",
+      bottom: T.space.footerBottom,
+      left: T.page.paddingHorizontal,
+      right: T.page.paddingHorizontal,
+      paddingTop: T.space.footerPaddingTop,
+      borderTopWidth: T.border.hairline,
+      borderTopColor: c.rule,
+      textAlign: "center",
+      fontSize: T.fontSize.footer,
+      color: c.textSecondary,
+      lineHeight: T.lineHeight.hash,
+    },
   });
 }
