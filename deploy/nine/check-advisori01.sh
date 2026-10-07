@@ -15,7 +15,7 @@
 #
 # Zwei Durchlaeufe, weil die Antworten sich unterscheiden:
 #   1) als Hauptbenutzer des Servers    ./check-advisori01.sh
-#   2) als Datenbankbenutzer der App    PGUSER=nmd_albisrun PGDATABASE=nmd_albisrun ./check-advisori01.sh
+#   2) als Datenbankbenutzer der App    PGUSER=nmd_zeugnio PGDATABASE=nmd_zeugnio ./check-advisori01.sh
 #
 # usage: ./check-advisori01.sh [--help]
 #
@@ -316,8 +316,14 @@ sub "Verbindungsdaten (ohne Passwort)"
       "$(stat -c %a "$HOME/.pgpass")" "$(wc -l < "$HOME/.pgpass")"
   else
     say '~/.pgpass fehlt - psql laeuft mit -w und fragt nicht nach; die Abfragen unten'
-    say 'bleiben dann leer. Anlegen: echo "127.0.0.1:5432:DB:BENUTZER:PASSWORT" > ~/.pgpass'
-    say 'und chmod 600 ~/.pgpass.'
+    say 'bleiben dann leer. So anlegen, dass das Passwort weder in der Verlaufsdatei'
+    say 'noch in der Prozessliste landet (read -s zeigt nichts an):'
+    say ''
+    say '  umask 077 && { printf "*:*:*:BENUTZER:"; read -rsp "Passwort: " PW; \'
+    say '    printf "%s\n" "$PW"; } >> ~/.pgpass; unset PW; chmod 600 ~/.pgpass'
+    say ''
+    say 'Nicht echo "...:PASSWORT" verwenden: Argumente stehen in /proc/<pid>/cmdline und'
+    say 'sind damit fuer jedes andere Konto auf diesem Server lesbar.'
   fi
 } | ind
 

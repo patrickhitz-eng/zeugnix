@@ -299,30 +299,52 @@ zwei Stellen: auf dem Server und im Passwort-Manager.</p>
 <p>Das ausgegebene Passwort in <code>~/zeugnio/shared/.env</code> unter
 <code>DATABASE_URL</code> eintragen (Sonderzeichen URL-kodieren: <code>@</code> wird
 <code>%40</code>) und zusätzlich eine <code>~/.pgpass</code> anlegen, damit <code>psql</code> nicht
-nachfragt:</p>
+nachfragt. Das Passwort dabei <strong>nicht</strong> in die Befehlszeile tippen:
+Argumente eines laufenden Befehls stehen in <code>/proc/&lt;pid&gt;/cmdline</code> und sind
+dort für jedes andere Konto auf diesem Server lesbar, und sie landen zusätzlich in
+<code>~/.bash_history</code>. <code>read -s</code> liest ohne Anzeige und ohne beides:</p>
 
-<pre><code>echo "127.0.0.1:5432:nmd_zeugnio:nmd_zeugnio:PASSWORT" > ~/.pgpass
-chmod 600 ~/.pgpass
-psql -w -d nmd_zeugnio -c "select current_user, current_database();"</code></pre>
+<pre><code>umask 077 &amp;&amp; { printf "*:*:*:nmd_zeugnio:"; read -rsp "Passwort: " PW; \
+  printf "%s\n" "$PW"; } &gt;&gt; ~/.pgpass; unset PW; chmod 600 ~/.pgpass
+ls -l ~/.pgpass    # muss -rw------- zeigen
+psql -w -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -c "select current_user, current_database();"</code></pre>
 
-<div class="warn">
-<p><span class="label">Die Nachbar-Datenbank abdichten.</span> In derselben PostgreSQL-Instanz
-liegt <code>nmd_albisrun</code> (EHC-Sponsorenlauf). Ohne diese beiden Zeilen könnte sich unsere
-Rolle <code>authenticator</code> dort einwählen:</p>
-<pre><code>psql -w -d nmd_albisrun -c "revoke connect on database nmd_albisrun from public;"
-psql -w -d nmd_albisrun -c "grant connect on database nmd_albisrun to nmd_albisrun;"</code></pre>
-<p>Beide Zeilen gehören zusammen. Nur die erste auszuführen sperrt den Sponsorenlauf aus seiner
-eigenen Datenbank.</p>
-</div>
+<p>Stimmen die Rechte nicht genau, <strong>ignoriert libpq die Datei stillschweigend</strong> –
+die Meldung lautet dann <code>no password supplied</code> und sagt nichts über die Ursache.
+Enthält das Passwort einen Doppelpunkt oder Backslash, muss er in <code>.pgpass</code> mit
+einem Backslash geschützt werden: die fünf Felder <code>host:port:db:user:password</code>
+werden rein textuell getrennt.</p>
+
+<p>Die Datenbank gegen die Nachbaranwendungen auf derselben PostgreSQL-Instanz abzudichten
+gehört ebenfalls hierher, lässt sich aber erst nach Abschnitt 5 ausführen – die Rolle
+<code>authenticator</code> entsteht dort. Siehe das Kästchen am Ende von Abschnitt 5.</p>
 
 <h2 id="s4">5 · Bootstrap: Rollen, auth-Schema, extensions</h2>
 
 <pre><code>cd /tmp/zeugnio-setup
 psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/900_nine_bootstrap.sql
 
-# Passwort für die Rolle, mit der PostgREST sich verbindet
-openssl rand -base64 32          # Wert notieren, kommt in postgrest.conf
-psql -w -d nmd_zeugnio -c "alter role authenticator with password 'DER_WERT';"</code></pre>
+# Passwort für die Rolle, mit der PostgREST sich verbindet.
+# -hex statt -base64: hex enthält keine Zeichen, die in einer Verbindungs-URI
+# kodiert werden müssten. 32 Byte sind in beiden Fällen 256 Bit.
+openssl rand -hex 32             # Wert in den Passwort-Manager, kommt in postgrest.conf
+
+# Setzen, ohne das Passwort irgendwo im Klartext zu hinterlassen:
+psql -w -d nmd_zeugnio
+# dann in psql:  \password authenticator
+# danach:        \q</code></pre>
+
+<p>Warum nicht <code>alter role authenticator with password '…'</code>? Drei Spuren: die
+Befehlszeile steht in <code>/proc/&lt;pid&gt;/cmdline</code> und in
+<code>~/.bash_history</code>, die SQL-Anweisung in <code>~/.psql_history</code>, und wenn auf
+dem Server <code>log_statement</code> mitschreibt, zusätzlich im PostgreSQL-Protokoll – das
+nine lesen kann. <code>\password</code> vermeidet alle drei: es fragt ohne Anzeige, rechnet
+den SCRAM-SHA-256-Verifier <strong>im Client</strong> aus und schickt nur diesen Hash. Das
+Klartextpasswort verlässt deinen Rechner nie. Dasselbe Werkzeug ist auch der Weg, ein
+Passwort später zu wechseln – ausser bei den von <code>nine-manage-databases</code>
+verwalteten Benutzern: dort <code>nine-manage-databases user update &lt;name&gt; -p
+--database-type=postgresql</code>, sonst zeigt nines Oberfläche weiterhin den alten Wert
+an.</p>
 
 <p>Was diese Datei herstellt und warum, steht in ihrem Kopf. Drei Punkte, die im Betrieb
 wiederkommen:</p>
@@ -339,6 +361,33 @@ Zeilensicherheit vorbei.</li>
 <code>extensions.uuid_generate_v4()</code>. Fehlt das Schema, scheitert das Einspielen — oder,
 schlimmer, erst der erste <code>INSERT</code>.</li>
 </ul>
+
+<div class="warn">
+<p><span class="label">Jetzt die eigene Datenbank abdichten.</span> Auf dieser
+PostgreSQL-Instanz liegen auch die Datenbanken anderer Anwendungen – welche, sagt
+<code>nine-manage-databases database list</code>. <code>PUBLIC</code> hat auf jeder Datenbank
+standardmässig <code>CONNECT</code>; jede Login-Rolle der Nachbaranwendungen kann sich also in
+<code>nmd_zeugnio</code> einwählen. Die Zeilensicherheit hilft dagegen nur begrenzt – sie
+greift nicht gegen einen Tabelleneigentümer, und wer einmal verbunden ist, sieht das ganze
+Schema. Darum:</p>
+<pre><code>psql -w -d nmd_zeugnio -c "revoke connect on database nmd_zeugnio from public;"
+psql -w -d nmd_zeugnio -c "grant connect on database nmd_zeugnio to nmd_zeugnio, authenticator;"</code></pre>
+<p><strong>Beide Zeilen gehören zusammen</strong>, und die zweite ist die wichtigere: nach dem
+<code>revoke</code> hat <em>niemand</em> mehr <code>CONNECT</code>, auch PostgREST nicht –
+dessen Rolle <code>authenticator</code> hatte das Recht ausschliesslich über
+<code>PUBLIC</code>. Nur die erste Zeile auszuführen sperrt also die eigene Anwendung aus.
+<code>anon</code>, <code>authenticated</code> und <code>service_role</code> brauchen kein
+<code>CONNECT</code>: sie sind <code>nologin</code> und werden nur per <code>SET ROLE</code>
+innerhalb einer bestehenden Sitzung angenommen – <code>CONNECT</code> prüft PostgreSQL allein
+beim Verbindungsaufbau.</p>
+<p>Scheitert schon die erste Zeile mit <code>must be owner of database</code>, gehört
+<code>nmd_zeugnio</code> die Datenbank nicht. Das ist dann ein Ticket an nine und keine
+Fussnote: ohne diese Trennung liegen zeugnio-Personendaten in einer Datenbank, in die sich
+fremde Rollen einwählen können. Abschnitt 6 des Prüfskripts beantwortet die Eigentumsfrage
+vorab.</p>
+<p>Gegenprobe – muss eine leere Liste zeigen:</p>
+<pre><code>psql -w -d nmd_zeugnio -c "select datname, coalesce(datacl::text, 'kein ACL = PUBLIC darf verbinden') from pg_database where datname = 'nmd_zeugnio';"</code></pre>
+</div>
 
 <h2 id="s5">6 · Schema: aus dem Repository, nicht aus der Produktion</h2>
 
