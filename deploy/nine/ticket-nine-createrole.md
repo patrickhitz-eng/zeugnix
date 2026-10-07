@@ -11,7 +11,7 @@ und haben dafür die Datenbank `nmd_zeugnio` angelegt. Die Anwendung bringt ein 
 das vier PostgreSQL-Rollen voraussetzt. Diese können wir mit den Rechten von `nmd_zeugnio`
 nicht anlegen. Alles Übrige haben wir geprüft und können es selbst erledigen.
 
-## Bestellung – zwei Punkte
+## Bestellung – drei Punkte
 
 **1) `CREATEROLE` für die Datenbankrolle `nmd_zeugnio`**
 
@@ -59,6 +59,32 @@ GRANT CONNECT ON DATABASE nmd_zeugnio TO authenticator;
 
 nachdem wir die Rolle angelegt haben. Das Weitergaberecht wäre uns lieber, weil es künftige
 Tickets für denselben Vorgang erspart.
+
+**3) `postgresql-client-17` nachinstallieren**
+
+Die bisherige Datenbank liegt bei Supabase und läuft dort auf PostgreSQL 17. `pg_dump` 16
+verweigert einen 17er Server – das ist eine harte Versionsprüfung, kein Schalter. Auf
+advisori01 ist nur der 16er Client vorhanden, und `postgresql-client-17` liegt nicht im
+Paketspeicher von Ubuntu 24.04. Gemessen am 7.10.2026:
+
+```
+installiert: 16
+postgresql-client-16: 16.15-0ubuntu0.24.04.1
+postgresql-client-17: nicht im Paketspeicher
+```
+
+Es geht ausdrücklich nur um das **Client-Paket**; der 16er Server bleibt unberührt. Beide
+Versionen können nebeneinander liegen, Ubuntu legt die Binärdateien versioniert unter
+`/usr/lib/postgresql/VERSION/bin/` ab.
+
+Wir brauchen ihn für zwei Schritte: den Schemavergleich zwischen der alten und der neuen
+Datenbank – damit wir belegen können, dass der Umzug nichts verändert hat – und den
+Datenauszug selbst. Beides geht mit `pg_dump` gegen die alte Umgebung.
+
+Falls Sie den PGDG-Paketspeicher nicht auf dem Server haben möchten, können wir das Paket
+auch selbst in unser Heimatverzeichnis entpacken und `LD_LIBRARY_PATH` setzen; dann braucht
+es von Ihnen nichts. Sagen Sie uns in diesem Fall bitte kurz, dass wir diesen Weg nehmen
+sollen.
 
 ## Belege – was wir gemessen haben
 
