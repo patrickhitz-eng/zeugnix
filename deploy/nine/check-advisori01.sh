@@ -320,10 +320,16 @@ sub "Verbindungsdaten (ohne Passwort)"
     say 'noch in der Prozessliste landet (read -s zeigt nichts an):'
     say ''
     say '  umask 077 && { printf "*:*:*:BENUTZER:"; read -rsp "Passwort: " PW; \'
-    say '    printf "%s\n" "$PW"; } >> ~/.pgpass; unset PW; chmod 600 ~/.pgpass'
+    say '    printf "%s\n" "$PW"; } > ~/.pgpass; unset PW; chmod 600 ~/.pgpass'
     say ''
     say 'Nicht echo "...:PASSWORT" verwenden: Argumente stehen in /proc/<pid>/cmdline und'
     say 'sind damit fuer jedes andere Konto auf diesem Server lesbar.'
+    say ''
+    say 'Das > ist Absicht, kein Tippfehler. libpq nimmt die ERSTE Zeile, deren vier Felder'
+    say 'passen, und hoert dann auf - ein spaeter angehaengter, korrigierter Eintrag wird'
+    say 'nie gelesen. Mit >> sammeln sich Fehlversuche, und der aelteste gewinnt. Enthaelt'
+    say 'die Datei Eintraege anderer Anwendungen, vorher pruefen mit:'
+    say '  awk -F: "{printf \"Zeile %d: user=%s laenge=%d\\n\", NR, \$4, length(\$5)}" ~/.pgpass'
   fi
 } | ind
 
@@ -378,7 +384,7 @@ else
     "$PSQL -c \"select n.nspname, c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace where c.relrowsecurity and c.relforcerowsecurity order by 1,2;\" -c \"select case when count(*) = 0 then 'LEER - gut: der Eigentuemer-Trick fuer den service_role-Bypass traegt' else 'NICHT LEER - der Eigentuemer-Trick traegt NICHT, Architektur neu bewerten' end as befund from pg_class where relrowsecurity and relforcerowsecurity;\""
 
   runsh "Extensions, die 001_initial_schema.sql braucht: uuid-ossp und pgcrypto" \
-    "$PSQL -c \"select name, default_version, installed_version, case when name in (select name from pg_available_extensions) then 'im Paket vorhanden' else 'fehlt' end as paket from pg_available_extensions where name in ('uuid-ossp','pgcrypto','citext','pg_trgm','unaccent','pg_stat_statements') order by 1;\" -c \"select name, version, trusted, case when trusted then 'ohne Superuser installierbar' else 'BRAUCHT SUPERUSER -> Ticket an nine' end as hinweis from pg_available_extension_versions where name in ('uuid-ossp','pgcrypto') and version = default_version order by 1;\""
+    "$PSQL -c \"select name, default_version, coalesce(installed_version,'(nicht installiert)') as installiert from pg_available_extensions where name in ('uuid-ossp','pgcrypto','citext','pg_trgm','unaccent','pg_stat_statements') order by 1;\" -c \"select e.name, e.default_version, v.trusted, v.superuser, case when v.trusted then 'ohne Superuser installierbar, wenn CREATE auf der Datenbank vorliegt' else 'BRAUCHT SUPERUSER -> Ticket an nine' end as hinweis from pg_available_extensions e join pg_available_extension_versions v on v.name = e.name and v.version = e.default_version where e.name in ('uuid-ossp','pgcrypto') order by 1;\""
 
   runsh "Server-Einstellungen" \
     "$PSQL -c \"select name, setting, unit from pg_settings where name in ('server_version','shared_buffers','work_mem','maintenance_work_mem','effective_cache_size','max_connections','superuser_reserved_connections','TimeZone','log_min_duration_statement','ssl','listen_addresses','password_encryption','wal_level','archive_mode','max_wal_size','statement_timeout','idle_in_transaction_session_timeout','row_security','default_transaction_read_only','lc_collate','lc_ctype','server_encoding') order by 1;\""

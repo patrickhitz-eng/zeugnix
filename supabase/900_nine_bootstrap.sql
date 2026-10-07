@@ -35,10 +35,24 @@
 -- ----------------------------------------------------------------------------
 -- 1) Die vier Rollen
 -- ----------------------------------------------------------------------------
--- Die Namen sind NICHT frei wählbar. Vier Trigger vergleichen wörtlich
--- `current_user = 'service_role'` (017:55, 021:53, 024:66, 025:66). Ein Präfix
+-- Die Namen sind NICHT frei wählbar, und zwar aus zwei Gründen.
+--
+-- Erstens vergleicht `public.enforce_certificate_immutability()` wörtlich
+-- `current_user = 'service_role'`. Das ist EINE Funktion an EINEM Trigger auf
+-- certificates (017:87); sie wird in den Migrationen viermal neu definiert
+-- (017:40, 021:39, 024:51, 025:51), gültig ist die Fassung aus 025. Ein Präfix
 -- wie nmd_service_role würde diesen Vergleich stillschweigend scheitern lassen –
--- und damit Widerruf und PII-Cleanup blockieren, ohne eine Fehlermeldung.
+-- die Funktion würde dann jede Änderung an einem finalisierten Zeugnis
+-- abweisen, auch die erlaubten, oder umgekehrt durchlassen, je nach Zweig.
+--
+-- Zweitens nennen drei Migrationen die Rollen beim Namen, und REVOKE scheitert
+-- an einer Rolle, die es nicht gibt:
+--   006:31,32   revoke execute on handle_new_user() from anon, authenticated
+--   021:168,169 revoke ... from anon;  grant ... to authenticated
+--   023:77,78   revoke ... from anon, authenticated
+-- Diese Dateien sind in der Produktion bereits gelaufen. Sie umzuschreiben
+-- hiesse, die Gleichheit mit der Produktion aufzugeben – und die ist der ganze
+-- Grund, das Schema aus dem Repository zu bauen statt aus einem Auszug.
 --
 -- NOINHERIT bei authenticator ist keine Kosmetik. PostgREST verbindet sich als
 -- authenticator und wechselt pro Anfrage per SET ROLE. Alles, was VOR diesem

@@ -335,11 +335,17 @@ weiter, denn dort steht <code>rolcreaterole</code> ebenfalls auf <code>f</code>.
 (<code>anon</code>, <code>authenticated</code>, <code>service_role</code>,
 <code>authenticator</code>) und scheitert deshalb mit
 <code>permission denied to create role</code>.</p>
-<p>Die Namen sind <strong>nicht verhandelbar</strong>: vier Trigger aus den Migrationen
-vergleichen wörtlich <code>current_user = 'service_role'</code>. Die bestehenden
-<code>_rw</code>/<code>_ro</code>-Rollen ersatzweise einzusetzen würde Widerruf,
-PII-Cleanup und Unveränderlichkeit lautlos stilllegen – ein Widerruf würde angenommen
-und nicht ausgeführt.</p>
+<p>Die Namen sind <strong>nicht verhandelbar</strong>, aus zwei nachprüfbaren Gründen.
+Erstens vergleicht die Funktion <code>public.enforce_certificate_immutability()</code>
+wörtlich <code>current_user = 'service_role'</code> – eine Funktion an einem Trigger auf
+<code>certificates</code>, in den Migrationen viermal neu definiert (017, 021, 024, 025;
+gültig ist 025). Zweitens nennen <code>006</code>, <code>021</code> und <code>023</code> die
+Rollen <code>anon</code> und <code>authenticated</code> in <code>REVOKE</code>- und
+<code>GRANT</code>-Anweisungen, und <code>REVOKE</code> scheitert an einer Rolle, die es nicht
+gibt – also bricht schon <code>scripts/migrate.mjs</code> bei 006 ab, lange vor PostgREST.
+Diese drei Dateien sind in der Produktion bereits gelaufen; sie umzuschreiben hiesse, die
+Gleichheit mit der Produktion aufzugeben, und die ist der Grund, das Schema aus dem
+Repository zu bauen statt aus einem Auszug.</p>
 <p>Zu bestellen sind darum zwei Dinge:</p>
 <ol>
 <li><code>ALTER ROLE nmd_zeugnio CREATEROLE;</code> – damit laufen 900 und 901 unverändert.
@@ -393,9 +399,11 @@ an.</p>
 wiederkommen:</p>
 
 <ul>
-<li>Die Rollennamen sind <strong>nicht frei wählbar</strong>. Vier Trigger vergleichen wörtlich
-<code>current_user = 'service_role'</code>. Ein Präfix wie <code>nmd_service_role</code> würde
-Widerruf und PII-Cleanup lautlos blockieren.</li>
+<li>Die Rollennamen sind <strong>nicht frei wählbar</strong>:
+<code>public.enforce_certificate_immutability()</code> vergleicht wörtlich
+<code>current_user = 'service_role'</code>, und <code>006</code>/<code>021</code>/<code>023</code>
+nennen <code>anon</code> und <code>authenticated</code> in <code>REVOKE</code>/<code>GRANT</code>.
+Ein Präfix wie <code>nmd_service_role</code> würde beides brechen – das erste lautlos.</li>
 <li><code>authenticator</code> ist <code>NOINHERIT</code>. Ohne das läuft der Teil jeder Anfrage
 vor dem Rollenwechsel mit den Rechten von <code>service_role</code> — also an der
 Zeilensicherheit vorbei.</li>
