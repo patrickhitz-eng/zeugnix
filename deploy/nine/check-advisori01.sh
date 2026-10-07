@@ -123,9 +123,9 @@ else
 fi
 
 sub "Sind Prozesse anderer Benutzer sichtbar? (hidepid)"
+USERS_SEEN="$(ps -eo user= 2>/dev/null | sort -u | tr '\n' ' ')"
 {
   mount | grep -E ' /proc .*proc' || true
-  USERS_SEEN="$(ps -eo user= 2>/dev/null | sort -u | tr '\n' ' ')"
   say "sichtbare Prozessbesitzer: ${USERS_SEEN:-<keine>}"
   if printf '%s' "$USERS_SEEN" | grep -qw postgres || printf '%s' "$USERS_SEEN" | grep -qw root; then
     say "=> /proc ist NICHT abgeschirmt: der serverweite Build-Schutz per pgrep funktioniert."

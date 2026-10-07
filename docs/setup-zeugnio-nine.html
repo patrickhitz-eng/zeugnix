@@ -220,7 +220,7 @@ tatsächliche Verhalten regelmässig auseinanderfallen.</p>
   einspielen.</td>
 </tr>
 <tr>
-  <td><code>client_max_body_size</code> nicht gefunden</td>
+  <td><code>client_max_body_size</code> nicht gefunden <strong>(trifft nicht zu: am 7.10.2026 in <code>nginx.conf:42</code> global auf 64m gemessen)</strong></td>
   <td>Dann gilt die nginx-Vorgabe von 1 MB, und der Logo-Upload (2 MB) scheitert mit 413, ohne
   dass die Anwendung davon erfährt. Wert in den eigenen vhost eintragen.</td>
 </tr>
@@ -596,8 +596,11 @@ der Schlüssel kein JWT (siehe Abschnitt 1, vierte Angabe).</p>
 sudo nine-manage-vhosts virtual-host create zeugnio.ch.advisori01.nine.ch \
   --template=proxy --proxy-port=3010
 
-# Upload-Grenze und Antwortzeit: ohne diese zwei Werte scheitert der Logo-Upload
-# mit 413, und die PDF-Route kann in ein Zeitlimit laufen.
+# Upload-Grenze und Antwortzeit. Gemessen am 7.10.2026: nginx.conf:42 setzt global
+# client_max_body_size 64m, proxy_read_timeout ist nicht gesetzt (Vorgabe 60s).
+# Beides reicht bereits. Die zwei Zeilen ENGEN also ein, statt zu reparieren:
+# 4m genuegt fuer das 2-MB-Logo, und ein global geaenderter Wert kann uns
+# danach nicht mehr ueberraschen.
 #   client_max_body_size 4m;
 #   proxy_read_timeout   60s;</code></pre>
 
