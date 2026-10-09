@@ -18,10 +18,12 @@
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
  *
- * Leere Zellen (z.B. „Top-Mitarbeitende", wertschätzender-Zwischen, Einvernehmen)
- * sind bewusst noch nicht befüllt – die Auswahl fällt sauber auf die Standard-
- * Variante zurück. Diese Zellen werden später per Build-Time-KI ergänzt und von
- * Christoph geprüft.
+ * Grad-Varianten sind jetzt für Schluss (wunsch_an: standard/wertschaetzender/
+ * top) und Zwischen (standard/wertschaetzender/top) vollständig – eine Stufe je
+ * Grad wärmer, angelehnt an Christophs bestehende Formulierungen. Die Austritts-
+ * gründe wunsch_ag und einvernehmen fallen weiterhin BEWUSST auf wunsch_an zurück
+ * (gleiche Grad-Staffelung, kein eigener Wortlaut) – eigene Sätze pro Grund lassen
+ * sich später ergänzen. Ton-Freigabe durch Christoph noch ausstehend.
  */
 
 export type Wertschaetzung = "standard" | "wertschaetzender" | "top";
@@ -49,7 +51,8 @@ const SCHLUSS: Record<Grund, Partial<Record<Wertschaetzung, string>>> = {
       "Wir danken {{ihm|ihr|ihm/ihr}} für die geleistete Arbeit und wünschen {{ihm|ihr|ihm/ihr}} für die Zukunft alles Gute und weiterhin viel Erfolg.",
     wertschaetzender:
       "Wir danken {{ihm|ihr|ihm/ihr}} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen. Für die Zukunft wünschen wir {{ihm|ihr|ihm/ihr}} alles Gute und weiterhin viel Erfolg.",
-    // top: Lücke (KI-Ergänzung)
+    top:
+      "Wir danken {{ihm|ihr|ihm/ihr}} für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen. Für {{seinen|ihren|seinen/ihren}} weiteren beruflichen Weg wünschen wir {{ihm|ihr|ihm/ihr}} alles Gute und weiterhin viel Erfolg.",
   },
   wunsch_ag: {
     // Lücke – fällt auf wunsch_an zurück (Reorg-AG siehe SCHLUSS_REORG_AG)
@@ -73,7 +76,10 @@ const SCHLUSS_REORG_AG =
 const ZWISCHEN: Partial<Record<Wertschaetzung, string>> = {
   standard:
     "Dieses Zwischenzeugnis wird auf Wunsch {{des Mitarbeiters|der Mitarbeiterin|des/der Mitarbeitenden}} ausgestellt. Wir danken {vorname} {nachname} für die bisherige wertvolle Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} alles Gute und weiterhin viel Erfolg.",
-  // wertschaetzender / top: Lücke (KI-Ergänzung)
+  wertschaetzender:
+    "Dieses Zwischenzeugnis wird auf Wunsch {{des Mitarbeiters|der Mitarbeiterin|des/der Mitarbeitenden}} ausgestellt. Wir danken {vorname} {nachname} für die bisherige sehr wertvolle und engagierte Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} weiterhin viel Freude und Erfolg.",
+  top:
+    "Dieses Zwischenzeugnis wird auf Wunsch {{des Mitarbeiters|der Mitarbeiterin|des/der Mitarbeitenden}} ausgestellt. Wir danken {vorname} {nachname} für die bisherige ausgezeichnete und äusserst engagierte Mitarbeit und freuen uns, auch künftig auf {{seine|ihre|seine/ihre}} wertvolle Mitarbeit zählen zu dürfen.",
 };
 
 // Zwischenzeugnis – Anlass-Varianten. Beim Zwischenzeugnis BLEIBT die Person
