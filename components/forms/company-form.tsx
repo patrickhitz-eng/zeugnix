@@ -24,6 +24,7 @@ interface Company {
   signatory_2_role?: string | null;
   default_certificate_font_family?: string | null;
   default_certificate_text_color?: string | null;
+  certificate_footer?: string | null;
 }
 
 interface Props {
@@ -108,6 +109,10 @@ export function CompanyForm({ company, compact = false }: Props) {
       // historisch; resolveTheme() versteht auch die Alt-Font-Keys.
       data.default_certificate_font_family =
         (fd.get("default_certificate_font_family") as string)?.trim() || null;
+      // Ausstellerspezifische Fusszeile (mehrzeilig). Innen-Umbrüche bleiben
+      // erhalten; nur aussen trimmen, leere Eingabe wird zu null.
+      data.certificate_footer =
+        (fd.get("certificate_footer") as string)?.trim() || null;
       // logo_url wird nur beim Entfernen mitgeschickt. Gesetzt wird es
       // ausschliesslich von /api/companies/<id>/logo – sonst könnte hier eine
       // beliebige Adresse eingetragen werden, die die PDF-Route dann abruft.
@@ -412,6 +417,31 @@ export function CompanyForm({ company, compact = false }: Props) {
               )}
             </Field>
           </div>
+        </div>
+      )}
+
+      {/* Fusszeile */}
+      {!compact && (
+        <div className="card p-5">
+          <div className="mb-1 text-[13px] font-medium tracking-tight">
+            Fusszeile
+          </div>
+          <p className="mb-4 text-[12px] text-ink-500">
+            Erscheint am unteren Rand jeder Seite des Zeugnisses – z. B.
+            Handelsregister-Nummer, Rechtsform oder ein Zusatz. Mehrere Zeilen
+            möglich. Leer lassen für keine Fusszeile.
+          </p>
+          <Field label="Text der Fusszeile">
+            <textarea
+              name="certificate_footer"
+              defaultValue={company?.certificate_footer ?? ""}
+              rows={3}
+              maxLength={500}
+              placeholder={"Firma AG · Musterstrasse 1 · 8000 Zürich\nCHE-123.456.789 · www.firma.ch"}
+              className="input"
+              style={{ resize: "vertical", fontFamily: "inherit" }}
+            />
+          </Field>
         </div>
       )}
 
