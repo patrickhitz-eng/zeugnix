@@ -104,6 +104,21 @@ export function buildPdfStyles(theme: DocumentTheme) {
       marginTop: T.space.signaturesHeaderMarginTop,
       marginBottom: T.space.signaturesHeaderMarginBottom,
     },
+    // Umschliesst die Unterschriften in beiden Modi und hält den oberen Abstand
+    // (früher trug ihn der „Digital ausgestellt durch"-Kopf).
+    signaturesBlock: {
+      marginTop: T.space.signaturesHeaderMarginTop,
+    },
+    // Handschrift-Modus: leere Fläche über der Linie zum Unterschreiben.
+    signatureInkArea: {
+      height: T.space.signatureInkArea,
+    },
+    // Digital-Modus: kleine, gedämpfte Beschriftung direkt über dem Namen.
+    signaturesCaption: {
+      fontSize: T.fontSize.signaturesHeader,
+      color: c.textMuted,
+      marginBottom: T.space.signaturesCaptionMarginBottom,
+    },
     signatures: {
       flexDirection: "row",
       marginTop: T.space.signaturesMarginTop,

@@ -82,12 +82,14 @@ export const BASE_TOKENS = {
 
   space: {
     letterheadPaddingBottom: 14 as Pt,
-    letterheadMarginBottom: 28 as Pt,
+    // Oben bewusst gestrafft (Layout-Fix 2026-10-09, Silvan): weniger Luft im
+    // Kopf/Titel-Bereich -> mehr Platz unten für die Unterschriftsfläche.
+    letterheadMarginBottom: 20 as Pt,
     letterheadRightWidth: 200 as Pt,
     letterheadCompanyNameMarginBottom: 2 as Pt,
 
-    titleMarginTop: 24 as Pt,
-    titleMarginBottom: 32 as Pt,
+    titleMarginTop: 16 as Pt,
+    titleMarginBottom: 22 as Pt,
 
     paragraphMarginBottom: 11 as Pt,
     bulletMarginLeft: 14 as Pt,
@@ -97,6 +99,13 @@ export const BASE_TOKENS = {
     signaturesHeaderMarginBottom: 8 as Pt,
     signaturesMarginTop: 4 as Pt,
     signatureCellPaddingTop: 6 as Pt,
+    // Leere Fläche ÜBER der Unterschriftslinie im Handschrift-Modus (Platz zum
+    // Unterschreiben mit Stift). Eine Quelle für PDF, A4-Vorschau UND Word –
+    // vorher dreifach hartcodiert bzw. in der Vorschau ganz fehlend.
+    signatureInkArea: 100 as Pt,
+    // Kleine Beschriftung „Digital ausgestellt durch" direkt über dem Namen
+    // (unter der Linie) im Digital-Modus.
+    signaturesCaptionMarginBottom: 3 as Pt,
     signatureSpacer: 20 as Pt,
     signatureRoleMarginTop: 1 as Pt,
     signatureEmailMarginTop: 1 as Pt,

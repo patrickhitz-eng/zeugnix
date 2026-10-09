@@ -95,7 +95,11 @@ interface RenderInput {
   signatory2Role?: string;
   signatory2Email?: string;
   signatory2ConfirmedAt?: string;
-  /** Unterschrifts-Modus; 'handwritten' blendet den Kopf „Digital ausgestellt durch" aus. */
+  /**
+   * Unterschrifts-Modus. 'handwritten' zeigt eine leere Fläche über der Linie
+   * zum Unterschreiben; sonst steht „Digital ausgestellt durch" als kleine
+   * Beschriftung direkt über dem Namen (unter der Linie).
+   */
   signatureMode?: string;
 
   /**
@@ -283,19 +287,18 @@ function CertificateDocument(props: DocProps) {
 
         {/* Signatures */}
         {signatory1Name.length > 0 || signatory2Name.length > 0 ? (
-          <View>
+          <View style={styles.signaturesBlock}>
             {isHandwritten ? (
-              // Leerraum als handschriftliche Unterschriftsfläche ÜBER der
-              // Unterschriftslinie. marginTop ersetzt den entfallenden
-              // „Digital ausgestellt durch"-Kopf; height = Platz zum Unterschreiben.
-              // ~90pt (≈32mm) geben genügend Raum für eine echte Unterschrift mit
-              // Stift; die Namen bleiben bündig an der Linie darunter.
-              <View style={{ marginTop: 36, height: 90 }} />
-            ) : (
-              <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
-            )}
+              // Leere Fläche ÜBER der Unterschriftslinie als Platz zum
+              // handschriftlichen Unterschreiben. Höhe aus Token (gleich in
+              // PDF, A4-Vorschau und Word); die Namen bleiben an der Linie darunter.
+              <View style={styles.signatureInkArea} />
+            ) : null}
             <View style={styles.signatures}>
               <View style={styles.signatureCell}>
+                {!isHandwritten && signatory1Name.length > 0 ? (
+                  <Text style={styles.signaturesCaption}>Digital ausgestellt durch</Text>
+                ) : null}
                 {signatory1Name.length > 0 ? (
                   <Text style={styles.signatureName}>{signatory1Name}</Text>
                 ) : null}
@@ -311,6 +314,9 @@ function CertificateDocument(props: DocProps) {
               </View>
               <View style={styles.signatureSpacer} />
               <View style={styles.signatureCell}>
+                {!isHandwritten && signatory2Name.length > 0 ? (
+                  <Text style={styles.signaturesCaption}>Digital ausgestellt durch</Text>
+                ) : null}
                 {signatory2Name.length > 0 ? (
                   <Text style={styles.signatureName}>{signatory2Name}</Text>
                 ) : null}

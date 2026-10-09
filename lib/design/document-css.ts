@@ -11,7 +11,8 @@
  * Das PDF ist die verbindliche Wahrheit (es ist das rechtlich relevante
  * Artefakt). Wo die Vorschau früher abwich – Zeilenhöhe 1.55 statt 1.6,
  * Seitenrand 20/22mm statt 56/60pt, Signaturfarbe #6b7178 statt #3a3f46,
- * fehlender Kopf "Digital ausgestellt durch" – folgt sie jetzt dem PDF.
+ * fehlender Kopf "Digital ausgestellt durch", fehlende Unterschriftsfläche im
+ * Handschrift-Modus – folgt sie jetzt dem PDF.
  */
 
 import type React from "react";
@@ -40,6 +41,12 @@ export interface DocumentCss {
   formattedParagraph: React.CSSProperties;
   formattedBullet: React.CSSProperties;
   signaturesHeader: React.CSSProperties;
+  /** Umschliesst die Unterschriften, hält den oberen Abstand (beide Modi). */
+  signaturesBlock: React.CSSProperties;
+  /** Handschrift-Modus: leere Fläche über der Linie zum Unterschreiben. */
+  signatureInkArea: React.CSSProperties;
+  /** Digital-Modus: „Digital ausgestellt durch" direkt über dem Namen. */
+  signaturesCaption: React.CSSProperties;
   signaturesWrap: React.CSSProperties;
   signatureCellLeft: React.CSSProperties;
   signatureCellRight: React.CSSProperties;
@@ -156,6 +163,17 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       letterSpacing: cssPt(T.letterSpacing.label),
       marginTop: cssPt(T.space.signaturesHeaderMarginTop),
       marginBottom: cssPt(T.space.signaturesHeaderMarginBottom),
+    },
+    signaturesBlock: {
+      marginTop: cssPt(T.space.signaturesHeaderMarginTop),
+    },
+    signatureInkArea: {
+      height: cssPt(T.space.signatureInkArea),
+    },
+    signaturesCaption: {
+      fontSize: cssPt(T.fontSize.signaturesHeader),
+      color: c.textMuted,
+      marginBottom: cssPt(T.space.signaturesCaptionMarginBottom),
     },
     signaturesWrap: {
       width: "100%",

@@ -255,9 +255,16 @@ function letterhead(input: DocxRenderInput, theme: DocumentTheme): Paragraph[] {
 
 // --- Unterschriften --------------------------------------------------------
 
-function signatureCell(name: string, role: string, email: string, confirmed: string, theme: DocumentTheme): TableCell {
+function signatureCell(name: string, role: string, email: string, confirmed: string, theme: DocumentTheme, showCaption: boolean): TableCell {
   const headingFont = docxFont(theme.fonts.heading);
   const children: Paragraph[] = [];
+  if (showCaption && name)
+    children.push(
+      new Paragraph({
+        spacing: { after: pt(T.space.signaturesCaptionMarginBottom) },
+        children: [new TextRun({ text: "Digital ausgestellt durch", font: headingFont, size: halfPt(T.fontSize.signaturesHeader), color: hex(theme.colors.textMuted) })],
+      }),
+    );
   if (name) children.push(new Paragraph({ children: [new TextRun({ text: name, bold: true, font: headingFont, size: halfPt(T.fontSize.signature) })] }));
   if (role)
     children.push(
@@ -290,28 +297,17 @@ function signatures(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
   const name2 = s(input.signatory2Name);
   if (!name1 && !name2) return [];
 
-  const headingFont = docxFont(theme.fonts.heading);
   const isHandwritten = input.signatureMode === "handwritten";
   const out: (Paragraph | Table)[] = [];
 
   if (isHandwritten) {
-    // Platz zum handschriftlichen Unterschreiben über der Linie.
-    out.push(new Paragraph({ spacing: { before: pt(36), after: pt(60) }, children: [] }));
+    // Platz zum handschriftlichen Unterschreiben über der Linie (Höhe aus Token,
+    // gleich wie PDF/Vorschau).
+    out.push(new Paragraph({ spacing: { before: pt(T.space.signaturesHeaderMarginTop), after: pt(T.space.signatureInkArea) }, children: [] }));
   } else {
-    out.push(
-      new Paragraph({
-        spacing: { before: pt(T.space.signaturesHeaderMarginTop), after: pt(T.space.signaturesHeaderMarginBottom) },
-        children: [
-          new TextRun({
-            text: "DIGITAL AUSGESTELLT DURCH",
-            bold: true,
-            size: halfPt(T.fontSize.signaturesHeader),
-            font: headingFont,
-            color: hex(theme.colors.brandAccent),
-          }),
-        ],
-      }),
-    );
+    // Digital-Modus: nur oberer Abstand; die Beschriftung „Digital ausgestellt
+    // durch" steht jetzt in der Zelle direkt über dem Namen (siehe signatureCell).
+    out.push(new Paragraph({ spacing: { before: pt(T.space.signaturesHeaderMarginTop) }, children: [] }));
   }
 
   out.push(
@@ -334,6 +330,7 @@ function signatures(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
               s(input.signatory1Email),
               input.signatory1ConfirmedAt ? formatConfirmation(input.signatory1ConfirmedAt) : "",
               theme,
+              !isHandwritten,
             ),
             signatureCell(
               name2,
@@ -341,6 +338,7 @@ function signatures(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
               s(input.signatory2Email),
               input.signatory2ConfirmedAt ? formatConfirmation(input.signatory2ConfirmedAt) : "",
               theme,
+              !isHandwritten,
             ),
           ],
         }),

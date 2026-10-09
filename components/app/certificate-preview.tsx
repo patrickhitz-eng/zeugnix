@@ -236,9 +236,11 @@ export function CertificatePreview({
 
         {/* Unterschriftsblock */}
         {(company.signatory_1_name || company.signatory_2_name) && (
-          <div>
-            {signatureMode !== "handwritten" && (
-              <div style={css.signaturesHeader}>Digital ausgestellt durch</div>
+          <div style={css.signaturesBlock}>
+            {signatureMode === "handwritten" && (
+              // Leere Fläche über der Linie zum handschriftlichen Unterschreiben
+              // (zuvor nur im PDF/Word vorhanden, in der Vorschau fehlend).
+              <div style={css.signatureInkArea} />
             )}
             <table style={css.signaturesWrap}>
               <tbody>
@@ -246,6 +248,9 @@ export function CertificatePreview({
                   {company.signatory_1_name && (
                     <td style={css.signatureCellLeft}>
                       <div style={css.signatureRule}>
+                        {signatureMode !== "handwritten" && (
+                          <div style={css.signaturesCaption}>Digital ausgestellt durch</div>
+                        )}
                         <div style={css.signatureName}>{company.signatory_1_name}</div>
                         {company.signatory_1_role && (
                           <div style={css.signatureRole}>{company.signatory_1_role}</div>
@@ -256,6 +261,9 @@ export function CertificatePreview({
                   {company.signatory_2_name && (
                     <td style={css.signatureCellRight}>
                       <div style={css.signatureRule}>
+                        {signatureMode !== "handwritten" && (
+                          <div style={css.signaturesCaption}>Digital ausgestellt durch</div>
+                        )}
                         <div style={css.signatureName}>{company.signatory_2_name}</div>
                         {company.signatory_2_role && (
                           <div style={css.signatureRole}>{company.signatory_2_role}</div>

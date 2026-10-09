@@ -73,7 +73,8 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     paddingBottom: 14,
     borderBottomWidth: 0.5,
     borderBottomColor: "#d4d8dd",
-    marginBottom: 28,
+    // 28 -> 20: Kopf-/Titelbereich bewusst gestrafft (Layout-Fix 2026-10-09).
+    marginBottom: 20,
   });
   eq("logo", s.logo, { maxWidth: 140, maxHeight: 48, objectFit: "contain" });
   eq("companyNameNoLogo", s.companyNameNoLogo, {
@@ -99,8 +100,10 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     // ist das der Petrol-Akzent. Bewusste Änderung gegenüber der Alt-Sperre.
     color: "#0f7a6b",
     textAlign: "center",
-    marginTop: 24,
-    marginBottom: 32,
+    // 24/32 -> 16/22: Titelabstände bewusst gestrafft (Layout-Fix 2026-10-09),
+    // der gewonnene Platz kommt unten der Unterschriftsfläche zugute.
+    marginTop: 16,
+    marginBottom: 22,
     letterSpacing: 0.5,
   });
   eq("bodyParagraph", s.bodyParagraph, {
