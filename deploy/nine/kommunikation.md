@@ -8,6 +8,9 @@
 > **Regel:** Jede Frage an nine und jede Antwort kommt hier rein, bevor sie in ein
 > Produkt-Dokument wandert. Betreff immer mit `advisori01`, immer derselbe Absender.
 >
+> **Nachbarn:** `cutover-reihenfolge.md` = Reihenfolge und Gates des Umzugs ·
+> `docs/setup-zeugnio-nine.html` = die Befehle · `antwort-2026-10-13.email.md` = Entwürfe.
+>
 > Stand: 2026-10-16. Erstmalig rückwirkend aus allen drei Repos zusammengetragen.
 
 ---
@@ -77,6 +80,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | A5 | **`proxy_read_timeout` ≥ 600 s für `/report/*`** auf dem Benchmark-vhost. Default 60 s, nines Konfiguration | Benchmark | zu stellen |
 | A6 | **Bestätigen, dass Port 5432 (und 3306) für alle Quellen gesperrt** bleibt. Postgres bindet auf `0.0.0.0`, Schutz hängt am Perimeterfilter | alle | zu stellen; fürs Verzeichnis der Bearbeitungstätigkeiten |
 | A7 | MySQL-Datenbank für Benchmark (`nmd_`-Präfix) | Benchmark | zu klären, ob über `nine-manage-databases` selbst machbar |
+| A8 | **Kann `nine-manage-vhosts` das Zertifikat über DNS-01 prüfen** statt HTTP-01? | zeugnio | **mit A2 verschicken**; entscheidet, ob die Umschaltung ein Downtime-Fenster hat — s. `cutover-reihenfolge.md` |
 
 ### B) Kaufmännisch / rechtlich → eigener Kanal
 
