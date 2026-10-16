@@ -8,7 +8,7 @@
 > **Regel:** Jede Frage an nine und jede Antwort kommt hier rein, bevor sie in ein
 > Produkt-Dokument wandert. Betreff immer mit `advisori01`, immer derselbe Absender.
 >
-> Stand: 2026-10-13. Erstmalig rückwirkend aus allen drei Repos zusammengetragen.
+> Stand: 2026-10-16. Erstmalig rückwirkend aus allen drei Repos zusammengetragen.
 
 ---
 
@@ -38,6 +38,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | 2026-10-?? | Mail | Mailversand vom Server · Chromium ohne Root · Node-Dienst nach Reboot | zeugnio + Benchmark | → Antwort Lars 2026-10-13 |
 | **2026-10-13** | Mail | **Antwort Patrick Lion** | zeugnio | PG 17 möglich (PGDG statt Canonical), **admin-Benutzer statt Einzelrechte**; Wahl: 16→17 upgraden **oder** zweite 17er-Umgebung. Dazu die Bitte, auf „überbordende AI-Quellen/Zitate" zu verzichten |
 | **2026-10-13** | Mail | **Antwort Lars** | Benchmark + zeugnio | (1) Mailversand vom Server **abgeraten** → Spezialanbieter oder SMTP über reguläres Postfach; (2) **Chromium im User-Space möglich**, machen andere Kunden auch; (3) **pm2 + systemd-User-Unit** ist der Weg |
+| **2026-10-16** | Mail | **Antwort Patrick Lion** — Verfahren und Kosten des Upgrades | zeugnio | Upgrade über das **PostgreSQL-Standardverfahren**: die 16er-Umgebung wird **gestoppt, aber nicht entfernt**, alle Daten werden übernommen, danach Prüffenster, **Rückfall auf 16 möglich**. **Upgrade und admin-Benutzer kostenlos**; **Parallelbetrieb wäre kostenpflichtig** (nach Aufwand) |
+| 2026-10-16 | *eigene Messung* | DNS und Mailweg von `advisori.ch`, `zeugnix.ch`, `zeugnio.ch` | zeugnio | s. „Mailweg und DNS" — Lars' Weg 2 (SMTP über `@advisori.ch`) ist damit **erledigt**, und die A-Records zeigen noch nicht auf den Server |
 
 ---
 
@@ -58,6 +60,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | `client_max_body_size` | global **64m** (`nginx.conf:42`) — reicht für 2-MB-Logos | eigene Messung |
 | Object Storage | RZ **nine-es34**, CHF 0.03/GB/Mt | SVC-116462 |
 | PostgREST als Container | gegenstandslos — statisch geliefertes Binary als systemd-User-Dienst | Entscheid 28.09. |
+| PG-Upgrade 16 → 17 | **Standardverfahren**; 16 wird gestoppt und **behalten**, Rückfall möglich. **Kostenlos**, der admin-Benutzer ebenfalls. Nur **Parallelbetrieb** wäre kostenpflichtig | Patrick Lion 16.10. |
 
 ---
 
@@ -67,7 +70,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | # | Bitte | Für | Stand |
 |---|---|---|---|
-| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Antwort da, **Entscheid bei Silvan**, dann Mail |
+| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | **entschieden**; Verfahren und Kosten geklärt (16.10.). Fehlt nur noch **unsere Terminzusage** — zusammen mit A4 verschicken |
 | A2 | **vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`** — wir sitzen heute in `www-data`, das mit nginx geteilt wird | zeugnio | zu stellen; **gehört vor das Deployment** |
 | A3 | **vhost `benchmark.ag` + App-Benutzer `www-benchmark`** | Benchmark | zu stellen |
 | A4 | **Als welche Rolle läuft der Nachtdump?** Und: deckt er eine Datenbank, die wir mit dem admin-Benutzer selbst anlegen? | zeugnio | offen seit 07.10., **mit A1 verschicken** |
@@ -88,7 +91,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 Linux-Benutzer bewirtschaften · Datenbankinhalt, Rollen, Rechte (mit A1) · Ports ·
 Prozesse, pm2, systemd-User-Units · Cron · Deployment · Chromium in den User-Space ·
-Mailanbieter (mailomat.swiss) · DNS.
+Mailanbieter (mailomat.swiss) · DNS — beides geprüft am 16.10., siehe „Mailweg und DNS".
 
 ---
 
@@ -122,6 +125,46 @@ auf der ganzen Instanz (ohne Rechte sonstwo). Bei MySQL irrelevant.
 | 03:30 | EHC DB-Backup |
 | 00:22 | EHC logrotate |
 | → frei | zeugnio stündlich + logrotate: **nicht** 02:00–03:30 ansetzen |
+
+---
+
+## Mailweg und DNS (gemessen 2026-10-16)
+
+Lars hat zwei Wege angeboten: einen Spezialanbieter **oder** SMTP über ein regulär
+konfiguriertes Postfach wie `website@advisori.ch` — „damit stimmen dann auch SPF und
+DKIM". Der zweite Weg ist mit dieser Messung **vom Tisch**.
+
+| Domain | MX (Posteingang) | SPF | DKIM | DMARC | A-Record |
+|---|---|---|---|---|---|
+| `advisori.ch` | `advisori-ch.mail.protection.outlook.com` → **Microsoft 365**; dazu `send.advisori.ch`, das **nicht auflöst** | `include:spf.protection.outlook.com -all` | — | `p=none` | — |
+| `zeugnix.ch` (live) | **keiner** — die Domain empfängt keine Mail | Apex keiner; `send.zeugnix.ch`: `include:amazonses.com ~all` | `resend._domainkey` vorhanden (1024 bit) | `p=none` | `216.150.1.1` (Vercel) |
+| `zeugnio.ch` (Ziel) | `inbound-smtp.eu-west-1.amazonaws.com` → **AWS Irland** | **keiner** | **keiner** | **keiner** | `216.198.79.1`, `64.29.17.1` (Vercel) |
+
+**Drei Folgerungen:**
+
+1. **Weg 2 würde die Schweiz-Aussage brechen.** advisori.chs Postfächer liegen in Exchange
+   Online — jede Einladung und jeder Magic Link liefe über Microsoft. Dazu steht der
+   SPF-Satz auf `-all` und erlaubt **nur** Microsoft: mailomat.swiss dürfte unter
+   `@advisori.ch` gar nicht senden, solange Advisori seinen SPF nicht ändert. Der
+   **Entscheid mailomat.swiss auf `zeugnio.ch` bleibt und ist jetzt belegt**, nicht nur
+   bevorzugt.
+2. **Für `zeugnio.ch` ist der Mailweg ein Neubau.** SPF, DKIM und DMARC fehlen vollständig.
+   Zu migrieren ist nichts: die Resend-Einträge hängen an `zeugnix.ch` und bleiben bis zur
+   Umschaltung gültig. `send.zeugnix.ch` mit `include:amazonses.com` zeigt, dass Resend
+   unter der Haube über Amazon SES versendet — also auch der heutige Weg nicht schweizerisch.
+3. **Die A-Records von `zeugnio.ch` zeigen auf Vercel, nicht auf `advisori01`.** Let's
+   Encrypt kann darum heute kein Zertifikat ausstellen. Der vhost (A2) wird zuerst **ohne**
+   Zertifikat angelegt und über nines Testadresse `zeugnio.advisori01.nine.ch` geprüft;
+   die Umschaltung der A-Records ist ein eigener Schritt mit eigener Reihenfolge.
+
+Zwei Nebenbefunde, beide nicht dringend:
+
+- `advisori.ch` führt **zwei MX auf derselben Priorität 10**, und einer davon
+  (`send.advisori.ch`) hat gar keinen Eintrag. Etwa die Hälfte der Zustellversuche läuft
+  damit erst in einen nicht auflösbaren Host und fällt dann auf Microsoft zurück — Mail
+  kommt an, aber verzögert. Gehört der Advisori-IT gemeldet, nicht nine.
+- Der **Posteingang von `zeugnio.ch` liegt bei AWS in Irland**. Eine Zeile im Verzeichnis
+  der Bearbeitungstätigkeiten, unabhängig vom Serverumzug.
 
 ---
 
