@@ -1,0 +1,196 @@
+# Cutover-Reihenfolge: zeugnio von Vercel/Supabase auf `advisori01`
+
+> **Verhältnis zu den anderen Dateien.** `docs/setup-zeugnio-nine.html` ist das **Wie** —
+> vierzehn Abschnitte mit den Befehlen. Diese Datei ist das **Wann und in welcher
+> Reihenfolge**, mit den Bedingungen, die vor jedem Schritt erfüllt sein müssen. Wo ein
+> Schritt im Runbook steht, ist er mit „§" verwiesen. `kommunikation.md` führt den
+> Verkehr mit nine.
+>
+> Stand: **2026-10-16**, gemessen statt vermutet. Die Reihenfolge weicht an zwei Stellen
+> vom Runbook ab — begründet unter „Vier harte Abhängigkeiten".
+
+---
+
+## Ausgangszustand, gemessen am 2026-10-16
+
+| Sache | Messwert | Folge für die Reihenfolge |
+|---|---|---|
+| Produktivdomain | **`zeugnio.ch` ist live**, `zeugnix.ch` schickt 301 auf `https://www.zeugnio.ch/`. Apex **und** `www` antworten beide mit 200 | Beide Namen müssen nach dem Umzug funktionieren, sonst brechen bestehende Links und QR-Codes |
+| DNS-Zone | Nameserver **`ns1/ns2.vercel-dns.com`** — die Zone liegt beim Anbieter, den wir verlassen | Zone **vor** dem Cutover wegziehen, nicht danach |
+| A-Records Apex | `216.198.79.1`, `64.29.17.1` (Vercel), **TTL 1800 s** | 30 Minuten Umschaltunschärfe, solange die TTL nicht gesenkt ist |
+| `www` | **CNAME** auf `f7ce91cbe36539da.vercel-dns-016.com`, TTL 60 | Muss zum A-Record auf 5.148.171.221 werden; nine erwartet A-Records für beide Namen |
+| HSTS | **`max-age=63072000; includeSubDomains`**, live auf Apex und `www` (`next.config.mjs:30`) | Zwei Jahre Browser-Gedächtnis. Im Fenster ohne gültiges Zertifikat gibt es **kein „Trotzdem fortfahren"** |
+| HSTS-`preload` | **nicht gesetzt**, bewusst (`next.config.mjs:27-28`) | Rettet uns: der Pin steckt nur in Browsern, die wirklich da waren — Senken wirkt also |
+| CAA | **keine** | Let's Encrypt ist erlaubt, kein Blocker |
+| Antwortende Region | `x-vercel-id: fra1` (Edge Frankfurt), `X-Vercel-Cache: HIT` | Sagt nur etwas über den Cache-Knoten; die Funktionsregion ist davon unberührt und bleibt zu prüfen |
+
+---
+
+## Vier harte Abhängigkeiten — daraus folgt die Reihenfolge
+
+**1 · Der App-Benutzer kommt mit dem vhost.** nine hat `www-albisrun` über
+`nine-manage-vhosts` angelegt (SVC-116462). Es gibt kein `nine-manage-users`. Alles, was in
+diesem Konto liegen muss — Releases, `shared/.env`, `postgrest.conf`, `backup.key`, pm2,
+systemd-User-Units, Cron — kann also erst nach dem vhost entstehen.
+→ **Das Runbook ist hier falsch:** § 3 „Benutzer, Node, PM2, Cron" steht vor jedem vhost.
+Richtig ist: vhost zuerst, § 3 danach.
+
+**2 · PostgreSQL 17 vor dem Schemavergleich.** Produktion läuft 17.6; ein `pg_dump` 16
+verweigert einen 17er-Server, hart und ohne Umweg. Erst nach dem Upgrade ist der Vergleich
+„Repo-Schema gegen Prod-Schema" ein echter Gleichheitsbeweis statt eine Behauptung.
+Dazu das Rückfallfenster: nine lässt das 16er-Verzeichnis stehen, aber das ist ein
+**Standbild vom Moment des Upgrades**. Schreibt zeugnio erst Daten auf die 17, kostet ein
+Rückfall diese Daten. → Schemaarbeit und Gegenprobe gehören **in** dieses Fenster, der
+Datenladevorgang beendet es.
+
+**3 · Zertifikat und A-Record hängen voneinander ab.** Let's Encrypt prüft über HTTP-01 auf
+Port 80 — die Domain muss also **schon** auf den Server zeigen, bevor das Zertifikat
+ausgestellt werden kann. Zwischen „A-Record umgelegt" und „Zertifikat da" gibt es darum ein
+Fenster ohne gültiges Zertifikat, und HSTS macht daraus eine harte Downtime.
+→ **Das ist das einzige Fenster mit echter Vorlaufzeit.** Rechnung weiter unten.
+
+**4 · Die Zone liegt beim Anbieter, den wir verlassen.** Solange `zeugnio.ch` von Vercels
+Nameservern beantwortet wird, hängt unsere Fähigkeit, auf nine zu zeigen, an einem
+Vercel-Konto. Das ist kein Theoriefall: ein gekündigtes oder herabgestuftes Projekt nimmt
+die Zone mit.
+→ Zone wegziehen ist **Phase 0**, nicht Nacharbeit.
+
+---
+
+## Phase 0 — ohne nine, kann heute anfangen
+
+| # | Schritt | Gate danach |
+|---|---|---|
+| **0.1** | **DNS-Zone von Vercel wegziehen.** Erst alle heutigen Einträge abschreiben (Apex 2 × A, `www` CNAME, MX auf `inbound-smtp.eu-west-1.amazonaws.com`, `_dmarc` `p=none`), beim Zielanbieter identisch nachbauen, **dann** die Nameserver beim Registrar umstellen. Der CNAME auf `*.vercel-dns-016.com` funktioniert auch aus einer fremden Zone, solange das Vercel-Projekt existiert — er bleibt also vorerst stehen | `dig NS zeugnio.ch` zeigt den neuen Anbieter, Seite läuft unverändert weiter |
+| **0.2** | **TTL der Apex-A-Records auf 300 senken** (`www` liegt schon auf 60). Erst nach 0.1, damit es nicht zweimal gemacht wird | autoritative Antwort zeigt TTL 300 |
+| **0.3** | **HSTS auf `max-age=300` ohne `includeSubDomains`** in `next.config.mjs:31` und **nach Vercel deployen**. Jeder Browser, der danach vorbeikommt, ersetzt den Zweijahreswert. Darum: **mindestens zwei Tage vor dem Cutover**, besser eine Woche | Antwort von `www.zeugnio.ch` trägt `max-age=300` |
+| 0.4 | `deploy/nine/check-advisori01.sh` auf dem Server laufen lassen, heute noch als `www-data`. Liefert RAM, Ports, nginx-Vorgaben, DB-Rechte — Gate für die Serverschritte | Ausgabe liegt vor |
+| 0.5 | `install-postgrest.sh` erstmals ohne Prüfsumme laufen lassen, Prüfsumme **von Hand** mit der Release-Seite vergleichen, Wert bei `PINNED_SHA256` eintragen und einchecken | Prüfsumme steht im Repo |
+| 0.6 | Serverweite Build-Sperre im EHC-Repo nachtragen (`/tmp/nine-next-build.lock`). Ohne sie können zwei `next build` gleichzeitig laufen — auf 7,8 GB ist das der wahrscheinlichste Selbstschaden | Sperre in beiden Repos |
+
+**0.1 braucht einen Entscheid, den nur du treffen kannst** — siehe `TODO(human)` unten.
+
+---
+
+## Phase 1 — die zwei Mails an nine (parallel, verschiedene Vorlaufzeit)
+
+| # | Schritt | Entsperrt |
+|---|---|---|
+| **1.1** | **Terminzusage PG 17** im bestehenden Thread + die drei Dump-Fragen (A1/A4). Entwurf: `antwort-2026-10-13.email.md`, „Nachtrag 2026-10-16 — Mail 3" | Phase 2.3 (Schemavergleich) |
+| **1.2** | **vhost `zeugnio.ch` + `www` mit App-Benutzer `www-zeugnio`, zunächst ohne Zertifikat** (A2), dazu die Port-Bestätigung (A6). Entwurf: dieselbe Datei, „Mail 2" | Phase 2.1 — **und damit alles Übrige** |
+| **1.3** | **Neue Frage, die aus der HSTS-Messung folgt:** kann `nine-manage-vhosts certificate create` die Domainprüfung über **DNS-01** (TXT-Eintrag) machen statt über HTTP-01? Geht das, verschwindet das Downtime-Fenster aus Phase 5 vollständig, weil das Zertifikat **vor** der DNS-Umschaltung ausgestellt werden kann | entscheidet die Form von Phase 5 |
+
+1.2 ist der kritische Pfad. 1.1 kostet nine einen Termin, 1.2 kostet sie fünf Minuten —
+aber ohne 1.2 steht alles.
+
+---
+
+## Phase 2 — Server-Bootstrap (nach 1.1 **und** 1.2)
+
+| # | Schritt | Runbook |
+|---|---|---|
+| 2.1 | In `www-zeugnio`: SSH-Key, Deploy-Key (read-only), nvm + Node 22, PM2, `pm2.service`, **Linger prüfen** (kommt mit dem vhost, aber nachsehen), logrotate, Cron **ausserhalb 00:00–04:00** | § 3 |
+| 2.2 | Datenbank: `nmd_zeugnio` existiert. Mit dem **admin-Benutzer** die Connect-Grants setzen und `900_nine_bootstrap.sql` einspielen — Rollen ohne Präfix, `authenticator` **NOINHERIT** | § 4, § 5 |
+| 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Eigentum/Rechte), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
+| 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
+| 2.5 | Erstes Deployment auf der Testadresse `zeugnio.advisori01.nine.ch` | § 10 |
+
+**Geheimnisse erst ab 2.1, und nur in `/home/www-zeugnio`.** Solange wir in `www-data`
+arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine ausliefert.
+
+---
+
+## Phase 3 — Probe, bevor DNS irgendetwas sieht
+
+| # | Schritt | Gate |
+|---|---|---|
+| 3.1 | **Vollprobe auf der Testadresse:** Zeugnis → Einladung → Beurteilung → finalisieren → PDF mit Logo, QR und Inter (Helvetica im PDF heisst: Schriften fehlen) → `/verify` mit einem **echten Bestands-Hash** → PDF-Worker aus `/pdfjs/` | § 11 |
+| 3.2 | **Restore-Übung.** Nie gelaufen. nines Dump wiederherstellen, in eine Wegwerf-Datenbank, Zeilenzahlen und Prüfsummen vergleichen | **Cutover-Gate** |
+| 3.3 | Mailweg: solange Resend läuft, bleibt alles wie heute. mailomat.swiss ist **bewusst nach** dem Cutover — siehe „Mailweg und DNS" in `kommunikation.md` | — |
+
+---
+
+## Phase 4 — T-2 bis T-1
+
+| # | Schritt |
+|---|---|
+| 4.1 | Nachsehen, ob die kleinen Werte wirklich angekommen sind: `max-age=300` in der Antwort, TTL 300 autoritativ |
+| 4.2 | Vercel-Cron aus. Rollback-Werte aufschreiben: alte A-Records, alter CNAME, alte TTL, alter HSTS-Wert — auf Papier, nicht im Kopf |
+| 4.3 | Datenprobe trocken: `pg_dump --data-only` **über den Session-Pooler** (`aws-0-<region>.pooler.supabase.com:5432` — der direkte DB-Host ist IPv6-only, und `advisori01` hat kein IPv6), einmal in eine Wegwerf-Datenbank laden, Dauer messen |
+
+---
+
+## Phase 5 — das Fenster (Di–Do, früh, 45–75 min)
+
+| # | Schritt | Umkehrbar? |
+|---|---|---|
+| 5.1 | Supabase schreibgeschützt: `default_transaction_read_only = on` für die drei Rollen, bestehende Verbindungen beenden | ja |
+| 5.2 | `pg_dump --data-only` über den Pooler | ja |
+| 5.3 | Laden. `auth.users` separat, davor `disable trigger on_auth_user_created`. Logos herunterziehen, `logo_url` umschreiben | ja, aber: **beendet das PG-16-Rückfallfenster** |
+| 5.4 | **Integritätsprüfung als Abbruchkriterium:** Prüfsummen über `hash`, `canonical_content`, `signature`. Abweichung = Abbruch, keine Diskussion | — |
+| 5.5 | `.env` final, `DATA_API_URL` setzen, `pm2 restart`, Smoke **auf der Testadresse** | ja |
+| 5.6 | **A-Record Apex und `www` auf 5.148.171.221** (ein A statt Vercels zwei; `www` vom CNAME zum A). Kein AAAA — nine hat kein IPv6 | ja, Rückweg dauert eine TTL |
+| 5.7 | `nine-manage-vhosts certificate create`, danach Template auf `proxy_letsencrypt_https_redirect` | ja |
+| 5.8 | Smoke auf der echten Domain, beide Namen | — |
+
+**Das Downtime-Fenster liegt zwischen 5.6 und 5.7** und rechnet sich so: bis zu einer TTL
+DNS-Verbreitung (300 s, wenn 0.2 gemacht ist — sonst 1800 s) plus ein bis zwei Minuten
+Ausstellung. Realistisch **fünf bis zehn Minuten**, in denen `zeugnio.ch` kein gültiges
+Zertifikat hat. Wegen HSTS sieht ein Browser, der die Domain in den letzten zwei Jahren
+besucht hat, in diesem Fenster eine Fehlerseite **ohne Klickmöglichkeit**. Darum sind 0.2
+und 0.3 keine Feinarbeit, sondern Voraussetzung — und darum ist 1.3 die Frage, die das
+Fenster ganz wegnehmen könnte.
+
+---
+
+## Phase 6 — danach, in dieser Reihenfolge
+
+| # | Schritt | Warum nicht früher |
+|---|---|---|
+| 6.1 | CAA-Eintrag setzen (`issue "letsencrypt.org"`) | vorher würde er die Ausstellung behindern, wenn er falsch sitzt |
+| 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload` | erst wenn das Zertifikat sicher erneuert wird |
+| 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu **SPF, DKIM, DMARC für `zeugnio.ch` neu bauen** — heute ist dort nichts | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
+| 6.4 | Vercel und Supabase stilllegen | erst nach einer Frist, in der der Rückweg offen bleibt |
+
+---
+
+## Rollback, je Phase
+
+| Bis | Rücknahme |
+|---|---|
+| Phase 2.2 | nichts zu tun, Produktion läuft unberührt auf Vercel |
+| Phase 2.3 | PG 16 reaktivieren lassen — **gilt nur, solange nichts auf die 17 geschrieben wurde** |
+| Phase 5.5 | `.env` zurück, `pm2 restart`, Supabase `read_only` aufheben. Die Rücknahmezeilen gehören ins Runbook, nicht ins Gedächtnis |
+| Phase 5.6/5.7 | A-Records zurück auf Vercels zwei IPs, `www` zurück auf den CNAME. Wirkt nach einer TTL |
+| Abbruchkriterien | Zertifikat nicht in 20 min · `/verify` nicht 200 · echte QR-URL tot · PDF > 30 s · Login bricht · Fehlerrate > 1 % über 10 min |
+
+---
+
+## Was diese Datei bewusst nicht entscheidet
+
+Den Zielanbieter der DNS-Zone. Das ist kein technischer, sondern ein betrieblicher
+Entscheid — er hängt daran, wo `zeugnio.ch` registriert ist und wen Advisori ohnehin
+bewirtschaftet.
+
+```
+TODO(human) — Phase 0.1: Zielanbieter der DNS-Zone eintragen
+
+Zur Wahl stehen grob drei Wege, mit je einem Nachteil:
+
+  a) Beim Registrar selbst (dort, wo zeugnio.ch registriert ist).
+     Wenig Aufwand, ein Konto weniger. Dafuer oft eine duerftige
+     Oberflaeche und manchmal keine kurzen TTLs.
+
+  b) Ein schweizerischer DNS-Anbieter (z. B. Infomaniak, Hostpoint).
+     Passt zur Standortaussage, gute Oberflaeche, kurze TTLs.
+     Dafuer ein weiteres Konto und eine weitere Rechnung.
+
+  c) nine selbst, falls sie DNS anbieten.
+     Alles an einem Ort - und genau das ist der Nachteil:
+     Server und Zone beim gleichen Anbieter nehmen dir den
+     unabhaengigen Umschalthebel, den wir gerade erst
+     zurueckgewinnen (Abhaengigkeit 4).
+
+Eintragen: Anbieter, wer das Konto haelt, und ob kurze TTLs (300 s)
+moeglich sind. Danach wird 0.1 ausfuehrbar.
+```
