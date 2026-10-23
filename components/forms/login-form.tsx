@@ -300,8 +300,15 @@ function loginErrorText(raw: string): string {
     return "Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einen Moment, bevor Sie einen neuen Code anfordern.";
   }
 
-  // TODO(human)
-  // Zwei Fälle fehlen noch, und sie sind die häufigsten. Siehe Learn-by-Doing.
+  // Supabase liefert für "Code vertippt" und "Token war schon verbraucht"
+  // denselben Text (otp_expired / token has expired or is invalid). Die beiden
+  // sind technisch nicht zu trennen, also deckt ein Satz beide Ursachen ab und
+  // führt in beiden Fällen zur selben richtigen Handlung: neuen Code anfordern.
+  // "Abgelaufen" allein wäre falsch, wenn nur vertippt wurde; "falscher Code"
+  // wäre falsch, wenn ein Linkscanner den Token verbraucht hat.
+  if (r.includes("expired") || r.includes("invalid")) {
+    return "Dieser Code ist nicht mehr gültig – entweder vertippt, oder der Link in der E-Mail wurde bereits geöffnet. Bitte fordern Sie einen neuen Code an.";
+  }
 
   return raw;
 }
