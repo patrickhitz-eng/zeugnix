@@ -89,6 +89,19 @@ export interface DocxRenderInput {
 // Word rechnet in Twips (1 pt = 20 twip) bzw. halben Punkten (Schriftgrösse).
 const pt = (v: number): number => Math.round(v * 20);
 const halfPt = (v: number): number => Math.round(v * 2);
+/**
+ * Bildmasse gibt docx in Pixeln bei 96 dpi an, die Tokens stehen in Points
+ * (72 dpi). Ohne diese Umrechnung driften Logo und QR-Code zwischen PDF und
+ * Word – vorher standen hier die Festwerte 160x64 bzw. 74.
+ */
+const ptToPx = (v: number): number => Math.round((v * 96) / 72);
+/**
+ * Zeilenabstand. Mit dem Standard-lineRule "auto" zählt Word in 240steln einer
+ * Zeile: 240 = einfach. Ein Faktor 1.5 wird also zu 360.
+ */
+const lineOf = (factor: number): number => Math.round(factor * 240);
+/** Buchstabenabstand (letterSpacing) in Twips – wie `pt`, nur für Zeichen. */
+const spacingOf = (v: number): number => Math.round(v * 20);
 
 // Theme-FontKey -> auf dem Zielrechner übliche Schrift. Fehlt sie, ersetzt Word.
 function docxFont(key: FontKey): string {
@@ -154,7 +167,7 @@ function bodyParagraphs(input: DocxRenderInput, theme: DocumentTheme): Paragraph
       }
       return new Paragraph({
         alignment: AlignmentType.JUSTIFIED,
-        spacing: { after: pt(T.space.paragraphMarginBottom), line: Math.round(T.lineHeight.body * 240) },
+        spacing: { after: pt(T.space.paragraphMarginBottom), line: lineOf(T.lineHeight.body) },
         children,
       });
     });
@@ -165,52 +178,89 @@ function bodyParagraphs(input: DocxRenderInput, theme: DocumentTheme): Paragraph
     .split(/\n\n+/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0);
-  return paragraphs.map(
-    (p) =>
-      new Paragraph({
-        alignment: AlignmentType.JUSTIFIED,
-        spacing: { after: pt(T.space.paragraphMarginBottom), line: Math.round(T.lineHeight.body * 240) },
-        children: [new TextRun({ text: p, font: fontName })],
-      }),
-  );
+  return paragraphs.flatMap((p) => {
+    const lines = p.split("\n");
+
+    // Einzeiliger Absatz: Blocksatz wie im PDF.
+    if (lines.length === 1) {
+      return [
+        new Paragraph({
+          alignment: AlignmentType.JUSTIFIED,
+          spacing: { after: pt(T.space.paragraphMarginBottom), line: lineOf(T.lineHeight.body) },
+          children: [new TextRun({ text: p, font: fontName })],
+        }),
+      ];
+    }
+
+    // Mehrzeiliger Absatz – in der Praxis die Aufgaben-Aufzählung, die der
+    // Generator mit einfachen Umbrüchen zu EINEM Abschnitt verbindet.
+    //
+    // Zwei Fallen auf einmal: Word ignoriert ein "\n" innerhalb eines TextRun
+    // (das PDF rendert es als Umbruch), weshalb die Aufzählung vorher zu einer
+    // einzigen Zeile zusammenlief. Und eine Zeile, die mit einem HARTEN
+    // Umbruch endet, zieht Word im Blocksatz über die volle Breite auseinander
+    // – bei einer natürlich umbrochenen Zeile tut es das nicht. Deshalb wird
+    // jede Zeile ein eigener, linksbündiger Absatz; der Abstand nach unten ist
+    // innerhalb der Aufzählung eng und nur nach der letzten Zeile voll.
+    return lines.map(
+      (line, i) =>
+        new Paragraph({
+          alignment: AlignmentType.LEFT,
+          spacing: {
+            after: pt(
+              i === lines.length - 1
+                ? T.space.paragraphMarginBottom
+                : T.space.bulletMarginBottom,
+            ),
+            line: lineOf(T.lineHeight.body),
+          },
+          children: [new TextRun({ text: line, font: fontName })],
+        }),
+    );
+  });
 }
 
 // --- Briefkopf -------------------------------------------------------------
 
-function letterhead(input: DocxRenderInput, theme: DocumentTheme): Paragraph[] {
+/**
+ * Briefkopf als randlose Zwei-Spalten-Tabelle: Logo (oder Firmenname) links,
+ * Adresse rechtsbündig rechts – genau die Anordnung, die das PDF mit einer
+ * Flex-Zeile erzeugt.
+ *
+ * Vorher standen Logo, Firmenname und Adresszeilen hier UNTEREINANDER. Das sah
+ * nicht nur anders aus als das PDF, es kostete auch die ganze Logo-Höhe
+ * zusätzlich: gestapelt addieren sich beide Blöcke, nebeneinander zählt nur der
+ * höhere von beiden.
+ */
+function letterhead(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | Table)[] {
   const headingFont = docxFont(theme.fonts.heading);
-  const out: Paragraph[] = [];
+  const out: (Paragraph | Table)[] = [];
 
-  // Logo (falls vorhanden), sonst Firmenname fett.
+  // --- linke Spalte: Logo, sonst der Firmenname gross ---
+  const leftChildren: Paragraph[] = [];
   if (input.companyLogo) {
     const { width, height } = imageSizePx(input.companyLogo.data, input.companyLogo.type);
-    // In eine Box von 160x64 px einpassen (Seitenverhältnis erhalten) – analog
-    // zu logo.maxWidth/maxHeight im PDF.
-    const scale = Math.min(160 / (width || 160), 64 / (height || 64), 1);
-    out.push(
+    // In die Logo-Box der Tokens einpassen, Seitenverhältnis erhalten und nie
+    // hochskalieren (ein kleines Logo soll klein bleiben, nicht unscharf gross).
+    const boxW = ptToPx(T.logo.maxWidth);
+    const boxH = ptToPx(T.logo.maxHeight);
+    const scale = Math.min(boxW / (width || boxW), boxH / (height || boxH), 1);
+    leftChildren.push(
       new Paragraph({
         children: [
           new ImageRun({
             type: input.companyLogo.type,
             data: input.companyLogo.data,
             transformation: {
-              width: Math.max(1, Math.round((width || 160) * scale)),
-              height: Math.max(1, Math.round((height || 64) * scale)),
+              width: Math.max(1, Math.round((width || boxW) * scale)),
+              height: Math.max(1, Math.round((height || boxH) * scale)),
             },
           }),
         ],
       }),
     );
-    out.push(
-      new Paragraph({
-        spacing: { before: pt(4) },
-        children: [
-          new TextRun({ text: s(input.companyName), bold: true, font: headingFont, color: hex(theme.colors.textPrimary) }),
-        ],
-      }),
-    );
   } else {
-    out.push(
+    leftChildren.push(
       new Paragraph({
         children: [
           new TextRun({
@@ -225,27 +275,99 @@ function letterhead(input: DocxRenderInput, theme: DocumentTheme): Paragraph[] {
     );
   }
 
-  // Adresse / Kontakt als kleine Zeilen.
-  const cityLine = [s(input.companyPostalCode), s(input.companyCity)].filter((x) => x.length > 0).join(" ");
-  const contactLines = [s(input.companyAddress), cityLine, s(input.companyPhone), s(input.companyEmail), s(input.companyWebsite)].filter(
-    (x) => x.length > 0,
-  );
-  for (const line of contactLines) {
-    out.push(
-      new Paragraph({
-        spacing: { after: pt(1) },
-        children: [
-          new TextRun({ text: line, size: halfPt(T.fontSize.letterhead), font: headingFont, color: hex(theme.colors.textSecondary) }),
-        ],
+  // --- rechte Spalte: Firmenname (nur wenn links das Logo steht) + Adresse ---
+  const rightChildren: Paragraph[] = [];
+  const smallLine = (
+    text: string,
+    opts: { bold?: boolean; color?: string; after?: number } = {},
+  ) =>
+    new Paragraph({
+      alignment: AlignmentType.RIGHT,
+      spacing: { after: pt(opts.after ?? 0), line: lineOf(T.lineHeight.letterhead) },
+      children: [
+        new TextRun({
+          text,
+          bold: opts.bold,
+          size: halfPt(T.fontSize.letterhead),
+          font: headingFont,
+          color: hex(opts.color ?? theme.colors.textSecondary),
+        }),
+      ],
+    });
+
+  if (input.companyLogo) {
+    rightChildren.push(
+      smallLine(s(input.companyName), {
+        bold: true,
+        color: theme.colors.textPrimary,
+        after: T.space.letterheadCompanyNameMarginBottom,
       }),
     );
   }
 
+  const cityLine = [s(input.companyPostalCode), s(input.companyCity)]
+    .filter((x) => x.length > 0)
+    .join(" ");
+  const contactLines = [
+    s(input.companyAddress),
+    cityLine,
+    s(input.companyPhone),
+    s(input.companyEmail),
+    s(input.companyWebsite),
+  ].filter((x) => x.length > 0);
+  for (const line of contactLines) rightChildren.push(smallLine(line));
+
+  if (rightChildren.length === 0) rightChildren.push(new Paragraph({ children: [] }));
+
+  const noBorders = {
+    top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  };
+
+  out.push(
+    new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      borders: noBorders,
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 55, type: WidthType.PERCENTAGE },
+              verticalAlign: VerticalAlign.TOP,
+              borders: noBorders,
+              children: leftChildren,
+            }),
+            new TableCell({
+              width: { size: 45, type: WidthType.PERCENTAGE },
+              verticalAlign: VerticalAlign.TOP,
+              borders: noBorders,
+              children: rightChildren,
+            }),
+          ],
+        }),
+      ],
+    }),
+  );
+
   // Eigener Trennabsatz mit Linie unten = Trennlinie unter dem Briefkopf.
   out.push(
     new Paragraph({
-      border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: hex(theme.colors.rule) ?? "D4D8DD", space: 4 } },
-      spacing: { after: pt(T.space.letterheadMarginBottom) },
+      border: {
+        bottom: {
+          style: BorderStyle.SINGLE,
+          size: 4,
+          color: hex(theme.colors.rule) ?? "D4D8DD",
+          space: 4,
+        },
+      },
+      spacing: {
+        before: pt(T.space.letterheadPaddingBottom),
+        after: pt(T.space.letterheadMarginBottom),
+      },
       children: [],
     }),
   );
@@ -295,8 +417,17 @@ function signatures(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
   const out: (Paragraph | Table)[] = [];
 
   if (isHandwritten) {
-    // Platz zum handschriftlichen Unterschreiben über der Linie.
-    out.push(new Paragraph({ spacing: { before: pt(36), after: pt(60) }, children: [] }));
+    // Platz zum handschriftlichen Unterschreiben über der Linie – dieselbe
+    // Fläche wie im PDF (styles.signatureHandwrittenSpace).
+    out.push(
+      new Paragraph({
+        spacing: {
+          before: pt(T.space.signatureHandwrittenMarginTop),
+          after: pt(T.space.signatureHandwrittenHeight),
+        },
+        children: [],
+      }),
+    );
   } else {
     out.push(
       new Paragraph({
@@ -306,6 +437,7 @@ function signatures(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
             text: "DIGITAL AUSGESTELLT DURCH",
             bold: true,
             size: halfPt(T.fontSize.signaturesHeader),
+            characterSpacing: spacingOf(T.letterSpacing.label),
             font: headingFont,
             color: hex(theme.colors.brandAccent),
           }),
@@ -370,7 +502,14 @@ async function hashBlock(input: DocxRenderInput, theme: DocumentTheme): Promise<
     new Paragraph({
       spacing: { after: pt(T.space.hashLabelMarginBottom) },
       children: [
-        new TextRun({ text: "ECHTHEITSNACHWEIS (SHA-256)", bold: true, size: halfPt(T.fontSize.hashLabel), font: bodyFont, color: hex(theme.colors.brandAccent) }),
+        new TextRun({
+          text: "ECHTHEITSNACHWEIS (SHA-256)",
+          bold: true,
+          size: halfPt(T.fontSize.hashLabel),
+          characterSpacing: spacingOf(T.letterSpacing.label),
+          font: bodyFont,
+          color: hex(theme.colors.brandAccent),
+        }),
       ],
     }),
     new Paragraph({
@@ -393,7 +532,7 @@ async function hashBlock(input: DocxRenderInput, theme: DocumentTheme): Promise<
     }),
   ];
 
-  const qrPx = 74; // ~56pt bei 96dpi, wie T.qr.size im PDF
+  const qrPx = ptToPx(T.qr.size);
   const table = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: {
@@ -468,12 +607,18 @@ export async function renderCertificateDocx(input: DocxRenderInput): Promise<Buf
 
   const title = new Paragraph({
     alignment: AlignmentType.CENTER,
-    spacing: { before: pt(T.space.titleMarginTop), after: pt(T.space.titleMarginBottom) },
+    spacing: {
+      before: pt(T.space.titleMarginTop),
+      after: pt(T.space.titleMarginBottom),
+      line: lineOf(T.lineHeight.title),
+    },
     children: [
       new TextRun({
         text: s(input.certificateTitle),
         bold: true,
         size: halfPt(T.fontSize.title),
+        // Buchstabenabstand wie im PDF (letterSpacing.title).
+        characterSpacing: spacingOf(T.letterSpacing.title),
         font: headingFont,
         color: hex(theme.colors.brandAccent),
       }),
