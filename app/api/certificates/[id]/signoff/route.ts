@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
-import { resolveSignatories } from "@/lib/certificate/signatories";
+import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email/send";
 import { buildSignoffRequestEmail } from "@/lib/email/templates";
@@ -51,7 +51,7 @@ export async function POST(
   const { data: cert } = await supabase
     .from("certificates")
     .select(
-      "id, company_id, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, employees(first_name, last_name), companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)",
+      "id, company_id, type, hash_version, meta_snapshot, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, employees(first_name, last_name), companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)",
     )
     .eq("id", id)
     .single();
@@ -70,8 +70,13 @@ export async function POST(
     );
   }
 
-  // Name/Rolle des Slots serverseitig auflösen (Zeugnis-Override ⟶ Firmenvorgabe).
-  const signatories = resolveSignatories(cert, company);
+  // Name/Rolle des Slots serverseitig auflösen. Bei einem finalisierten
+  // v2-Zeugnis aus dem eingefrorenen Siegel, sonst Zeugnis-Override ⟶
+  // Firmenvorgabe. Diese Route hat bewusst keinen Finalisierungs-Guard (eine
+  // Freigabe darf auch nachträglich eingeholt werden) – ohne das Siegel als
+  // Quelle würde die Einladung sonst eine andere Person nennen als die, die auf
+  // dem Dokument steht. Siehe lib/certificate/presentation.ts.
+  const signatories = resolveCertificatePresentation(cert, company).signatories;
   const slotName = slot === 1 ? signatories.signatory_1_name : signatories.signatory_2_name;
   const slotRole = slot === 1 ? signatories.signatory_1_role : signatories.signatory_2_role;
   if (!slotName) {

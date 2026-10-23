@@ -321,11 +321,20 @@ export function extractSignatureBetweenSentinels(raw: string): string | null {
 /**
  * Registrierte Felder eines Treffers, die dem Prüfer zum Abgleich mit dem
  * vorliegenden Papier gezeigt werden (S1a). Bewusst nur die Vergleichsfelder,
- * die einen getauschten Briefkopf/Unterschriftenblock entlarven: Arbeitgeber
- * und Unterzeichnende stehen AUSSERHALB des Hashes, sind also fälschbar, ohne
- * dass sich der Hash ändert. Mitarbeiter/in, Dokumenttyp und Ausstelldatum
- * helfen, den richtigen Datensatz zu bestätigen. KEINE weiteren PII
- * (Geburtsdatum, Pensum, Funktion) – die stünden ohnehin im Papier.
+ * die einen getauschten Briefkopf/Unterschriftenblock entlarven.
+ *
+ * Bei einem v1-Zeugnis stehen Arbeitgeber und Unterzeichnende AUSSERHALB des
+ * Hashes, sind also fälschbar, ohne dass sich der Hash ändert. Bei v2 (S1b)
+ * deckt der Hash sie mit ab, und die hier gelieferten Werte stammen dann aus
+ * dem eingefrorenen `meta_snapshot` – aus dem, was versiegelt wurde, nicht aus
+ * dem heutigen Stand der Firmen- und Zeugnis-Spalten. Siehe
+ * lib/certificate/presentation.ts; ohne das würde eine spätere, legitime
+ * Änderung der Firmen-Unterzeichnenden eine ältere, echte PDF-Kopie hier gegen
+ * abweichende Angaben laufen lassen.
+ *
+ * Mitarbeiter/in, Dokumenttyp und Ausstelldatum helfen, den richtigen Datensatz
+ * zu bestätigen. KEINE weiteren PII (Geburtsdatum, Pensum, Funktion) – die
+ * stünden ohnehin im Papier.
  */
 export interface VerifiedCertificateFields {
   employeeName: string;

@@ -8,7 +8,10 @@ import {
 import { SchlusssatzControls } from "@/components/forms/schlusssatz-controls";
 import { SignatoryControls } from "@/components/forms/signatory-controls";
 import { CertificateRichWorkspace } from "@/components/app/certificate-rich-workspace";
-import { resolveSignatories } from "@/lib/certificate/signatories";
+import {
+  resolveCertificatePresentation,
+  sealDiffersFromLive,
+} from "@/lib/certificate/presentation";
 import { CertificateWorkspace } from "@/components/app/certificate-workspace";
 import { CertificateManage } from "@/components/app/certificate-manage";
 import { isCertificateLocked } from "@/lib/certificate/status";
@@ -88,10 +91,20 @@ export default async function CertificateDetailPage({ params }: PageProps) {
     .eq("certificate_id", id)
     .order("created_at", { ascending: false });
 
-  // Effektive Unterzeichnende: Zeugnis-Override ⟶ Firmenvorgabe (pro Slot).
-  // Speist Vorschau (previewCompany) und den Empfehlungs-Hinweis unten.
-  const effectiveSignatories = resolveSignatories(cert, company);
-  const previewCompany = { ...company, ...effectiveSignatories };
+  // Arbeitgeber, Titel und Unterzeichnende für die Darstellung: bei einem
+  // finalisierten v2-Zeugnis aus dem eingefrorenen Siegel, sonst Zeugnis-
+  // Override ⟶ Firmenvorgabe. Dieselbe Auflösung wie PDF und Word-Export, damit
+  // die Vorschau nicht etwas anderes zeigt als das ausgelieferte Dokument.
+  const presentation = resolveCertificatePresentation(cert, company);
+  const effectiveSignatories = presentation.signatories;
+  // Weicht der heutige Stand (Firmenname / Unterzeichnende) vom Siegel ab?
+  // Dokument und Vorschau zeigen dann weiterhin das Siegel – siehe Hinweis unten.
+  const sealDiffers = sealDiffersFromLive(cert, company);
+  const previewCompany = {
+    ...company,
+    name: presentation.employer,
+    ...effectiveSignatories,
+  };
 
   // V2: Freigaben separat (nicht als Embed) laden – so bricht eine noch nicht
   // eingespielte Migration 020 nicht die ganze Detailseite, sondern blendet nur
@@ -135,6 +148,24 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         <div className="rounded-md border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-[12.5px] text-amber-800">
           Dieses Zeugnis ist archiviert und erscheint nicht in der
           Standardübersicht.
+        </div>
+      )}
+      {/*
+        Das Zeugnis ist versiegelt und der heutige Stand von Firmenname oder
+        Unterzeichnenden weicht davon ab. Dokument, Vorschau und Prüfung zeigen
+        weiterhin die versiegelten Werte; ohne Erklärung wirkt das wie ein
+        Fehler („mein neuer Firmenname erscheint nicht").
+
+        Bewusst leise und ohne die Werte selbst: die Vorschau direkt darunter
+        zeigt sie ohnehin, und dieser Fall kann im Bestand häufig sein – ein
+        auffälliges Banner auf jedem älteren Zeugnis wäre schlimmer als keins.
+        Neutrales ink statt amber/rot: hier ist nichts zu tun und nichts kaputt.
+      */}
+      {sealDiffers && (
+        <div className="rounded-md border border-ink-200 bg-ink-50 px-4 py-2.5 text-[12.5px] text-ink-600">
+          Dieses Zeugnis zeigt Firmenangaben und Unterzeichnende im Stand der
+          Ausstellung. Spätere Änderungen in den Firmeneinstellungen gelten nur
+          für neue Zeugnisse.
         </div>
       )}
       <div className="flex items-start justify-between gap-4">
@@ -285,7 +316,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             themeId={company.default_certificate_font_family}
             company={previewCompany}
             employee={employee}
-            type={cert.type}
+            title={presentation.documentTitle}
             hash={cert.hash}
             signatureMode={cert.signature_mode}
           />

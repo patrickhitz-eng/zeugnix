@@ -3,8 +3,7 @@ import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { docxImageType, loadCompanyLogo } from "@/lib/uploads/load-logo";
 import { renderCertificateDocx, type DocxLogo } from "@/lib/docx/certificate";
-import { resolveSignatories } from "@/lib/certificate/signatories";
-import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { isCertificateLocked } from "@/lib/certificate/status";
 
 // docx baut rein in JS (kein headless Chrome), braucht aber Node-APIs (Buffer,
@@ -63,7 +62,11 @@ export async function GET(
     );
   }
 
-  const signatories = resolveSignatories(cert, company);
+  // Arbeitgeber, Titel und Unterzeichnende aus dem Siegel, sobald das Zeugnis
+  // per v2 versiegelt ist – identisch zur PDF-Route, damit beide Ausgaben
+  // dasselbe Dokument sind. Siehe lib/certificate/presentation.ts.
+  const presentation = resolveCertificatePresentation(cert, company);
+  const signatories = presentation.signatories;
 
   // Bestätigte Unterzeichner-Freigaben pro Slot (identisch zur PDF-Route).
   const signoffBySlot: Record<number, { email: string; confirmedAt: string }> = {};
@@ -93,12 +96,12 @@ export async function GET(
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
-  const certificateTitle = certificateTypeLabel(cert.type);
+  const certificateTitle = presentation.documentTitle;
   const bodyText = cert.edited_text || cert.generated_text || "";
 
   try {
     const buffer = await renderCertificateDocx({
-      companyName: company.name,
+      companyName: presentation.employer,
       companyAddress: company.address ?? undefined,
       companyPostalCode: company.postal_code ?? undefined,
       companyCity: company.city ?? undefined,

@@ -30,7 +30,8 @@ interface Props {
   // Daten für die A4-Vorschau
   company: any;
   employee: any;
-  type: string;
+  /** Fertiger Dokumenttitel; wird an die A4-Vorschau durchgereicht. */
+  title: string;
   hash?: string | null;
   /** Unterschrifts-Modus; steuert den Kopf „Digital ausgestellt durch" in der Vorschau. */
   signatureMode?: string | null;
@@ -46,7 +47,7 @@ export function CertificateRichWorkspace({
   themeId,
   company,
   employee,
-  type,
+  title,
   hash,
   signatureMode,
 }: Props) {
@@ -215,7 +216,7 @@ export function CertificateRichWorkspace({
       <CertificatePreview
         company={company}
         employee={employee}
-        type={type}
+        title={title}
         text={previewText}
         hash={hash}
         signatureMode={signatureMode}
