@@ -35,7 +35,14 @@ interface Employee {
 interface Props {
   company: Company;
   employee: Employee;
-  type: string;
+  /**
+   * Fertiger Dokumenttitel. Kommt von der Detailseite aus
+   * lib/certificate/presentation.ts – bei einem finalisierten v2-Zeugnis aus
+   * dem eingefrorenen Siegel, sonst aus dem Zeugnistyp. So zeigt die Vorschau
+   * denselben Titel wie PDF und Word-Export, statt ihn hier aus `type` ein
+   * zweites Mal selbst abzuleiten.
+   */
+  title: string;
   text: string;
   hash?: string | null;
   /**
@@ -49,29 +56,16 @@ interface Props {
   signatureMode?: string | null;
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  schluss: "Arbeitszeugnis",
-  zwischen: "Zwischenzeugnis",
-  funktionswechsel: "Arbeitszeugnis",
-  vorgesetztenwechsel: "Arbeitszeugnis",
-  interner_wechsel: "Arbeitszeugnis",
-  reorganisation: "Arbeitszeugnis",
-  wunsch_mitarbeiterin: "Arbeitszeugnis",
-  wunsch_mitarbeiter: "Arbeitszeugnis",
-  arbeitsbestaetigung: "Arbeitsbestätigung",
-};
-
 export function CertificatePreview({
   company,
   employee,
-  type,
+  title,
   text,
   hash,
   bodyOverride,
   themeId,
   signatureMode,
 }: Props) {
-  const title = TYPE_LABELS[type] ?? "Arbeitszeugnis";
   const theme = resolveTheme(themeId);
   const css = buildDocumentCss(theme);
   // Schwarz/weiss wie im PDF (certificate.tsx) – bester Scan-Kontrast.

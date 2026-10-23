@@ -13,8 +13,7 @@ import {
   type VerifyOutcome,
 } from "@/lib/hash/canonicalize";
 import { verifyCertificateSignature } from "@/lib/crypto/signing";
-import { resolveSignatories } from "@/lib/certificate/signatories";
-import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { logError } from "@/lib/log";
 
 // S2: node:crypto (Ed25519-Verifikation) benötigt die Node-Runtime (nicht Edge).
@@ -101,9 +100,17 @@ export async function POST(req: NextRequest) {
     //    Bestätigen des Datensatzes. Status bewusst NICHT auf 'final' gefiltert
     //    (H2): ein widerrufenes Zeugnis muss denselben Hash-Match finden, um
     //    korrekt als "revoked" statt fälschlich als "unknown" auszuweisen.
+    //
+    //    `meta_snapshot` ist der EINGEFRORENE Stand von Arbeitgeber, Titel und
+    //    Unterzeichnenden zum Finalisierungszeitpunkt – genau die Werte, über die
+    //    der v2-Hash gebildet wurde. Die dem Prüfenden gezeigten Soll-Angaben
+    //    stammen daraus und nicht aus den lebenden Spalten (siehe
+    //    lib/certificate/presentation.ts). Die lebenden Spalten bleiben für
+    //    v1-Zeugnisse geladen, die kein Siegel über diese Felder haben.
     const supabase = createServiceClient();
     const SELECT_COLS =
-      "id, company_id, status, type, hash, hash_version, finalized_at, revoked_at, " +
+      "id, company_id, status, type, hash, hash_version, meta_snapshot, " +
+      "finalized_at, revoked_at, " +
       "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
       "employees(first_name, last_name), " +
       "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)";
@@ -154,7 +161,15 @@ export async function POST(req: NextRequest) {
         ? match.companies[0]
         : match.companies;
 
-      const signatories = resolveSignatories(match, company ?? {});
+      // Soll-Angaben für den Abgleich mit dem Papier. Bei einem v2-Zeugnis aus
+      // dem eingefrorenen meta_snapshot – also aus dem, was tatsächlich
+      // versiegelt wurde, nicht aus dem heutigen Stand der Firmen- und
+      // Zeugnis-Spalten. Ohne das würde eine spätere, völlig legitime Änderung
+      // der Firmen-Unterzeichnenden dazu führen, dass eine ältere, echte PDF-
+      // Kopie hier gegen abweichende Angaben läuft und wie eine Fälschung
+      // aussieht. v1-Zeugnisse behalten den lebenden Pfad (Bestandsschutz).
+      const presentation = resolveCertificatePresentation(match, company ?? {});
+      const signatories = presentation.signatories;
 
       // V1-Trust-Signal: Hat die ausstellende Firma eine verifizierte Domain?
       // Liegt AUSSERHALB des Hashes; dient dem Prüfer als Aussteller-Beleg.
@@ -207,8 +222,8 @@ export async function POST(req: NextRequest) {
         employeeName: [employee?.first_name, employee?.last_name]
           .filter(Boolean)
           .join(" "),
-        employer: company?.name ?? "",
-        documentType: certificateTypeLabel(match.type),
+        employer: presentation.employer,
+        documentType: presentation.documentTitle,
         issueDate,
         signatory1Name: signatories.signatory_1_name,
         signatory1Role: signatories.signatory_1_role,

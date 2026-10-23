@@ -3,8 +3,7 @@ import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { loadCompanyLogo, toDataUrl } from "@/lib/uploads/load-logo";
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
-import { resolveSignatories } from "@/lib/certificate/signatories";
-import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
+import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { isCertificateLocked } from "@/lib/certificate/status";
 import {
   encodeMetaBlock,
@@ -79,8 +78,13 @@ export async function GET(
     );
   }
 
-  // Unterzeichnende: zeugnis-spezifischer Override vor Firmenvorgabe.
-  const signatories = resolveSignatories(cert, company);
+  // Arbeitgeber, Titel und Unterzeichnende: bei einem v2-Zeugnis AUS DEM
+  // eingefrorenen meta_snapshot, sonst zeugnis-spezifischer Override vor
+  // Firmenvorgabe. Das PDF zeigt damit genau die Werte, über die sein Hash
+  // gebildet wurde – auch wenn Firmenname oder Unterzeichnende der Firma
+  // danach (legitim) geändert wurden. Siehe lib/certificate/presentation.ts.
+  const presentation = resolveCertificatePresentation(cert, company);
+  const signatories = presentation.signatories;
 
   // V2: bestaetigte Unterzeichner-Freigaben pro Slot (E-Mail + Zeitpunkt) laden.
   // Der Renderer zeigt sie als "✓ Bestaetigt am …" unter der Unterschrift.
@@ -106,7 +110,7 @@ export async function GET(
   const logoDataUrl = logo ? toDataUrl(logo) : undefined;
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
-  const certificateTitle = certificateTypeLabel(cert.type);
+  const certificateTitle = presentation.documentTitle;
 
   // S1b: unsichtbaren Meta-Block nur für v2-finalisierte Zeugnisse einbetten.
   // Quelle ist der beim Finalisieren EINGEFRORENE Snapshot – so bettet das PDF
@@ -135,7 +139,7 @@ export async function GET(
 
   try {
     const buffer = await renderCertificatePdf({
-      companyName: company.name,
+      companyName: presentation.employer,
       companyAddress: company.address ?? undefined,
       companyPostalCode: company.postal_code ?? undefined,
       companyCity: company.city ?? undefined,
