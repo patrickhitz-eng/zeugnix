@@ -179,12 +179,15 @@ export function LoginForm({ next }: { next?: string }) {
           >
             Code aus der E-Mail
           </label>
+          {/* maxLength bewusst 10, nicht 6: Supabase gibt je nach Einstellung
+              6 bis 10 Stellen aus, und ein zu enges Feld schneidet einen
+              längeren Code ab – eintippen wäre dann unmöglich. */}
           <input
             id="code"
             type="text"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={10}
             required
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\s/g, ""))}
