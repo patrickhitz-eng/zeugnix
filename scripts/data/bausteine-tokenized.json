@@ -36,7 +36,7 @@
     "ok": true
   },
   "verantwortung_uebertragen|sehr_gut|1": {
-    "tokenized": "Wir schätzen enorm, dass {{er|sie|er/sie}} als {{engagierter|engagierte|engagierter/engagierte}} {{Vorgesetzter|Vorgesetzte|Vorgesetzter/Vorgesetzte}} Aufgaben und Verantwortung vorbildlich und in angemessenem Umfang delegiert.",
+    "tokenized": "Besonders hervorzuheben ist, dass {{er|sie|er/sie}} als {{Vorgesetzter|Vorgesetzte|Vorgesetzter/Vorgesetzte}} Aufgaben und Verantwortung vorbildlich und in angemessenem Umfang delegiert.",
     "ok": true
   },
   "verantwortung_uebertragen|sehr_gut|2": {
@@ -92,7 +92,7 @@
     "ok": true
   },
   "vorbild|genuegend|2": {
-    "tokenized": "{vorname} {nachname} erleben wir als motivierte Führungskraft, die verantwortungsvoll handelt. Entscheidungen trifft {{er|sie|er/sie}} durchdacht, kommuniziert diese klar und nachvollziehbar.",
+    "tokenized": "{vorname} {nachname} erleben wir als motivierte Führungskraft, die verantwortungsvoll handelt. Entscheidungen trifft {{er|sie|er/sie}} durchdacht und kommuniziert diese klar und nachvollziehbar.",
     "ok": true
   },
   "vorbild|gut|1": {
@@ -100,7 +100,7 @@
     "ok": true
   },
   "vorbild|gut|2": {
-    "tokenized": "{vorname} {nachname} schätzen wir als engagierte und integre Führungskraft, die vorausschauend, ziel- und umsetzungsorientiert sowie im Sinne unserer Wertekultur handelt. {{Er|Sie|Er/Sie}} verfügt über Selbstdisziplin und übernimmt stets Verantwortung. Entscheidungen trifft {{er|sie|er/sie}} gut durchdacht, kommuniziert diese zeitgerecht, klar und nachvollziehbar. Zudem überzeugt {{er|sie|er/sie}} durch {{seinen|ihren|seinen/ihren}} kooperativen Führungsstil.",
+    "tokenized": "{vorname} {nachname} schätzen wir als engagierte und integre Führungskraft, die vorausschauend, ziel- und umsetzungsorientiert sowie im Sinne unserer Wertekultur handelt. {{Er|Sie|Er/Sie}} ist selbstdiszipliniert und übernimmt stets Verantwortung. Entscheidungen trifft {{er|sie|er/sie}} gut durchdacht und kommuniziert diese zeitgerecht, klar und nachvollziehbar. Zudem überzeugt {{er|sie|er/sie}} durch {{seinen|ihren|seinen/ihren}} kooperativen Führungsstil.",
     "ok": true
   },
   "vorbild|sehr_gut|1": {
@@ -180,7 +180,7 @@
     "ok": true
   },
   "mitarbeiterfoerderung|gut|2": {
-    "tokenized": "{{Er|Sie|Er/Sie}} versteht es, die Talente {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden zu erkennen und diese zu fördern. {{Er|Sie|Er/Sie}} ermöglicht auf die Funktion zugeschnittene Weiterbildungsmöglichkeiten und zeigt Entwicklungsperspektiven auf.",
+    "tokenized": "{{Er|Sie|Er/Sie}} versteht es, die Talente {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden zu erkennen und diese zu fördern. {{Er|Sie|Er/Sie}} ermöglicht ihnen auf die Funktion zugeschnittene Weiterbildungen und zeigt Entwicklungsperspektiven auf.",
     "ok": true
   },
   "mitarbeiterfoerderung|sehr_gut|1": {
@@ -188,7 +188,7 @@
     "ok": true
   },
   "mitarbeiterfoerderung|sehr_gut|2": {
-    "tokenized": "{{Er|Sie|Er/Sie}} versteht es gekonnt, die Talente {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden zu erkennen und diese entsprechend zu fördern. {{Er|Sie|Er/Sie}} ermöglicht auf die Funktion zugeschnittene Weiterbildungsmöglichkeiten und individuell interessante Entwicklungsperspektiven.",
+    "tokenized": "{{Er|Sie|Er/Sie}} erkennt die Talente {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden treffsicher und fördert diese gezielt. {{Er|Sie|Er/Sie}} ermöglicht ihnen auf die Funktion zugeschnittene Weiterbildungen und individuell interessante Entwicklungsperspektiven.",
     "ok": true
   },
   "aktives_change_management|ungenuegend|1": {
@@ -740,7 +740,7 @@
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|ungenuegend|3": {
-    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt {vorname} {nachname} sich nur teilweise auseinander und ist mit wichtigen Standards zu wenig vertraut.",
+    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt sich {vorname} {nachname} nur teilweise auseinander und ist mit wichtigen Standards zu wenig vertraut.",
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|genuegend|1": {
@@ -752,7 +752,7 @@
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|genuegend|3": {
-    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt {vorname} {nachname} sich auseinander und ist mit den aktuellen Standards vertraut.",
+    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt sich {vorname} {nachname} auseinander und ist mit den aktuellen Standards vertraut.",
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|gut|1": {
@@ -764,7 +764,7 @@
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|gut|3": {
-    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt {vorname} {nachname} sich auseinander und ist immer mit den aktuellen Standards vertraut.",
+    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt sich {vorname} {nachname} auseinander und ist immer mit den aktuellen Standards vertraut.",
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|sehr_gut|1": {
@@ -776,7 +776,7 @@
     "ok": true
   },
   "fachkenntnisse_lernbereitschaft|sehr_gut|3": {
-    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt {vorname} {nachname} sich engagiert auseinander und ist immer mit den neuesten Standards vertraut.",
+    "tokenized": "Mit Entwicklungen im Berufsumfeld setzt sich {vorname} {nachname} engagiert auseinander und ist immer mit den neuesten Standards vertraut.",
     "ok": true
   },
   "methodeneinsatz|ungenuegend|1": {
@@ -976,7 +976,7 @@
     "ok": true
   },
   "arbeitsqualitaet|gut|2": {
-    "tokenized": "Durch {{seine|ihre|seine/ihre}} Sorgfalt und Gewissenhaftigkeit erzielt {{er|sie|er/sie}} ein einwandfreies Arbeitsergebnis.",
+    "tokenized": "Durch {{seine|ihre|seine/ihre}} Sorgfalt und Gewissenhaftigkeit erzielt {{er|sie|er/sie}} einwandfreie Arbeitsergebnisse.",
     "ok": true
   },
   "arbeitsqualitaet|sehr_gut|1": {
@@ -1408,7 +1408,7 @@
     "ok": true
   },
   "teamfaehigkeit|gut|2": {
-    "tokenized": "{{Er|Sie|Er/Sie}} bringt sich ins Team ein, ist integer und unterstützend. {{Er|Sie|Er/Sie}} trägt zu einer konstruktiven sowie positiven Zusammenarbeit bei und kann gut mit unterschiedlichen Personen und Situationen umgehen.",
+    "tokenized": "{{Er|Sie|Er/Sie}} bringt sich ins Team ein, ist integer und unterstützend. {{Er|Sie|Er/Sie}} trägt zu einer konstruktiven und positiven Zusammenarbeit bei und kann gut mit unterschiedlichen Personen und Situationen umgehen.",
     "ok": true
   },
   "teamfaehigkeit|gut|3": {
@@ -1420,7 +1420,7 @@
     "ok": true
   },
   "teamfaehigkeit|sehr_gut|2": {
-    "tokenized": "{{Er|Sie|Er/Sie}} bringt sich vorbildlich ins Team ein, ist integer und jederzeit unterstützend. {{Er|Sie|Er/Sie}} trägt aktiv zu einer konstruktiven sowie positiven Zusammenarbeit bei und kann sehr gut mit unterschiedlichen Personen und Situationen umgehen.",
+    "tokenized": "{{Er|Sie|Er/Sie}} bringt sich vorbildlich ins Team ein, ist integer und jederzeit unterstützend. {{Er|Sie|Er/Sie}} trägt aktiv zu einer konstruktiven und positiven Zusammenarbeit bei und kann sehr gut mit unterschiedlichen Personen und Situationen umgehen.",
     "ok": true
   },
   "teamfaehigkeit|sehr_gut|3": {
