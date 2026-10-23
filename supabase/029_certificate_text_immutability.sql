@@ -39,10 +39,21 @@
 --   angestellte Person hält am Ende ein Zeugnis, das bei der Prüfung durchfällt.
 --
 --   Der Weg dorthin ist offen, weil die RLS-Policy „Members can manage
---   certificates" (001) `for all using (Firmenmitglied)` OHNE `with check` ist:
---   ein Firmenmitglied kann mit seinem normalen `authenticated`-JWT direkt per
---   PostgREST an der App vorbei schreiben. Die App-seitigen Sperren
---   (isCertificateLocked in content/ und text/route.ts) leben nur im Code.
+--   certificates" (001) Firmenmitgliedern `for all` gewährt – also auch UPDATE
+--   auf die Zeugnisse ihrer Firma. Das brauchen sie zum Bearbeiten von
+--   Entwürfen; RLS kann aber nicht ausdrücken „nur solange nicht finalisiert".
+--   Ein Firmenmitglied kann deshalb mit seinem normalen `authenticated`-JWT
+--   direkt per PostgREST an der App vorbei schreiben, und die App-seitigen
+--   Sperren (isCertificateLocked in content/ und text/route.ts) leben nur im
+--   Code. Genau diese Grenze zieht der Trigger.
+--
+--   KORREKTUR zu 017: dessen Kopf führt das auf ein fehlendes `with check`
+--   zurück. Das trifft nicht zu. Fehlt `with check`, verwendet PostgreSQL die
+--   `using`-Bedingung AUCH als Prüfbedingung für INSERT und UPDATE – ein
+--   `with check` zu ergänzen würde hier also nichts schliessen (und ein
+--   Mitglied kann damit z.B. auch keine company_id auf eine fremde Firma
+--   umbiegen). Die Lücke lag nie an der Policy, sondern daran, dass RLS keine
+--   Zustandsbedingung kennt. Deshalb ist der Trigger der richtige Ort.
 --
 -- LÖSUNG: Die Funktion per `create or replace` neu definieren – Fassung aus 025
 --   unverändert, zusätzlich generated_text, edited_text und formatted_content

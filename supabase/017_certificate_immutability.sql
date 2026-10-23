@@ -10,6 +10,16 @@
 --   app/api/certificates/[id]/finalize/route.ts (Zeile 36-41: "bereits
 --   finalisiert") lebt NUR im Code und schützt den DB-Weg nicht.
 --
+-- KORREKTUR (nachgetragen mit 029, Kommentar – an der Funktion hier ändert sich
+--   nichts): Die Begründung „OHNE `with check`" oben trifft nicht zu. Fehlt
+--   `with check`, verwendet PostgreSQL die `using`-Bedingung AUCH als
+--   Prüfbedingung für INSERT und UPDATE; ein `with check` zu ergänzen schliesst
+--   hier nichts. Der eigentliche Grund ist, dass die Policy Firmenmitgliedern
+--   `for all` (inkl. UPDATE) auf die Zeugnisse ihrer Firma gewährt – nötig fürs
+--   Bearbeiten von Entwürfen – und RLS die Bedingung „nur solange nicht
+--   finalisiert" nicht ausdrücken kann. Der Befund und die Lösung unten bleiben
+--   damit richtig, nur die Zuschreibung an die Policy war falsch.
+--
 -- LÖSUNG: BEFORE-UPDATE-Trigger, der Änderungen an den drei integritäts-
 --   kritischen Spalten ABLEHNT, sobald die BESTEHENDE Zeile `status='final'` ist.
 --   Der Trigger feuert unabhängig von RLS und für jede Rolle.
