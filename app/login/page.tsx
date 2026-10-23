@@ -63,7 +63,7 @@ export default async function LoginPage({
           Anmelden
         </h1>
         <p className="mt-3 text-center text-[14px] text-ink-600">
-          Wir senden Ihnen einen Magic Link an Ihre E-Mail-Adresse.
+          Wir senden Ihnen einen Link und einen Code an Ihre E-Mail-Adresse.
           <br />
           Kein Passwort nötig.
         </p>
