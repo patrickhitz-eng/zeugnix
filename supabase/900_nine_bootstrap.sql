@@ -39,11 +39,12 @@
 --
 -- Erstens vergleicht `public.enforce_certificate_immutability()` wörtlich
 -- `current_user = 'service_role'`. Das ist EINE Funktion an EINEM Trigger auf
--- certificates (017:87); sie wird in den Migrationen viermal neu definiert
--- (017:40, 021:39, 024:51, 025:51), gültig ist die Fassung aus 025. Ein Präfix
--- wie nmd_service_role würde diesen Vergleich stillschweigend scheitern lassen –
--- die Funktion würde dann jede Änderung an einem finalisierten Zeugnis
--- abweisen, auch die erlaubten, oder umgekehrt durchlassen, je nach Zweig.
+-- certificates (017:87); sie wird in den Migrationen fünfmal neu definiert
+-- (017:40, 021:39, 024:51, 025:51, 029:114), gültig ist die Fassung aus 029.
+-- Ein Präfix wie nmd_service_role würde diesen Vergleich stillschweigend
+-- scheitern lassen – die Funktion würde dann jede Änderung an einem
+-- finalisierten Zeugnis abweisen, auch die erlaubten, oder umgekehrt
+-- durchlassen, je nach Zweig.
 --
 -- Zweitens nennen drei Migrationen die Rollen beim Namen, und REVOKE scheitert
 -- an einer Rolle, die es nicht gibt:
