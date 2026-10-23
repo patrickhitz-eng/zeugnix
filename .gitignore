@@ -48,3 +48,6 @@ desktop.ini
 
 # Aus node_modules kopiert (scripts/copy-pdf-worker.ts, läuft in prebuild/predev)
 /public/pdfjs/
+
+# Ausgabe von scripts/render-sample-certificate.ts (Layout-Beleg, nicht versioniert)
+/sample-output/

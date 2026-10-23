@@ -72,6 +72,7 @@ export function buildPdfStyles(theme: DocumentTheme) {
       // im Standard-Theme das Petrol, in Marken-Themes die jeweilige Firmenfarbe.
       color: c.brandAccent,
       textAlign: "center",
+      lineHeight: T.lineHeight.title,
       marginTop: T.space.titleMarginTop,
       marginBottom: T.space.titleMarginBottom,
       letterSpacing: T.letterSpacing.title,
@@ -108,6 +109,11 @@ export function buildPdfStyles(theme: DocumentTheme) {
       flexDirection: "row",
       marginTop: T.space.signaturesMarginTop,
     },
+    /** Freiraum zum Unterschreiben von Hand, anstelle des Signatur-Kopfs. */
+    signatureHandwrittenSpace: {
+      marginTop: T.space.signatureHandwrittenMarginTop,
+      height: T.space.signatureHandwrittenHeight,
+    },
     signatureCell: {
       flex: 1,
       paddingTop: T.space.signatureCellPaddingTop,
@@ -141,6 +147,12 @@ export function buildPdfStyles(theme: DocumentTheme) {
       borderTopColor: c.rule,
       flexDirection: "row",
     },
+    /**
+     * Nach einer handschriftlichen Unterschriftsfläche sitzt der Hash-Block
+     * näher: die Fläche darüber hat den Abstand schon geschaffen.
+     */
+    hashBlockAfterHandwritten: { marginTop: T.space.hashBlockPaddingTop },
+
     hashText: {
       flex: 1,
       paddingRight: T.space.hashTextPaddingRight,

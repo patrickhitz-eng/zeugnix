@@ -23,6 +23,7 @@
 
 import { SKILLS, type SkillMeta } from "./skills";
 import { pickSchlusssatz } from "./schlusssaetze";
+import { formatTaskBlock } from "@/lib/certificate/task-keywords";
 
 // ============================================================================
 // Typen
@@ -290,11 +291,16 @@ export function generateCertificate(
         `Das Arbeitspensum ${ongoing ? "beträgt" : "betrug"} ${employee.employmentPercentage}%.`,
       );
     }
-    if (certificate.tasks.length > 0) {
+    // Stichworte säubern, bevor sie in den Text gehen (siehe
+    // lib/certificate/task-keywords.ts). Geprüft wird der FERTIGE Block, nicht
+    // tasks.length: eine Eingabe, die nur aus Listenzeichen oder Leerraum
+    // besteht, hinterliesse sonst eine Überschrift ohne Aufzählung darunter.
+    const taskBlock = formatTaskBlock(certificate.tasks);
+    if (taskBlock.length > 0) {
       secs.push(
         ongoing ? "Zu den Hauptaufgaben gehören:" : "Zu den Hauptaufgaben gehörten:",
       );
-      secs.push(certificate.tasks.map((t) => `• ${t}`).join("\n"));
+      secs.push(taskBlock);
     }
     secs.push(
       `Diese Arbeitsbestätigung wird auf Wunsch von ${name} ausgestellt.`,
@@ -330,7 +336,9 @@ export function generateCertificate(
   }
 
   // ----- Aufgabenbeschreibung -----
-  if (certificate.tasks.length > 0) {
+  // Wie oben: gesäubert, und die Überschrift nur, wenn darunter auch etwas steht.
+  const taskBlock = formatTaskBlock(certificate.tasks);
+  if (taskBlock.length > 0) {
     const verb = tempus === "praesens" ? "gehören" : "gehörten";
     const taskIntro =
       employee.gender === "m"
@@ -339,7 +347,7 @@ export function generateCertificate(
           ? `Zu ihren Hauptaufgaben ${verb}:`
           : `Zu den Hauptaufgaben ${verb}:`;
     sections.push(taskIntro);
-    sections.push(certificate.tasks.map((t) => `• ${t}`).join("\n"));
+    sections.push(taskBlock);
   }
 
   // ----- Beurteilungs-Sektionen (themengruppiert nach Skill-Katalog) -----

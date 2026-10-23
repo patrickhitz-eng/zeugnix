@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
 import { createClient } from "@/lib/db/supabase-server";
 import { deriveLegacyType } from "@/lib/phrases/schlusssaetze";
+import { cleanTaskKeywords } from "@/lib/certificate/task-keywords";
 import { logError } from "@/lib/log";
 
 /**
@@ -34,11 +35,21 @@ function text(value: unknown): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+/**
+ * Aufgaben-Stichworte aus dem Formular säubern (lib/certificate/task-keywords.ts).
+ *
+ * Gesäubert wird HIER und zusätzlich beim Generieren des Zeugnistexts. Das ist
+ * kein Versehen: hier, damit certificates.tasks und damit das Formular beim
+ * späteren Bearbeiten schon sauber sind; beim Generieren, damit auch Zeilen aus
+ * der Zeit davor sauber in den Text gehen. Doppelt ist unschädlich, weil die
+ * Funktionen idempotent sind – gesäubert säubern ändert nichts mehr (geprüft in
+ * scripts/test-task-keywords.ts).
+ */
 function tasksFrom(value: unknown): string[] {
-  const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split("\n") : [];
-  return raw
-    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-    .filter((entry) => entry.length > 0);
+  if (Array.isArray(value)) {
+    return cleanTaskKeywords(value.map((entry) => (typeof entry === "string" ? entry : "")));
+  }
+  return typeof value === "string" ? cleanTaskKeywords(value) : [];
 }
 
 export async function POST(req: NextRequest) {

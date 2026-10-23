@@ -1,13 +1,7 @@
-import { readFile } from "node:fs/promises";
-
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
-import {
-  contentTypeForFile,
-  resolveLogoPath,
-  segmentsFromLogoUrl,
-} from "@/lib/uploads/logos";
+import { loadCompanyLogo, toDataUrl } from "@/lib/uploads/load-logo";
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
@@ -23,32 +17,6 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-
-// SSRF-Härtung des Logo-Fetch: Logos liegen ausschliesslich im Supabase-Storage
-// (gleicher Host wie NEXT_PUBLIC_SUPABASE_URL, z. B. <project>.supabase.co).
-// Wir fetchen daher nur https-URLs auf genau diesen Host – sonst könnte eine
-// manipulierte logo_url den Server zu beliebigen internen Adressen leiten.
-const SUPABASE_HOST = (() => {
-  try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").host;
-  } catch {
-    return "";
-  }
-})();
-
-const LOGO_FETCH_TIMEOUT_MS = 5000;
-const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5 MB
-
-function isAllowedLogoUrl(rawUrl: string): boolean {
-  try {
-    const u = new URL(rawUrl);
-    return (
-      u.protocol === "https:" && SUPABASE_HOST !== "" && u.host === SUPABASE_HOST
-    );
-  } catch {
-    return false;
-  }
-}
 
 /**
  * GET /api/certificates/[id]/pdf
@@ -130,96 +98,12 @@ export async function GET(
     }
   }
 
-  // Logo als Data-URL laden, falls Logo-URL vorhanden. SSRF-gehärtet:
-  // nur erlaubte (Supabase-Storage-)URLs, mit Timeout und Grössenlimit. Ein
-  // Problem beim Logo überspringt nur das Logo, bricht aber nicht den PDF-Build.
-  let logoDataUrl: string | undefined;
-  // Seit dem Umzug liegen Logos auf der Platte und werden über /api/logos/…
-  // ausgeliefert (lib/uploads/logos.ts). Für diese Logos ist der Weg über das
-  // Netz unnötig – und damit entfällt für sie die ganze SSRF-Frage: es wird
-  // nichts abgerufen, sondern eine Datei gelesen, deren Pfad zwei engen Mustern
-  // entsprechen muss. Der Abruf unten bleibt für Logos aus der Zeit bei
-  // Supabase, solange nicht alle logo_url umgeschrieben sind.
-  const localLogo = company.logo_url ? segmentsFromLogoUrl(company.logo_url) : null;
-  if (localLogo) {
-    const file = resolveLogoPath(localLogo);
-    if (!file) {
-      console.warn("Logo-Pfad nicht zulässig, wird übersprungen");
-    } else {
-      try {
-        const bytes = await readFile(file);
-        if (bytes.byteLength > MAX_LOGO_BYTES) {
-          console.warn("Logo übersprungen: Datei überschreitet Limit:", bytes.byteLength);
-        } else {
-          logoDataUrl = `data:${contentTypeForFile(file)};base64,${bytes.toString("base64")}`;
-        }
-      } catch {
-        // Fehlende Datei ist kein Grund, das Zeugnis nicht zu erzeugen – es
-        // entsteht dann ohne Logo, wie bei einer Firma, die keines hinterlegt hat.
-        console.warn("Logo-Datei nicht lesbar, wird übersprungen");
-      }
-    }
-  } else if (company.logo_url) {
-    if (!isAllowedLogoUrl(company.logo_url)) {
-      console.warn(
-        "Logo-URL nicht erlaubt (SSRF-Schutz), wird übersprungen:",
-        company.logo_url,
-      );
-    } else {
-      const controller = new AbortController();
-      const timeout = setTimeout(
-        () => controller.abort(),
-        LOGO_FETCH_TIMEOUT_MS,
-      );
-      try {
-        // redirect: "manual" — die Allowlist prüft nur den ersten Hop. Würden
-        // wir Redirects folgen, könnte eine (vom Owner frei setzbare) logo_url
-        // auf dem Supabase-Host per 30x doch noch auf eine interne Adresse
-        // zeigen. Ein Redirect wird daher als "Logo überspringen" behandelt.
-        const res = await fetch(company.logo_url, {
-          signal: controller.signal,
-          redirect: "manual",
-        });
-        if (
-          res.type === "opaqueredirect" ||
-          (res.status >= 300 && res.status < 400)
-        ) {
-          console.warn(
-            "Logo übersprungen: Weiterleitung nicht erlaubt (SSRF-Schutz)",
-          );
-        } else if (res.ok) {
-          // Content-Length ist nur ein Vorab-Hinweis (vom Server fälschbar/weglassbar);
-          // der eigentliche Schutz ist der Byte-Längen-Check nach arrayBuffer().
-          const declaredLength = Number(
-            res.headers.get("content-length") ?? "0",
-          );
-          if (declaredLength > MAX_LOGO_BYTES) {
-            console.warn(
-              "Logo übersprungen: Content-Length überschreitet Limit:",
-              declaredLength,
-            );
-          } else {
-            const arrayBuffer = await res.arrayBuffer();
-            if (arrayBuffer.byteLength > MAX_LOGO_BYTES) {
-              console.warn(
-                "Logo übersprungen: tatsächliche Grösse überschreitet Limit:",
-                arrayBuffer.byteLength,
-              );
-            } else {
-              const base64 = Buffer.from(arrayBuffer).toString("base64");
-              const contentType =
-                res.headers.get("content-type") ?? "image/png";
-              logoDataUrl = `data:${contentType};base64,${base64}`;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Logo konnte nicht geladen werden:", err);
-      } finally {
-        clearTimeout(timeout);
-      }
-    }
-  }
+  // Logo über lib/uploads/load-logo.ts: lokale Datei (seit dem Umzug der
+  // Normalfall) oder – gehärtet – die Supabase-Adresse aus der Zeit davor.
+  // Dasselbe Modul nutzt die Word-Route, damit beide Ausgaben dasselbe Logo
+  // zeigen. Ein Problem beim Logo überspringt nur das Logo.
+  const logo = await loadCompanyLogo(company.logo_url);
+  const logoDataUrl = logo ? toDataUrl(logo) : undefined;
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
   const certificateTitle = certificateTypeLabel(cert.type);

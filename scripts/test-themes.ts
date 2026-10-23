@@ -5,14 +5,26 @@
  *   npm run test:themes   (bzw. npx tsx scripts/test-themes.ts)
  *
  * Drei Aufgaben:
- *  1. REGRESSIONSSPERRE: buildPdfStyles(Standard-Theme) muss exakt die Werte
- *     liefern, die vor der Token-Einführung als Literale in
- *     lib/pdf/certificate.tsx standen. Die Erwartungswerte unten sind aus dem
- *     Stand VOR dem Refactor übernommen – sie sind bewusst nicht aus den
- *     Tokens abgeleitet, sonst wäre der Test zirkulär. AUSNAHME: die
- *     fontFamily-Felder wurden bewusst auf Inter/Inter-Bold aktualisiert, als
- *     die Hausschrift des Standard-Themes von Helvetica auf die eingebettete
- *     Inter umgestellt wurde. Geometrie und Farben bleiben die alte Sperre.
+ *  1. REGRESSIONSSPERRE: buildPdfStyles(Standard-Theme) muss exakt die unten
+ *     hartkodierten Werte liefern. Sie sind bewusst NICHT aus den Tokens
+ *     abgeleitet, sonst wäre der Test zirkulär und würde jede versehentliche
+ *     Layout-Änderung mitwandern. Wer die Tokens ändert, ändert diese Liste
+ *     mit – und erklärt dabei, warum.
+ *
+ *     Stand der Werte und ihre Herkunft:
+ *      - fontFamily: auf Inter/Inter-Bold gesetzt, als die Hausschrift des
+ *        Standard-Themes von Helvetica auf die eingebettete Inter wechselte.
+ *      - title.color: Markenfarbe statt Schwarz (Call 2026-07-24).
+ *      - Geometrie und Schriftgrössen: VERDICHTUNG 2026-10-23. Vorher belegte
+ *        das Gerüst (Briefkopf, Titel, Unterschriften, Hash-Block, unsichtbare
+ *        Blöcke) rund 70% einer A4-Seite, wodurch ein Zeugnis selbst mit sehr
+ *        kurzem Text NIE einseitig wurde – gemessen mit
+ *        scripts/render-sample-certificate.ts --kapazitaet, die vor der
+ *        Änderung -1 ergab (kein Umfang passt) und danach 6–7
+ *        Beurteilungssätze. Fliesstext 11 -> 10.5pt (halbe Stufe), Titel
+ *        18 -> 16pt, Briefkopf 8.5 -> 8pt, Sentinels 6 -> 4pt. Die
+ *        Sentinel-Grösse ist zusätzlich durch scripts/test-pdf-roundtrip.ts
+ *        abgesichert, das den Hash durch ein echt erzeugtes PDF zurückrechnet.
  *  2. BARRIEREFREIHEIT: jedes Built-in-Theme erfüllt WCAG AA gegen Papierweiss.
  *     Ein neues Marken-Theme mit zu blasser Farbe lässt den Build scheitern.
  *  3. RÜCKWÄRTSKOMPATIBILITÄT: die Alt-Werte der Spalte
@@ -58,33 +70,33 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
   const s = buildPdfStyles(DEFAULT_THEME) as any;
 
   eq("page", s.page, {
-    paddingTop: 56,
-    paddingBottom: 60,
+    paddingTop: 42,
+    paddingBottom: 48,
     paddingHorizontal: 60,
     fontFamily: "Inter",
-    fontSize: 11,
-    lineHeight: 1.55,
+    fontSize: 10.5,
+    lineHeight: 1.5,
     color: "#1a1d22",
   });
   eq("letterhead", s.letterhead, {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingBottom: 14,
+    paddingBottom: 9,
     borderBottomWidth: 0.5,
     borderBottomColor: "#d4d8dd",
-    marginBottom: 28,
+    marginBottom: 16,
   });
-  eq("logo", s.logo, { maxWidth: 140, maxHeight: 48, objectFit: "contain" });
+  eq("logo", s.logo, { maxWidth: 140, maxHeight: 42, objectFit: "contain" });
   eq("companyNameNoLogo", s.companyNameNoLogo, {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Inter-Bold",
   });
   eq("letterheadRight", s.letterheadRight, {
     textAlign: "right",
-    fontSize: 8.5,
+    fontSize: 8,
     color: "#6b7178",
-    lineHeight: 1.45,
+    lineHeight: 1.3,
     width: 200,
   });
   eq("letterheadCompanyName", s.letterheadCompanyName, {
@@ -93,34 +105,46 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     marginBottom: 2,
   });
   eq("title", s.title, {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: "Inter-Bold",
     // Titel trägt seit dem Call 2026-07-24 die Markenfarbe; im Standard-Theme
-    // ist das der Petrol-Akzent. Bewusste Änderung gegenüber der Alt-Sperre.
+    // ist das der Petrol-Akzent.
     color: "#0f7a6b",
     textAlign: "center",
-    marginTop: 24,
-    marginBottom: 32,
+    // Eigene Zeilenhöhe: der Titel ist einzeilig und brauchte den Durchschuss
+    // des Fliesstexts nicht, den er vorher über lineHeight.page erbte.
+    lineHeight: 1.2,
+    marginTop: 12,
+    marginBottom: 18,
     letterSpacing: 0.5,
   });
   eq("bodyParagraph", s.bodyParagraph, {
-    fontSize: 11,
-    lineHeight: 1.6,
+    fontSize: 10.5,
+    lineHeight: 1.5,
     textAlign: "justify",
-    marginBottom: 11,
+    marginBottom: 9,
   });
-  eq("bullet", s.bullet, { fontSize: 11, marginLeft: 14, marginBottom: 3 });
-  eq("sentinel", s.sentinel, { fontSize: 6, color: "#ffffff", lineHeight: 1 });
+  eq("bullet", s.bullet, { fontSize: 10.5, marginLeft: 14, marginBottom: 3 });
+  // Unsichtbar (weiss auf Papierweiss), aber als Fliesstext mit echter
+  // Zeilenhöhe. Nicht weiter verkleinern ohne npm run test:pdf-roundtrip.
+  eq("sentinel", s.sentinel, { fontSize: 4, color: "#ffffff", lineHeight: 1 });
   eq("signaturesHeader", s.signaturesHeader, {
     fontFamily: "Inter-Bold",
     fontSize: 8,
     color: "#0f7a6b",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: 36,
+    marginTop: 16,
     marginBottom: 8,
   });
   eq("signatures", s.signatures, { flexDirection: "row", marginTop: 4 });
+  // Freiraum zum Unterschreiben von Hand – vorher Inline-Literale in
+  // lib/pdf/certificate.tsx, die der Word-Export nicht kannte.
+  eq("signatureHandwrittenSpace", s.signatureHandwrittenSpace, {
+    marginTop: 20,
+    height: 72,
+  });
+  eq("hashBlockAfterHandwritten", s.hashBlockAfterHandwritten, { marginTop: 9 });
   eq("signatureCell", s.signatureCell, {
     flex: 1,
     paddingTop: 6,
@@ -147,8 +171,8 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     fontFamily: "Inter-Bold",
   });
   eq("hashBlock", s.hashBlock, {
-    marginTop: 36,
-    paddingTop: 12,
+    marginTop: 16,
+    paddingTop: 9,
     borderTopWidth: 0.5,
     borderTopColor: "#d4d8dd",
     flexDirection: "row",
