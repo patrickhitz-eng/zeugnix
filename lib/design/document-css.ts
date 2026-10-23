@@ -128,6 +128,7 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       // Titel in Markenfarbe – Gegenstück zu document-pdf-styles.ts.
       color: c.brandAccent,
       textAlign: "center",
+      lineHeight: cssLh(T.lineHeight.title),
       marginTop: cssPt(T.space.titleMarginTop),
       marginBottom: cssPt(T.space.titleMarginBottom),
       marginLeft: 0,

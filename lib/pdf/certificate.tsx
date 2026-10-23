@@ -287,10 +287,10 @@ function CertificateDocument(props: DocProps) {
             {isHandwritten ? (
               // Leerraum als handschriftliche Unterschriftsfläche ÜBER der
               // Unterschriftslinie. marginTop ersetzt den entfallenden
-              // „Digital ausgestellt durch"-Kopf; height = Platz zum Unterschreiben.
-              // ~90pt (≈32mm) geben genügend Raum für eine echte Unterschrift mit
-              // Stift; die Namen bleiben bündig an der Linie darunter.
-              <View style={{ marginTop: 36, height: 90 }} />
+              // „Digital ausgestellt durch"-Kopf, height ist der Platz zum
+              // Unterschreiben. Masse aus den Tokens, damit der Word-Export
+              // dieselbe Fläche aufzieht.
+              <View style={styles.signatureHandwrittenSpace} />
             ) : (
               <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
             )}
@@ -330,8 +330,8 @@ function CertificateDocument(props: DocProps) {
 
         {/* Hash + QR */}
         {/* Handunterschrift: kleinerer Abstand, damit die Namen bündig auf der
-            Trennlinie über dem Hash sitzen (Standard 36 lässt sonst eine Lücke). */}
-        <View style={isHandwritten ? [styles.hashBlock, { marginTop: 14 }] : styles.hashBlock}>
+            Trennlinie über dem Hash sitzen (der Normalwert lässt sonst eine Lücke). */}
+        <View style={isHandwritten ? [styles.hashBlock, styles.hashBlockAfterHandwritten] : styles.hashBlock}>
           <View style={styles.hashText}>
             <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
             <Text style={styles.hashValue}>{hash}</Text>

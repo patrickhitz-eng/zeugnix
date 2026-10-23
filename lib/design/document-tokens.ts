@@ -43,35 +43,66 @@ export const cssLh = (v: number): string => String(v);
 // ---------------------------------------------------------------------------
 
 export const BASE_TOKENS = {
+  // Seitenränder. Gemessen am Ziel „einseitiges Zeugnis als Normalfall":
+  // 42pt oben / 48pt unten entsprechen 14.8mm / 16.9mm und bleiben damit
+  // deutlich über dem, was ein Drucker als Nicht-Druckbereich beansprucht
+  // (üblich 5–10mm). Der Unterrand ist der grössere der beiden, weil die
+  // Fusszeile darin sitzt (space.footerBottom).
   page: {
     widthMm: 210,
     heightMm: 297,
-    paddingTop: 56 as Pt,
-    paddingBottom: 60 as Pt,
+    paddingTop: 42 as Pt,
+    paddingBottom: 48 as Pt,
     paddingHorizontal: 60 as Pt,
   },
 
-  /** Rollen, nicht Werte: `title` ist der Zeugnistitel, nicht "18pt". */
+  /**
+   * Rollen, nicht Werte: `title` ist der Zeugnistitel, nicht "16pt".
+   *
+   * Der Fliesstext steht auf 10.5pt – eine halbe Stufe unter den früheren 11pt.
+   * Die Grenze nach unten setzt nicht die Lesbarkeit, sondern die Zeilenlänge:
+   * bei 60pt Seitenrand ist das Satzband 475pt breit, was bei 10.5pt rund 85
+   * Zeichen je Zeile ergibt. Typografisch angenehm sind 60–80; eine weitere
+   * Verkleinerung macht die Zeilen LÄNGER und das Dokument schlechter lesbar,
+   * nicht besser. 10.5pt ist daher bewusst die Untergrenze, nicht ein Zwischen-
+   * schritt auf dem Weg zu 10pt.
+   */
   fontSize: {
-    title: 18 as Pt,
-    companyName: 14 as Pt,
-    body: 11 as Pt,
+    title: 16 as Pt,
+    companyName: 13 as Pt,
+    body: 10.5 as Pt,
     signature: 10 as Pt,
     signatureRole: 9 as Pt,
-    letterhead: 8.5 as Pt,
+    letterhead: 8 as Pt,
     signaturesHeader: 8 as Pt,
     signatureEmail: 8 as Pt,
     hash: 7.5 as Pt,
     hashLabel: 7 as Pt,
     footer: 7.5 as Pt,
-    sentinel: 6 as Pt,
+    /**
+     * Unsichtbare Verifikations-Marker (weiss auf Papierweiss). Sie werden nie
+     * gelesen, belegten aber als Fliesstext echte Zeilenhöhe: bei 6pt kosteten
+     * Body-Sentinels plus Meta- und Signatur-Block zusammen rund 60pt, also
+     * knapp vier Textzeilen für Text, den niemand sieht. 4pt ändert nichts an
+     * der Extrahierbarkeit – die Schriftgrösse steht im Inhaltsstrom neben dem
+     * Text, nicht in ihm – und das belegt scripts/test-pdf-roundtrip.ts, das
+     * den Hash durch ein echt erzeugtes PDF zurückrechnet. NICHT weiter
+     * verkleinern, ohne diesen Test laufen zu lassen.
+     */
+    sentinel: 4 as Pt,
   },
 
   lineHeight: {
-    page: 1.55,
-    body: 1.6,
-    letterhead: 1.45,
+    page: 1.5,
+    body: 1.5,
+    letterhead: 1.3,
     hash: 1.5,
+    /**
+     * Der Titel ist eine einzelne Zeile; er braucht die Durchschusshöhe des
+     * Fliesstexts nicht. Ohne eigenen Wert erbte er lineHeight.page und zog
+     * eine über 9pt höhere Zeilenbox auf, als die Schrift verlangt.
+     */
+    title: 1.2,
     sentinel: 1,
   },
 
@@ -80,20 +111,35 @@ export const BASE_TOKENS = {
     label: 0.6 as Pt,
   },
 
+  /**
+   * Abstände. Die Werte von Briefkopf, Titel, Unterschriftskopf und Hash-Block
+   * wurden gegenüber dem ersten Entwurf deutlich verdichtet: dort belegte das
+   * Gerüst (Briefkopf + Titel + Unterschriften + Hash) rund 70% einer A4-Seite,
+   * wodurch ein Zeugnis selbst mit sehr kurzem Text nie einseitig blieb.
+   * Gemessen mit scripts/render-sample-certificate.ts --kapazitaet.
+   */
   space: {
-    letterheadPaddingBottom: 14 as Pt,
-    letterheadMarginBottom: 28 as Pt,
+    letterheadPaddingBottom: 9 as Pt,
+    letterheadMarginBottom: 16 as Pt,
     letterheadRightWidth: 200 as Pt,
     letterheadCompanyNameMarginBottom: 2 as Pt,
 
-    titleMarginTop: 24 as Pt,
-    titleMarginBottom: 32 as Pt,
+    titleMarginTop: 12 as Pt,
+    titleMarginBottom: 18 as Pt,
 
-    paragraphMarginBottom: 11 as Pt,
+    paragraphMarginBottom: 9 as Pt,
     bulletMarginLeft: 14 as Pt,
     bulletMarginBottom: 3 as Pt,
 
-    signaturesHeaderMarginTop: 36 as Pt,
+    signaturesHeaderMarginTop: 16 as Pt,
+    /**
+     * Handschriftliche Unterschrift: Freiraum ÜBER der Unterschriftslinie
+     * (ersetzt den entfallenden Kopf „Digital ausgestellt durch"). 72pt sind
+     * 25mm – reichlich für eine Unterschrift mit Stift, die selten über 15mm
+     * hoch wird.
+     */
+    signatureHandwrittenMarginTop: 20 as Pt,
+    signatureHandwrittenHeight: 72 as Pt,
     signaturesHeaderMarginBottom: 8 as Pt,
     signaturesMarginTop: 4 as Pt,
     signatureCellPaddingTop: 6 as Pt,
@@ -102,17 +148,18 @@ export const BASE_TOKENS = {
     signatureEmailMarginTop: 1 as Pt,
     signatureConfirmedMarginTop: 3 as Pt,
 
-    hashBlockMarginTop: 36 as Pt,
-    hashBlockPaddingTop: 12 as Pt,
+    hashBlockMarginTop: 16 as Pt,
+    hashBlockPaddingTop: 9 as Pt,
     hashTextPaddingRight: 16 as Pt,
     hashLabelMarginBottom: 3 as Pt,
     hashValueMarginBottom: 4 as Pt,
     hashLinkMarginTop: 3 as Pt,
 
     // Fusszeile: Abstand vom unteren Blattrand und Innenabstand über der
-    // Trennlinie. 24pt liegen innerhalb des 60pt-Unterrands (paddingBottom),
-    // damit die (absolut positionierte) Fusszeile nie den Fliesstext überlappt.
-    footerBottom: 24 as Pt,
+    // Trennlinie. Beides muss in den Unterrand (page.paddingBottom = 48pt)
+    // passen, damit die absolut positionierte Fusszeile nie den Fliesstext
+    // überlappt: 16 + 6 + zwei Zeilen à 7.5pt/1.5 (22.5pt) = 44.5pt < 48pt.
+    footerBottom: 16 as Pt,
     footerPaddingTop: 6 as Pt,
   },
 
@@ -121,7 +168,11 @@ export const BASE_TOKENS = {
     signature: 0.6 as Pt,
   },
 
-  logo: { maxWidth: 140 as Pt, maxHeight: 48 as Pt },
+  // Logo. Die Höhe des Briefkopfs ist max(Logo, Kontaktspalte) – bei den
+  // üblichen sechs Kontaktzeilen (62pt) gibt die Spalte den Takt vor, nicht
+  // das Logo. 42pt halten die beiden Seiten optisch im Gleichgewicht, ohne
+  // dass das Logo die Zeile aufzieht.
+  logo: { maxWidth: 140 as Pt, maxHeight: 42 as Pt },
   qr: { size: 56 as Pt },
 } as const;
 
