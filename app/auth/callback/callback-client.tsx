@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/db/supabase-client";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
+import { finishLogin } from "@/lib/auth/finish-login";
 
 /**
  * Der Browser-Teil von /auth/callback.
@@ -73,22 +74,9 @@ export default function AuthCallbackClient() {
           throw new Error("Der Link enthält keine Anmeldedaten.");
         }
 
-        // Die Sitzung steht. Solange die Daten noch bei Supabase liegen, ist
-        // dieser Aufruf wirkungslos und antwortet mit "übersprungen". Danach
-        // trägt er die Person in die eigene auth.users ein – ohne diesen Eintrag
-        // greift der Fremdschlüssel von public.profiles nicht, und das Konto
-        // bliebe leer. Siehe app/api/auth/sync/route.ts.
-        const sync = await fetch("/api/auth/sync", { method: "POST" });
-        if (!sync.ok) {
-          const body = (await sync.json().catch(() => ({}))) as { error?: string };
-          throw new Error(
-            body.error ??
-              "Die Anmeldung hat funktioniert, das Konto konnte aber nicht fertig " +
-                "eingerichtet werden. Bitte noch einmal versuchen.",
-          );
-        }
-
-        window.location.assign(next);
+        // Die Sitzung steht. Konto fertig einrichten und weiterleiten – dieselbe
+        // Logik nutzt die Code-Eingabe im Login-Formular, darum ausgelagert.
+        await finishLogin(next);
       } catch (e: unknown) {
         const msg =
           e instanceof Error ? e.message : "Anmeldung fehlgeschlagen.";
