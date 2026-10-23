@@ -71,8 +71,11 @@ const SCHLUSS_REORG_AG =
   "Dieses Arbeitsverhältnis wurde im Rahmen einer Reorganisation beendet. Wir danken {{ihm|ihr|ihm/ihr}} für die geleistete Arbeit und wünschen {{ihm|ihr|ihm/ihr}} für die Zukunft alles Gute und weiterhin viel Erfolg.";
 
 const ZWISCHEN: Partial<Record<Wertschaetzung, string>> = {
+  // Ausblick statt Abschiedsformel: Die Person bleibt angestellt, «alles Gute»
+  // ohne Ausblick wird als Trennungssignal gelesen. «Auf Wunsch von {Name}»
+  // statt «des Mitarbeiters», weil der Satz auch für Kader/GF gilt.
   standard:
-    "Dieses Zwischenzeugnis wird auf Wunsch {{des Mitarbeiters|der Mitarbeiterin|des/der Mitarbeitenden}} ausgestellt. Wir danken {vorname} {nachname} für die bisherige wertvolle Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} alles Gute und weiterhin viel Erfolg.",
+    "Dieses Zwischenzeugnis wird auf Wunsch von {vorname} {nachname} ausgestellt. Wir danken {{ihm|ihr|ihm/ihr}} für die bisherige wertvolle Mitarbeit und freuen uns auf die weitere erfolgreiche Zusammenarbeit.",
   // wertschaetzender / top: Lücke (KI-Ergänzung)
 };
 
