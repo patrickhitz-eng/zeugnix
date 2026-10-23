@@ -1,13 +1,7 @@
-import { readFile } from "node:fs/promises";
-
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
-import {
-  contentTypeForFile,
-  resolveLogoPath,
-  segmentsFromLogoUrl,
-} from "@/lib/uploads/logos";
+import { docxImageType, loadCompanyLogo } from "@/lib/uploads/load-logo";
 import { renderCertificateDocx, type DocxLogo } from "@/lib/docx/certificate";
 import { resolveSignatories } from "@/lib/certificate/signatories";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
@@ -18,14 +12,6 @@ import { isCertificateLocked } from "@/lib/certificate/status";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-
-const MAX_LOGO_BYTES = 5 * 1024 * 1024; // 5 MB
-
-function logoType(contentType: string): "png" | "jpg" | null {
-  if (contentType.includes("png")) return "png";
-  if (contentType.includes("jpeg") || contentType.includes("jpg")) return "jpg";
-  return null;
-}
 
 /**
  * GET /api/certificates/[id]/docx
@@ -94,24 +80,16 @@ export async function GET(
     }
   }
 
-  // Logo: nur die lokal abgelegten Dateien (seit dem Umzug der Normalfall,
-  // siehe PDF-Route). Ein Logo, das noch als entfernte Supabase-URL vorliegt,
-  // wird im Word-Export weggelassen – kein harter Fehler.
+  // Logo über dasselbe Modul wie die PDF-Route (lib/uploads/load-logo.ts) –
+  // lokale Datei ODER Supabase-Adresse aus der Zeit vor dem Umzug. Dass diese
+  // Route früher nur den lokalen Fall kannte, war die Ursache dafür, dass im
+  // Word-Export nie ein Logo erschien.
   let companyLogo: DocxLogo | null = null;
-  const localLogo = company.logo_url ? segmentsFromLogoUrl(company.logo_url) : null;
-  if (localLogo) {
-    const file = resolveLogoPath(localLogo);
-    if (file) {
-      try {
-        const bytes = await readFile(file);
-        const type = logoType(contentTypeForFile(file));
-        if (type && bytes.byteLength <= MAX_LOGO_BYTES) {
-          companyLogo = { data: bytes, type };
-        }
-      } catch {
-        // Fehlendes/unlesbares Logo überspringen – Dokument entsteht ohne Logo.
-      }
-    }
+  const logo = await loadCompanyLogo(company.logo_url);
+  if (logo) {
+    const type = docxImageType(logo);
+    if (type) companyLogo = { data: logo.bytes, type };
+    else console.warn("Logo-Art für Word nicht unterstützt, wird übersprungen:", logo.contentType);
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
