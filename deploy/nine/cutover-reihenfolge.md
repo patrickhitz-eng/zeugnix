@@ -33,8 +33,8 @@
 `www-data` selbst, ohne Ticket (nine-Doku «nine-manage-vhosts with multi-user», gelesen
 28.10.). Alles, was in diesem Konto liegen muss — Releases, `shared/.env`, `postgrest.conf`,
 `backup.key`, pm2, systemd-User-Units, Cron — kann erst danach entstehen.
-→ **Das Runbook ist hier falsch:** § 3 „Benutzer, Node, PM2, Cron" steht vor jedem vhost.
-Richtig ist: vhost zuerst, § 3 danach.
+→ Runbook § 3 setzt seit dem 28.10. voraus, dass der vhost mit `www-zeugnio` schon steht
+(1.2), und legt den Benutzer nicht mehr selbst an.
 
 **2 · PostgreSQL 17 vor dem Schemavergleich.** Produktion läuft 17.6; ein `pg_dump` 16
 verweigert einen 17er-Server, hart und ohne Umweg. Erst nach dem Upgrade ist der Vergleich
@@ -113,7 +113,7 @@ erledigt: der vhost `zeugnio.ch` steht, noch ohne Zertifikat. Weiter mit Phase 2
 
 | # | Schritt | Runbook |
 |---|---|---|
-| 2.1 | In `www-zeugnio`: SSH-Key, Deploy-Key (read-only), nvm + Node 22, PM2, `pm2.service`, **Linger prüfen** (kommt mit dem vhost, aber nachsehen), logrotate, Cron **ausserhalb 00:00–04:00** | § 3 |
+| 2.1 | In `www-zeugnio`: eigener SSH-Zugang, **Linger prüfen**, Kit nach `~/kit`, Ordner, nvm + Node 22, PM2 mit `pm2.service` aus dem Kit, `.env`, `backup.key`, `backup-s3.env`, `deploy.sh --check`. **Kein Deploy-Key**, solange das Repo öffentlich ist (HTTPS). Cron und logrotate erst nach dem ersten Deploy, **ausserhalb 00:00–04:00** | § 3 (korrigiert 28.10.) |
 | 2.2 | Datenbank: `nmd_zeugnio` existiert. Mit dem **admin-Benutzer** die Connect-Grants setzen und `900_nine_bootstrap.sql` einspielen — Rollen ohne Präfix, `authenticator` **NOINHERIT** | § 4, § 5 |
 | 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Eigentum/Rechte), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
