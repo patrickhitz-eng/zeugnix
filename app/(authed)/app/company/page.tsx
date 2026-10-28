@@ -4,11 +4,21 @@ import {
   CompanyDomainControls,
   type CompanyDomain,
 } from "@/components/forms/company-domain-controls";
+import { emailDomain, isFreeMailDomain } from "@/lib/company/domain";
 
 export const metadata = { title: "Firma" };
 
 export default async function CompanyPage() {
   const supabase = await createClient();
+
+  // Ein-Klick-Vorschlag für die Domain-Bestätigung: die Domain der (per
+  // Magic-Link bestätigten) Anmelde-Adresse, ausser es ist eine Freemail-Domain.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const loginDomain = emailDomain(user?.email);
+  const loginIsFreeMail = isFreeMailDomain(loginDomain);
+  const suggestedDomain = loginDomain && !loginIsFreeMail ? loginDomain : null;
 
   const { data: companies } = await supabase
     .from("companies")
@@ -66,6 +76,8 @@ export default async function CompanyPage() {
                 <CompanyDomainControls
                   companyId={c.id}
                   initialDomains={domainsByCompany.get(c.id) ?? []}
+                  suggestedDomain={suggestedDomain}
+                  loginIsFreeMail={loginIsFreeMail}
                 />
                 <CompanyForm company={c} />
               </div>

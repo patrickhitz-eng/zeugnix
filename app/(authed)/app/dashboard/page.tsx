@@ -32,6 +32,23 @@ export default async function DashboardPage() {
     countByStatus("final"),
   ]);
 
+  // Firmen ohne bestätigte Domain (Fahrplan Marktstart, Schritt 6): Deren
+  // Zeugnisse zeigen bei der Prüfung «Aussteller nicht bestätigt». Schlägt die
+  // Abfrage fehl, entfällt nur der Hinweis.
+  const companyIds = (companies ?? []).map((c) => c.id);
+  let unconfirmedCompanies: { id: string; name: string }[] = [];
+  if (companyIds.length > 0) {
+    const { data: verified, error: domainErr } = await supabase
+      .from("company_domains")
+      .select("company_id")
+      .in("company_id", companyIds)
+      .eq("status", "verified");
+    if (!domainErr) {
+      const confirmed = new Set((verified ?? []).map((d) => d.company_id));
+      unconfirmedCompanies = (companies ?? []).filter((c) => !confirmed.has(c.id));
+    }
+  }
+
   const draftCount = draftRes.count ?? 0;
   const pendingCount = pendingRes.count ?? 0;
   const finalCount = finalRes.count ?? 0;
@@ -54,6 +71,21 @@ export default async function DashboardPage() {
           Übersicht über Ihre Zeugnisse und Zeugnisprojekte.
         </p>
       </div>
+
+      {unconfirmedCompanies.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-5 py-4 text-[13px] leading-relaxed text-amber-900">
+          <strong>Domain noch nicht bestätigt:</strong>{" "}
+          {unconfirmedCompanies.map((c) => c.name).join(", ")}. Bis dahin zeigt
+          die öffentliche Prüfung dieser Zeugnisse «Aussteller nicht
+          bestätigt». Mit Ihrer Firmenadresse genügt ein Klick.{" "}
+          <Link
+            href="/app/company"
+            className="font-medium underline underline-offset-2"
+          >
+            Domain bestätigen
+          </Link>
+        </div>
+      )}
 
       {/* Schnellaktionen */}
       <div className="grid gap-3 sm:grid-cols-3">
