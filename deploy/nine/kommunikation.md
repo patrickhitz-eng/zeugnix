@@ -11,7 +11,8 @@
 > **Nachbarn:** `cutover-reihenfolge.md` = Reihenfolge und Gates des Umzugs ·
 > `docs/setup-zeugnio-nine.html` = die Befehle · `antwort-2026-10-13.email.md` = Entwürfe.
 >
-> Stand: 2026-10-16. Erstmalig rückwirkend aus allen drei Repos zusammengetragen.
+> Stand: 2026-10-28, abgeglichen mit dem Postfach `silvan.schueck@advisori.ch` (Outlook).
+> Erstmalig am 16.10. rückwirkend aus allen drei Repos zusammengetragen.
 
 ---
 
@@ -41,8 +42,12 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | 2026-10-?? | Mail | Mailversand vom Server · Chromium ohne Root · Node-Dienst nach Reboot | zeugnio + Benchmark | → Antwort Lars 2026-10-13 |
 | **2026-10-13** | Mail | **Antwort Patrick Lion** | zeugnio | PG 17 möglich (PGDG statt Canonical), **admin-Benutzer statt Einzelrechte**; Wahl: 16→17 upgraden **oder** zweite 17er-Umgebung. Dazu die Bitte, auf „überbordende AI-Quellen/Zitate" zu verzichten |
 | **2026-10-13** | Mail | **Antwort Lars** | Benchmark + zeugnio | (1) Mailversand vom Server **abgeraten** → Spezialanbieter oder SMTP über reguläres Postfach; (2) **Chromium im User-Space möglich**, machen andere Kunden auch; (3) **pm2 + systemd-User-Unit** ist der Weg |
-| **2026-10-16** | Mail | **Antwort Patrick Lion** — Verfahren und Kosten des Upgrades | zeugnio | Upgrade über das **PostgreSQL-Standardverfahren**: die 16er-Umgebung wird **gestoppt, aber nicht entfernt**, alle Daten werden übernommen, danach Prüffenster, **Rückfall auf 16 möglich**. **Upgrade und admin-Benutzer kostenlos**; **Parallelbetrieb wäre kostenpflichtig** (nach Aufwand) |
+| 2026-10-13 | SVC-117420 | **Unsere Antwort** an Patrick Lion | zeugnio | Gewählt wurde darin die **zweite 17er-Umgebung parallel**, nicht das Upgrade aus dem Entwurf, dazu die Frage nach den Kosten |
+| **2026-10-14** | SVC-117420 | **Antwort Patrick Lion** — Verfahren und Kosten des Upgrades | zeugnio | Upgrade über das **PostgreSQL-Standardverfahren**: die 16er-Umgebung wird **gestoppt, aber nicht entfernt**, alle Daten werden übernommen, danach Prüffenster, **Rückfall auf 16 möglich**. **Upgrade und admin-Benutzer kostenlos**; **Parallelbetrieb wäre kostenpflichtig** (nach Aufwand). Bisher hier als 16.10. geführt |
 | 2026-10-16 | *eigene Messung* | DNS und Mailweg von `advisori.ch`, `zeugnix.ch`, `zeugnio.ch` | zeugnio | s. „Mailweg und DNS" — Lars' Weg 2 (SMTP über `@advisori.ch`) ist damit **erledigt**, und die A-Records zeigen noch nicht auf den Server |
+| 2026-10-23 | SVC-117438 | Ports von aussen, Upload-Grösse der Vorlage, zwölf Chromium-Bibliotheken | Benchmark | **Nemat, 23.10.:** von aussen sind **nur 22, 80 und 443** erreichbar · `proxy_letsencrypt_https` setzt `client_max_body_size 64m` · die zwölf Bibliotheken sind **systemweit installiert**. Am 26.10. geschlossen |
+| 2026-10-23 | SVC-118041 | SSH-Anmeldungen mit dem Railway-Tunnelschlüssel seit 21.10. | Benchmark | **Marco Streich, 26.10.:** Liste in `/home/www-data/railway-ssh-connections.log`, alle Anmeldungen kamen von Railway-IPs, **auf dem Datenbankserver nichts Auffälliges**. Dazu der Hinweis auf Deploio. Wartet auf unsere Antwort |
+| 2026-10-26 | SVC-117420 | **automatisch geschlossen** | zeugnio | Zehn Tage ohne Antwort von uns. Mail A (`antwort-2026-10-13.email.md`) öffnet es wieder |
 
 ---
 
@@ -50,7 +55,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | Thema | Antwort | Quelle |
 |---|---|---|
-| App-Benutzer anlegen | Entsteht **über `nine-manage-vhosts`** zusammen mit dem vhost. Linger automatisch an, eigener crontab, eigener `~/.ssh/authorized_keys`. **Der App-Benutzer darf nines Werkzeuge nicht benutzen** | SVC-116462 |
+| App-Benutzer anlegen | **Machen wir selbst** als `www-data`: `sudo nine-manage-vhosts user create <name>`, den vhost mit `--user=<name>` zuordnen. Linger automatisch an, eigener crontab, eigener `~/.ssh/authorized_keys`. **Der App-Benutzer darf nines Werkzeuge nicht benutzen** | SVC-116462 + nine-Doku «multi-user» (28.10.) |
+| Ports von aussen | **nur 22, 80 und 443** — 5432 und 3306 sind damit zu | Nemat, SVC-117438, 23.10. |
 | nginx | installiert, **kostenlos**, vhosts über `nine-manage-vhosts`; Templates `proxy` / `proxy_letsencrypt_https_redirect`; Testadresse `<domain>.advisori01.nine.ch` | SVC-116462 |
 | Zertifikate | Let's Encrypt gratis, braucht nur beide A-Records (Apex + `www`) | SVC-116462 |
 | PostgreSQL-Kosten | **CHF 60/Mt für den ganzen Server**, Grenzkosten je weiterer App = CHF 0 | SVC-116462 |
@@ -73,14 +79,14 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | # | Bitte | Für | Stand |
 |---|---|---|---|
-| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | **entschieden**; Verfahren und Kosten geklärt (16.10.). Fehlt nur noch **unsere Terminzusage** — zusammen mit A4 verschicken |
-| A2 | **vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`** — wir sitzen heute in `www-data`, das mit nginx geteilt wird | zeugnio | zu stellen; **gehört vor das Deployment** |
-| A3 | **vhost `benchmark.ag` + App-Benutzer `www-benchmark`** | Benchmark | zu stellen |
-| A4 | **Als welche Rolle läuft der Nachtdump?** Und: deckt er eine Datenbank, die wir mit dem admin-Benutzer selbst anlegen? | zeugnio | offen seit 07.10., **mit A1 verschicken** |
+| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Verfahren und Kosten geklärt (14.10.), unsere Antwort fehlt; Ticket am 26.10. automatisch geschlossen. **28.10.:** Mail A in `antwort-2026-10-13.email.md`, liegt als Entwurf in Outlook. Albis Run ist produktiv, darum Termin von nine vorschlagen lassen |
+| A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Kein Ticket mehr: machen wir selbst** (`cutover-reihenfolge.md` 1.2). Gehört weiterhin vor das Deployment |
+| A3 | ~~vhost `benchmark.ag` + App-Benutzer `www-benchmark`~~ | Benchmark | `www-benchmark` besteht (Kit `MIGRATION.md`) |
+| A4 | **Als welche Rolle läuft der Nachtdump?** | zeugnio | offen seit 07.10., **steht in Mail A**. Die Frage nach selbst angelegten Datenbanken entfällt, zeugnio nutzt `nmd_zeugnio` |
 | A5 | **`proxy_read_timeout` ≥ 600 s für `/report/*`** auf dem Benchmark-vhost. Default 60 s, nines Konfiguration | Benchmark | zu stellen |
-| A6 | **Bestätigen, dass Port 5432 (und 3306) für alle Quellen gesperrt** bleibt. Postgres bindet auf `0.0.0.0`, Schutz hängt am Perimeterfilter | alle | zu stellen; fürs Verzeichnis der Bearbeitungstätigkeiten |
-| A7 | MySQL-Datenbank für Benchmark (`nmd_`-Präfix) | Benchmark | zu klären, ob über `nine-manage-databases` selbst machbar |
-| A8 | **Kann `nine-manage-vhosts` das Zertifikat über DNS-01 prüfen** statt HTTP-01? | zeugnio | **mit A2 verschicken**; entscheidet, ob die Umschaltung ein Downtime-Fenster hat — s. `cutover-reihenfolge.md` |
+| A6 | ~~Bestätigen, dass Port 5432 (und 3306) für alle Quellen gesperrt bleibt~~ | alle | **beantwortet 23.10.** (SVC-117438): von aussen nur 22, 80, 443 |
+| A7 | ~~MySQL-Datenbank für Benchmark (`nmd_`-Präfix)~~ | Benchmark | `nmd_advisori_bench` besteht (Hub-Register) |
+| A8 | **Kann `nine-manage-vhosts` das Zertifikat über DNS-01 prüfen** statt HTTP-01? | zeugnio | **zurückgestellt:** zuerst die Weiterleitung aus `cutover-reihenfolge.md` 1.3 testen, nur bei Misserfolg fragen |
 
 ### B) Kaufmännisch / rechtlich → eigener Kanal
 
@@ -93,7 +99,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 ### C) Machen wir selbst → kein Ticket
 
-Linux-Benutzer bewirtschaften · Datenbankinhalt, Rollen, Rechte (mit A1) · Ports ·
+Linux-Benutzer und vhosts anlegen (`nine-manage-vhosts`) · Datenbanken und DB-Benutzer
+anlegen (`nine-manage-databases`) · Datenbankinhalt, Rollen, Rechte (mit A1) · Ports ·
 Prozesse, pm2, systemd-User-Units · Cron · Deployment · Chromium in den User-Space ·
 Mailanbieter (mailomat.swiss) · DNS — beides geprüft am 16.10., siehe „Mailweg und DNS".
 
@@ -106,8 +113,8 @@ vervielfacht, nicht neu erfunden.
 
 | Schicht | zeugnio | EHC-Sponsorenlauf | Benchmark |
 |---|---|---|---|
-| **1 · Linux-Benutzer** | `www-zeugnio` **(fehlt → A2)** | `www-albisrun` ✓ | `www-benchmark` **(fehlt → A3)** |
-| **2 · Datenbank** | PG `nmd_zeugnio` ✓ | PG `nmd_albisrun` ✓ | MySQL — heute `advisori_bench`, **braucht `nmd_`-Präfix → A7** |
+| **1 · Linux-Benutzer** | `www-zeugnio` **(fehlt → selbst, `cutover-reihenfolge.md` 1.2)** | `www-albisrun` ✓ | `www-benchmark` ✓ |
+| **2 · Datenbank** | PG `nmd_zeugnio` ✓ | PG `nmd_albisrun` ✓ | MySQL `nmd_advisori_bench` ✓ |
 | **3 · Port (nur Loopback)** | 3010 App · 3011 PostgREST | 3000 | **8000** (+ `127.0.0.1:3307` falls SSH-Tunnel) |
 | **4 · vhost + Zertifikat** | `zeugnio.ch` (+ `www`) | `albisrun.ch` (+ `www`) | `benchmark.ag` (`BASE_URL`) |
 
@@ -216,7 +223,9 @@ Resend, Google Fonts). Ein Serverumzug löst davon keinen Punkt. Eigener Entsche
   Stellen im Code referenziert, `services/fontEmbed.js:5` nennt den Ort: „in the ICM
   workspace". Umgesetzt als Commits: Schritt 0.1 und 0.3 (09.10.), Schritt 0.2 nur auf
   Branch `fix/konten-statt-ki-pruefung`, **nicht in main**.
-- **Benchmarks MySQL liegt (noch) nicht auf `advisori01`.** Die IP 5.148.171.221 in
+- **Überholt seit Oktober:** Benchmarks MySQL liegt inzwischen als `nmd_advisori_bench` auf
+  `advisori01`; die App bei Railway erreicht sie über einen SSH-Tunnel (SVC-118041). Die
+  ursprüngliche Notiz bleibt als Verlauf: **Benchmarks MySQL liegt (noch) nicht auf `advisori01`.** Die IP 5.148.171.221 in
   `sshTunnel.js:14` ist ein Kommentar-Beispiel; `SSH_HOST` und `DB_HOST` in `.env.example`
   sind leer, `db-backup/README.md` arbeitet durchgehend mit `NEW_HOST`-Platzhaltern. Der
   Tunnel-Code entstand am 23.09.2026 als Vorbereitung. Die frühere Notiz „liegt
