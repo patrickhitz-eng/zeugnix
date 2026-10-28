@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SolutionSection } from "@/components/sections/solution";
 import { WorkflowSection } from "@/components/sections/workflow";
+import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: "So funktioniert's",
@@ -46,8 +47,10 @@ export default function Page() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/app/certificates/new" className="btn-primary">
-              Arbeitszeugnis kostenlos erstellen
+            <Link href={siteConfig.signup.cta.href} className="btn-primary">
+              {siteConfig.signup.open
+                ? "Arbeitszeugnis kostenlos erstellen"
+                : siteConfig.signup.cta.label}
               <svg
                 width="14"
                 height="14"
@@ -136,8 +139,10 @@ export default function Page() {
                   <path d="M5 12h14M13 6l6 6-6 6" />
                 </svg>
               </Link>
-              <Link href="/app/certificates/new" className="btn-secondary">
-                Zeugnis erstellen
+              <Link href={siteConfig.signup.cta.href} className="btn-secondary">
+                {siteConfig.signup.open
+                  ? "Zeugnis erstellen"
+                  : siteConfig.signup.cta.label}
               </Link>
             </div>
           </div>

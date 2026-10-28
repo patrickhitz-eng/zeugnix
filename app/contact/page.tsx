@@ -1,24 +1,27 @@
 import Link from "next/link";
 import { companyInfo } from "@/lib/legal/company-info";
+import { siteConfig } from "@/lib/site-config";
 
 export const metadata = {
-  title: "Firmenzugang anfragen",
+  title: "Zugang anfragen",
   description:
-    "Kontaktieren Sie uns für das zeugnio Firmenpaket: mehrere Prüfungen, Recruiter-Zugang und zentrale Rechnungsstellung.",
+    "Zugang zu zeugnio für Ihre Firma anfragen oder Interesse am Firmenpaket melden.",
 };
 
 export default function ContactPage() {
   return (
     <section className="bg-white py-24">
       <div className="container-zx max-w-3xl">
-        <div className="eyebrow">Firmenzugang</div>
+        <div className="eyebrow">Zugang</div>
         <h1 className="headline-display mt-3 text-[40px] leading-[1.1]">
-          Firmenzugang anfragen
+          Zugang anfragen
         </h1>
         <p className="mt-5 text-[15px] leading-relaxed text-ink-600">
-          Sie möchten zeugnio für mehrere Prüfungen, mit Recruiter-Zugang
-          oder zentraler Rechnungsstellung einsetzen? Schreiben Sie uns kurz,
-          worum es geht – wir melden uns.
+          Sie möchten Arbeitszeugnisse mit zeugnio erstellen?{" "}
+          {!siteConfig.signup.open && <>{siteConfig.signup.note} </>}
+          Schreiben Sie uns kurz, für welche Firma oder Firmen Sie zeugnio
+          nutzen möchten – wir melden uns. Dasselbe gilt, wenn Sie Interesse
+          am geplanten Firmenpaket für Prüfungen haben.
         </p>
 
         <div className="mt-8 rounded-xl border border-ink-200 bg-ink-50/50 p-6">
@@ -28,7 +31,7 @@ export default function ContactPage() {
           <p className="mt-2 text-[14.5px] leading-relaxed text-ink-600">
             <a
               href={`mailto:${companyInfo.contactEmail}?subject=${encodeURIComponent(
-                "Firmenzugang zeugnio",
+                "Zugang zeugnio",
               )}`}
               className="font-medium text-petrol-700 underline underline-offset-2 hover:text-petrol-800"
             >
@@ -36,8 +39,8 @@ export default function ContactPage() {
             </a>
           </p>
           <p className="mt-3 text-[13px] text-ink-500">
-            Nennen Sie uns kurz Firmengrösse und gewünschten Nutzungsumfang –
-            das hilft uns, Ihnen schnell ein passendes Angebot zu machen.
+            Nennen Sie uns kurz Firma, Firmengrösse und wer bei Ihnen
+            Zeugnisse erstellt – dann können wir den Zugang rasch einrichten.
           </p>
         </div>
 

@@ -405,8 +405,8 @@ export function ManagerEvaluationForm({
                           </summary>
                           <p className="mt-2 text-[11.5px] leading-relaxed text-ink-500">
                             Wird <strong className="font-semibold">1:1</strong>{" "}
-                            ins Zeugnis übernommen – die KI schreibt diese
-                            Anmerkung nicht um.
+                            ins Zeugnis übernommen – zeugnio formuliert
+                            diese Anmerkung nicht um.
                           </p>
                           <textarea
                             value={freeTexts[s.key] ?? ""}

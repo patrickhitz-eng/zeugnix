@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { siteConfig } from "@/lib/site-config";
 
 interface StubPageProps {
   title: string;
@@ -20,8 +21,8 @@ export function StubPage({ title, description }: StubPageProps) {
           <Link href="/" className="btn-secondary">
             Zur Startseite
           </Link>
-          <Link href="/app/certificates/new" className="btn-primary">
-            Kostenlos starten
+          <Link href={siteConfig.signup.cta.href} className="btn-primary">
+            {siteConfig.signup.cta.label}
           </Link>
         </div>
       </div>

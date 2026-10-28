@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { siteConfig } from "@/lib/site-config";
+import { companyInfo } from "@/lib/legal/company-info";
 
 const groups = [
   {
@@ -51,13 +52,15 @@ export function Footer() {
               absichern, später überprüfbar und verständlich machen.
             </p>
             <p className="mt-6 text-xs text-ink-500">
-              {siteConfig.contact.address}
+              {companyInfo.legalName}
+              <br />
+              {companyInfo.address.street}, {companyInfo.address.zipCity}
               <br />
               <a
-                href={`mailto:${siteConfig.contact.email}`}
+                href={`mailto:${companyInfo.contactEmail}`}
                 className="hover:text-petrol-700"
               >
-                {siteConfig.contact.email}
+                {companyInfo.contactEmail}
               </a>
             </p>
           </div>
@@ -97,8 +100,8 @@ export function Footer() {
 
         <div className="mt-14 flex flex-col items-start justify-between gap-3 border-t border-ink-200 pt-6 text-xs text-ink-500 md:flex-row md:items-center">
           <p>
-            © {new Date().getFullYear()} {siteConfig.name}.{" "}
-            Schweizer Arbeitszeugnis-Plattform.
+            © {new Date().getFullYear()} {companyInfo.legalName} ·{" "}
+            {siteConfig.name}, Schweizer Arbeitszeugnis-Plattform.
           </p>
           <p className="font-mono text-[10px] tracking-wide">
             Erstellen · Absichern · Prüfen · Verstehen

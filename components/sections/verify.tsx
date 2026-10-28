@@ -23,7 +23,6 @@ export function VerifySection() {
                 "Verifikationsergebnis: verifiziert, nicht verifiziert oder unbekannt",
                 "Score-Karte für Fachleistung, Verhalten, Schlussformel",
                 "Hinweise auf Auffälligkeiten und potenzielle Negativcodes",
-                "PDF-Bericht für Bewerbungsdossier oder HR-Akte",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-[14px] text-ink-700">
                   <svg
@@ -93,7 +92,9 @@ export function VerifySection() {
                   </p>
                 </div>
 
-                {/* Drei Produkt-Karten – alle während der Beta kostenlos. */}
+                {/* Drei Produkt-Karten – alle während der Beta kostenlos. Der reguläre
+                    Preis steht als künftiger Preis da, nicht durchgestrichen
+                    (PBV Art. 16, gleiche Regel wie in pricing.tsx). */}
                 <div className="mt-5 grid gap-2 sm:grid-cols-3">
                   <div className="rounded-md border border-ink-200 p-3">
                     <div className="text-[11px] font-medium text-ink-900">
@@ -103,7 +104,7 @@ export function VerifySection() {
                       Kostenlos
                     </div>
                     <div className="text-[10px] text-ink-500">
-                      <span className="line-through">CHF 19.90</span> · Beta
+                      Beta · danach CHF 19.90
                     </div>
                   </div>
                   <div className="relative rounded-md border-2 border-petrol-600 p-3">
@@ -117,7 +118,7 @@ export function VerifySection() {
                       Kostenlos
                     </div>
                     <div className="text-[10px] text-ink-500">
-                      <span className="line-through">CHF 39.90</span> · Beta
+                      Beta · danach CHF 39.90
                     </div>
                   </div>
                   <div className="rounded-md border border-ink-200 p-3">
@@ -128,7 +129,7 @@ export function VerifySection() {
                       Kostenlos
                     </div>
                     <div className="text-[10px] text-ink-500">
-                      <span className="line-through">CHF 29.90</span> · Beta
+                      Beta · danach CHF 29.90
                     </div>
                   </div>
                 </div>

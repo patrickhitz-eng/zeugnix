@@ -11,10 +11,12 @@ const ANALYZE_WINDOW_MS = 60 * 1000;
 /**
  * POST /api/analyze
  *
- * Body: { text: string, userEmail?: string }
+ * Body: { text: string }
  *
  * Liefert eine Klartext-Analyse des Zeugnistexts. MVP-Stub mit
- * regelbasierter Heuristik. Speichert das Ergebnis in 'analyses'.
+ * regelbasierter Heuristik. Speichert nur das Ergebnis in 'analyses', nicht
+ * den Text und keine E-Mail (Fahrplan Marktstart, Schritt 7). Die Stärken
+ * zitieren nur Wendungen aus dem festen Katalog in lib/phrases/analyze.ts.
  *
  * In der Produktivversion sollte hier ein bezahlter LLM-Call laufen
  * (nach Stripe-Webhook-Bestätigung).
@@ -28,7 +30,7 @@ export async function POST(req: NextRequest) {
     );
     if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-    const { text, userEmail } = await req.json();
+    const { text } = await req.json();
 
     if (!text || text.length < 50) {
       return NextResponse.json(
@@ -44,7 +46,6 @@ export async function POST(req: NextRequest) {
       .from("analyses")
       .insert({
         uploaded_file_path: "inline-text",
-        extracted_text: text.slice(0, 50000),
         overall_score: result.overall_score,
         overall_rating: result.overall_rating,
         confidence_level: result.confidence_level,
@@ -55,14 +56,13 @@ export async function POST(req: NextRequest) {
         warnings: result.warnings,
         summary: result.summary,
         paid: false,
-        user_email: userEmail ?? null,
       })
       .select()
       .single();
 
     if (error) {
-      // Der Insert-Fehler von PostgREST trägt die eingefügte Zeile mit sich –
-      // und die enthält den analysierten Zeugnistext.
+      // Über logError, nicht console: Der Insert-Fehler von PostgREST trägt die
+      // eingefügte Zeile mit sich.
       logError("[analyze] Insert fehlgeschlagen:", error);
     }
 

@@ -1,26 +1,27 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { WorkflowSection } from "@/components/sections/workflow";
-import { BadgeSection } from "@/components/sections/badge";
+import { CompanyPackageCard } from "@/components/sections/company-package";
+import { siteConfig } from "@/lib/site-config";
 
 export const metadata: Metadata = {
   title: "Für Arbeitgeber",
   description:
-    "Arbeitszeugnisse strukturiert erstellen, mit Hash absichern und als Arbeitgeber-Siegel sichtbar machen – für KMU, HR-Abteilungen und Treuhänder.",
+    "Arbeitszeugnisse strukturiert erstellen und mit Hash und QR-Code prüfbar machen – für KMU, HR-Abteilungen und Treuhänder.",
 };
 
 const kmuFeatures = [
   "Weniger Aufwand pro Zeugnis",
   "Einheitliche Beurteilungsstandards",
   "Professionelle Formulierungen",
-  "Arbeitgeber-Siegel möglich",
+  "Prüfbar per QR-Code",
 ];
 
 const treuhandFeatures = [
-  "Mandantenfähige Verwaltung",
-  "Reduktion arbeitsrechtlicher Risiken",
+  "Mehrere Firmen in einem Konto",
+  "Logo und Fusszeile pro Firma",
   "Standardisierte Qualität",
-  "Verifikationshistorie pro Mandant",
+  "Jedes Zeugnis prüfbar",
 ];
 
 export default function Page() {
@@ -40,11 +41,12 @@ export default function Page() {
           <p className="mt-5 text-[15px] leading-relaxed text-ink-600">
             Strukturierte Erstellung mit Bausteinen, Führungskräfte-Einbindung
             über Magic Link und automatische Hash-Absicherung – für KMU,
-            HR-Abteilungen und Treuhänder mit mandantenfähiger Verwaltung.
+            HR-Abteilungen und Treuhänder, auch mit mehreren Firmen in einem
+            Konto.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/app/certificates/new" className="btn-primary">
-              Kostenlos starten
+            <Link href={siteConfig.signup.cta.href} className="btn-primary">
+              {siteConfig.signup.cta.label}
               <svg
                 width="14"
                 height="14"
@@ -137,49 +139,10 @@ export default function Page() {
 
       <WorkflowSection />
 
-      <BadgeSection />
-
       {/* Firmenpaket */}
       <section className="bg-white py-24">
         <div className="container-zx max-w-3xl">
-          <div className="flex flex-col items-start gap-4 rounded-xl border border-ink-200 bg-ink-50/50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-navy-700 text-white">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M9 9h6v6H9z" />
-                </svg>
-              </div>
-              <div>
-                <div className="flex flex-wrap items-baseline gap-x-2 text-[14px] font-medium tracking-tight text-ink-900">
-                  Firmenpaket
-                  <span className="text-[12px] font-normal text-ink-500">
-                    während der Beta kostenlos · regulär ab CHF 49/Monat nach
-                    der Beta
-                  </span>
-                </div>
-                <div className="mt-0.5 text-[12.5px] text-ink-600">
-                  Mehrere Prüfungen · Recruiter-Zugang · Verifikationshistorie
-                  · Zentrale Rechnungsstellung · Exportfunktion
-                </div>
-              </div>
-            </div>
-            <Link
-              href="/contact"
-              className="btn-secondary whitespace-nowrap py-2.5"
-            >
-              Firmenzugang anfragen
-            </Link>
-          </div>
+          <CompanyPackageCard />
         </div>
       </section>
     </>

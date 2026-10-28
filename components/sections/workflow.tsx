@@ -22,7 +22,7 @@ const steps = [
   {
     num: "Schritt 5",
     title: "Finalisieren mit Hash und QR-Code",
-    body: "Beim Finalisieren wird der SHA-256-Hash berechnet, im PDF verankert und in der Datenbank registriert. Spätere Verifikation jederzeit möglich.",
+    body: "Beim Finalisieren wird der SHA-256-Hash berechnet, im PDF verankert und in der Datenbank registriert. Danach lässt sich das Zeugnis über zeugnio.ch/verify prüfen.",
   },
 ];
 
@@ -38,8 +38,8 @@ export function WorkflowSection() {
             </h2>
             <p className="mt-5 text-[15px] leading-relaxed text-ink-600">
               Führungskräfte sollen nicht das Zeugnis schreiben. Sie sollen
-              strukturiert beurteilen. Die Plattform erstellt daraus den
-              juristisch sauberen Zeugnistext.
+              strukturiert beurteilen. Die Plattform erstellt daraus einen
+              einheitlichen Zeugnistext nach Schweizer Zeugnispraxis.
             </p>
 
             <div className="mt-8 rounded-lg border border-ink-200 bg-ink-50/60 p-5">

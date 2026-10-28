@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { siteConfig } from "@/lib/site-config";
+import { CompanyPackageCard } from "@/components/sections/company-package";
 
 // Während der Beta ist die Echtheitsprüfung faktisch kostenlos (Stripe ist noch
 // ein Stub). Der reguläre Preis wird als künftiger Preis ausgewiesen, NICHT
 // durchgestrichen neben "Kostenlos" (PBV Art. 16: eine Vergleichspreis-
 // Auszeichnung setzt voraus, dass der höhere Preis tatsächlich verlangt
 // wurde — das war während der unbefristeten Beta nie der Fall).
-// Die Klartext-Analyse ist noch nicht verdrahtet → `comingSoon:true` ("kommt
-// bald"), damit kein nicht-vorhandenes Feature als verfügbar beworben wird.
+// Was noch nicht gebaut ist, steht nicht in den Feature-Listen (UWG Art. 3
+// Abs. 1 lit. b) – etwa PDF-Berichte zu Prüfung oder Analyse. Ein Tier, das
+// es noch nicht gibt, bekommt `comingSoon:true` ("kommt bald").
 // `beta:false` ohne comingSoon = dauerhaft gratis.
 const tiers = [
   {
@@ -17,14 +20,14 @@ const tiers = [
     sub: "Unbegrenzt kostenlos",
     beta: false,
     comingSoon: false,
-    cta: "Kostenlos starten",
-    href: "/app/certificates/new",
+    cta: siteConfig.signup.cta.label,
+    href: siteConfig.signup.cta.href,
     features: [
       "Schweizer Arbeitszeugnis erstellen",
       "Führungskraft per Magic Link einladen",
       "Firmenlogo hochladen",
       "PDF-Generierung mit Hash und QR-Code",
-      "Verifikation jederzeit möglich",
+      "Prüfbar über zeugnio.ch/verify",
     ],
     featured: false,
     badge: null as string | null,
@@ -42,7 +45,6 @@ const tiers = [
       "SHA-256-Hash neu berechnen",
       "Abgleich mit registriertem Original",
       "Manipulation erkennen",
-      "Verifikationsbericht als PDF",
     ],
     featured: false,
     badge: null as string | null,
@@ -61,7 +63,6 @@ const tiers = [
       "Klartext-Zeugnisanalyse",
       "Stärken, schwächere Signale, Auffälligkeiten",
       "Schlussformel-Analyse",
-      "Kombinierter PDF-Bericht",
     ],
     featured: true,
     badge: "Empfohlen für Bewerbungen" as string | null,
@@ -80,7 +81,6 @@ const tiers = [
       "Gesamturteil und Vertrauensniveau",
       "Stärken und Schwächen",
       "Schlussformel-Analyse",
-      "Analysebericht als PDF",
     ],
     featured: false,
     badge: null as string | null,
@@ -214,45 +214,7 @@ export function PricingSection() {
           ))}
         </div>
 
-        {/* Firmenpaket */}
-        <div className="mt-6 flex flex-col items-start gap-4 rounded-xl border border-ink-200 bg-ink-50/50 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-navy-700 text-white">
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <path d="M9 9h6v6H9z" />
-              </svg>
-            </div>
-            <div>
-              <div className="flex flex-wrap items-baseline gap-x-2 text-[14px] font-medium tracking-tight text-ink-900">
-                Firmenpaket
-                <span className="text-[12px] font-normal text-ink-500">
-                  während der Beta kostenlos · regulär ab CHF 49/Monat nach
-                  der Beta
-                </span>
-              </div>
-              <div className="mt-0.5 text-[12.5px] text-ink-600">
-                Mehrere Prüfungen · Recruiter-Zugang · Verifikationshistorie ·
-                Zentrale Rechnungsstellung · Exportfunktion
-              </div>
-            </div>
-          </div>
-          <Link
-            href="/contact"
-            className="btn-secondary whitespace-nowrap py-2.5"
-          >
-            Firmenzugang anfragen
-          </Link>
-        </div>
+        <CompanyPackageCard className="mt-6" />
       </div>
     </section>
   );
