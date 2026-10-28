@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient, createOtpClient } from "@/lib/db/supabase-client";
+import { siteConfig } from "@/lib/site-config";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { finishLogin } from "@/lib/auth/finish-login";
 
@@ -33,6 +35,8 @@ export function LoginForm({ next }: { next?: string }) {
     "idle" | "sending" | "sent" | "verifying" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  /** Adresse ohne Konto, Registrierung geschlossen → Weg zur Kontaktseite zeigen. */
+  const [noAccount, setNoAccount] = useState(false);
   /**
    * Zeigt die Code-Eingabe, ohne vorher eine Mail angefordert zu haben. Nötig,
    * weil der Status "sent" ein Neuladen nicht überlebt: wer anfordert, auf die
@@ -60,17 +64,26 @@ export function LoginForm({ next }: { next?: string }) {
     e.preventDefault();
     setStatus("sending");
     setErrorMsg("");
+    setNoAccount(false);
 
     const supabase = createOtpClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
+        // Schalter in lib/site-config.ts. Ist die Registrierung geschlossen,
+        // bekommen unbekannte Adressen keine Mail, Supabase antwortet mit einem
+        // Fehler. Serverseitig sperrt erst die Dashboard-Einstellung «Allow new
+        // users to sign up» – dieser Parameter kommt aus dem Browser und ist
+        // umgehbar. Kehrseite: Die Antwort verrät, ob eine Adresse ein Konto
+        // hat; für einen geschlossenen Kundenkreis vertretbar.
+        shouldCreateUser: siteConfig.signup.open,
       },
     });
 
     if (error) {
       setStatus("error");
+      setNoAccount(isSignupBlocked(error.message));
       setErrorMsg(loginErrorText(error.message));
     } else {
       try {
@@ -256,6 +269,17 @@ export function LoginForm({ next }: { next?: string }) {
       {errorMsg && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
           {errorMsg}
+          {noAccount && (
+            <>
+              {" "}
+              <Link
+                href={siteConfig.signup.cta.href}
+                className="font-medium underline underline-offset-2"
+              >
+                {siteConfig.signup.cta.label}
+              </Link>
+            </>
+          )}
         </div>
       )}
 
@@ -296,6 +320,10 @@ export function LoginForm({ next }: { next?: string }) {
 function loginErrorText(raw: string): string {
   const r = raw.toLowerCase();
 
+  if (isSignupBlocked(raw)) {
+    return "Für diese E-Mail-Adresse besteht noch kein Zugang. Während der Pilotphase richten wir Zugänge persönlich ein.";
+  }
+
   if (r.includes("rate limit") || r.includes("too many")) {
     return "Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einen Moment, bevor Sie einen neuen Code anfordern.";
   }
@@ -311,4 +339,14 @@ function loginErrorText(raw: string): string {
   }
 
   return raw;
+}
+
+/**
+ * Supabase meldet eine unbekannte Adresse bei geschlossener Registrierung als
+ * "Signups not allowed for otp" (shouldCreateUser:false) bzw. "Signups not
+ * allowed for this instance" (Dashboard-Sperre).
+ */
+function isSignupBlocked(raw: string): boolean {
+  const r = raw.toLowerCase();
+  return r.includes("signup") && r.includes("not allowed");
 }

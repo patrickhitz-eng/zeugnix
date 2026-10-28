@@ -112,6 +112,13 @@ export async function middleware(request: NextRequest) {
    */
   function forwardedHeaders(): Headers {
     const headers = new Headers(request.headers);
+    // Aufgerufener Pfad für Server-Layouts, die ihn sonst nicht kennen: Das
+    // App-Layout schickt ihn als `next` an /app/zustimmung mit. Immer hier
+    // gesetzt, damit ein mitgeschickter Header gleichen Namens nichts bewirkt.
+    headers.set(
+      "x-zeugnio-path",
+      request.nextUrl.pathname + request.nextUrl.search,
+    );
     if (nonce) {
       headers.set("x-nonce", nonce);
       headers.set("Content-Security-Policy", csp);

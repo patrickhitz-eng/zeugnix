@@ -1,6 +1,7 @@
 import { LegalContent } from "@/components/marketing/legal-content";
 import { companyInfo } from "@/lib/legal/company-info";
 import { siteConfig } from "@/lib/site-config";
+import { TERMS_LABEL } from "@/lib/legal/terms";
 
 export const metadata = { title: "AGB" };
 
@@ -9,7 +10,7 @@ export default function Page() {
   return (
     <LegalContent
       title="Allgemeine Geschäftsbedingungen"
-      updated="16. Juli 2026"
+      updated={TERMS_LABEL}
       intro={
         <>
           Diese Allgemeinen Geschäftsbedingungen (AGB) regeln die Nutzung

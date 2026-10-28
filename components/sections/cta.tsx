@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { siteConfig } from "@/lib/site-config";
 
 export function CtaSection() {
   return (
@@ -26,14 +27,17 @@ export function CtaSection() {
               Erfassen Sie Ihre Firma, laden Sie eine Führungskraft ein und
               generieren Sie das fertige PDF mit Hash und QR-Code – ohne
               Kreditkarte, ohne Verpflichtung.
+              {!siteConfig.signup.open && <> {siteConfig.signup.note}</>}
             </p>
 
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link
-                href="/app/certificates/new"
+                href={siteConfig.signup.cta.href}
                 className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-[14px] font-medium text-ink-900 transition-all hover:bg-petrol-50 active:scale-[0.985]"
               >
-                Arbeitszeugnis kostenlos erstellen
+                {siteConfig.signup.open
+                  ? "Arbeitszeugnis kostenlos erstellen"
+                  : siteConfig.signup.cta.label}
                 <svg
                   width="14"
                   height="14"

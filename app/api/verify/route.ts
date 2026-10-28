@@ -26,11 +26,16 @@ const VERIFY_WINDOW_MS = 60 * 1000;
 /**
  * POST /api/verify
  *
- * Body: { text: string, userEmail?: string }
+ * Body: { text: string }
  *
  * Erwartet bereits aus PDF extrahierten Text. Die PDF-Extraktion selbst
  * läuft im Browser oder in einem separaten Endpoint, weil pdf-parse o.ä.
  * grosse Dependencies sind.
+ *
+ * Protokolliert wird nur Hash und Ergebnis, nie der Text: Das hochgeladene
+ * Zeugnis enthält Personendaten Dritter, die wir für die Prüfung nicht
+ * aufbewahren müssen (Fahrplan Marktstart, Schritt 7). Eine mitgeschickte
+ * `userEmail` wird bewusst ignoriert.
  *
  * Antwort: { result, calculatedHash, matchedCertificateId? }
  */
@@ -44,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
     const body = await req.json();
-    const { text, userEmail } = body as { text?: string; userEmail?: string };
+    const { text } = body as { text?: string };
 
     if (!text || text.length < 50) {
       return NextResponse.json(
@@ -270,16 +275,13 @@ export async function POST(req: NextRequest) {
       outcome = { result: "unknown", calculatedHash };
     }
 
-    // 4. Verification-Eintrag protokollieren
+    // 4. Verification-Eintrag protokollieren – ohne Text und ohne E-Mail.
     await supabase.from("verifications").insert({
       uploaded_file_path: "inline-text", // bei echtem Upload PDF-Pfad eintragen
-      extracted_text: text.slice(0, 50000),
-      extracted_canonical_content: canonical.slice(0, 50000),
       calculated_hash: calculatedHash,
       matched_certificate_id: match?.id ?? null,
       result: outcome.result,
       paid: false, // Bezahlung über Stripe-Webhook setzt paid=true
-      user_email: userEmail ?? null,
     });
 
     return NextResponse.json(outcome);

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { CertificateMockup } from "@/components/marketing/certificate-mockup";
 import { AnalysisCard } from "@/components/marketing/analysis-card";
+import { siteConfig } from "@/lib/site-config";
 
 const trustBadges = [
-  "Schweizer Arbeitszeugnis-Standard",
+  "Nach Schweizer Zeugnispraxis",
   "Hash-basierte Echtheitsprüfung",
   "Klartext-Zeugnisanalyse",
   "Für KMU, HR & Recruiter",
@@ -32,7 +33,7 @@ export function Hero() {
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-petrol-600" />
             </span>
             <span className="text-[12px] font-medium text-petrol-700">
-              Schweizer Standard · Hash-verifiziert
+              Schweizer Zeugnispraxis · Hash-verifiziert
             </span>
           </div>
 
@@ -51,8 +52,10 @@ export function Hero() {
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/app/certificates/new" className="btn-primary">
-              Arbeitszeugnis kostenlos erstellen
+            <Link href={siteConfig.signup.cta.href} className="btn-primary">
+              {siteConfig.signup.open
+                ? "Arbeitszeugnis kostenlos erstellen"
+                : siteConfig.signup.cta.label}
               <svg
                 width="14"
                 height="14"

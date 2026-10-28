@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/logo";
 import { createClient } from "@/lib/db/supabase-client";
+import { siteConfig } from "@/lib/site-config";
 
 const nav = [
   { href: "/how-it-works", label: "So funktioniert's" },
@@ -89,10 +90,10 @@ export function Header() {
                 Anmelden
               </Link>
               <Link
-                href="/app/certificates/new"
+                href={siteConfig.signup.cta.href}
                 className="btn-primary hidden px-4 py-2.5 text-[13px] md:inline-flex"
               >
-                Kostenlos starten
+                {siteConfig.signup.cta.label}
               </Link>
             </>
           )}
@@ -166,10 +167,10 @@ export function Header() {
             )}
           </ul>
           <Link
-            href={loggedIn ? "/app/dashboard" : "/app/certificates/new"}
+            href={loggedIn ? "/app/dashboard" : siteConfig.signup.cta.href}
             className="btn-primary mt-3 flex w-full items-center justify-center px-4 py-2.5 text-[13px]"
           >
-            {loggedIn ? "Zum Dashboard" : "Kostenlos starten"}
+            {loggedIn ? "Zum Dashboard" : siteConfig.signup.cta.label}
           </Link>
         </nav>
       )}

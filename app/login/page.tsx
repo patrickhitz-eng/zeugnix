@@ -79,15 +79,15 @@ export default async function LoginPage({
         </div>
 
         <p className="mt-8 text-center text-[12px] text-ink-500">
-          Mit der Anmeldung stimmen Sie unseren{" "}
+          Beim ersten Anmelden bitten wir Sie, unseren{" "}
           <Link href="/legal/terms" className="underline">
             AGB
           </Link>{" "}
-          und der{" "}
+          zuzustimmen. Wie wir mit Daten umgehen, steht in der{" "}
           <Link href="/legal/privacy" className="underline">
             Datenschutzerklärung
-          </Link>{" "}
-          zu.
+          </Link>
+          .
         </p>
       </div>
     </section>

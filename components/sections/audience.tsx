@@ -9,7 +9,7 @@ const audiences = [
       "Weniger Aufwand pro Zeugnis",
       "Einheitliche Beurteilungsstandards",
       "Professionelle Formulierungen",
-      "Arbeitgeber-Siegel möglich",
+      "Prüfbar per QR-Code",
     ],
   },
   {
@@ -37,12 +37,12 @@ const audiences = [
   {
     title: "Treuhänder & HR-Berater",
     href: "/for-employers",
-    body: "Treuhandkunden professionell unterstützen – ohne selbst jedes Zeugnis schreiben zu müssen. Compliance-konform und nachvollziehbar.",
+    body: "Treuhandkunden professionell unterstützen – ohne selbst jedes Zeugnis schreiben zu müssen. Einheitlich und nachvollziehbar.",
     items: [
-      "Mandantenfähige Verwaltung",
-      "Reduktion arbeitsrechtlicher Risiken",
+      "Mehrere Firmen in einem Konto",
+      "Logo und Fusszeile pro Firma",
       "Standardisierte Qualität",
-      "Verifikationshistorie pro Mandant",
+      "Jedes Zeugnis prüfbar",
     ],
   },
 ];

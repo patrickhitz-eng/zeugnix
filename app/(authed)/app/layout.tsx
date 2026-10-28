@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { TERMS_VERSION } from "@/lib/legal/terms";
+import { logError } from "@/lib/log";
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 import { SignOutButton } from "@/components/app/sign-out-button";
@@ -16,6 +19,24 @@ export default async function AppLayout({
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  // AGB-Zustimmung (Fahrplan Marktstart, Schritt 11): Wer die aktuelle Fassung
+  // noch nicht angenommen hat, geht über /app/zustimmung. Diese Seite liegt
+  // ausserhalb dieses Layouts, sonst entstünde eine Weiterleitungsschleife.
+  // Ist die Prüfung nicht möglich (Migration 031 fehlt), wird niemand
+  // ausgesperrt – nur protokolliert.
+  const { data: acceptance, error: termsErr } = await supabase
+    .from("terms_acceptances")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("terms_version", TERMS_VERSION)
+    .maybeSingle();
+  if (termsErr) {
+    logError("[app/layout] AGB-Zustimmung nicht prüfbar:", termsErr);
+  } else if (!acceptance) {
+    const path = (await headers()).get("x-zeugnio-path") ?? "/app/dashboard";
+    redirect(`/app/zustimmung?next=${encodeURIComponent(path)}`);
+  }
 
   return (
     <div className="min-h-screen bg-ink-50/30">

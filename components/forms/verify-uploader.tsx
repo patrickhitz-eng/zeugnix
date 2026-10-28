@@ -190,6 +190,15 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
 
   // ----- Result-Anzeigen -----
   if (state.kind === "verified") {
+    // Das Siegel beweist den Inhalt, nicht die Berechtigung der ausstellenden
+    // Person: Ein einzelnes Konto kann eine Firma unter freiem Namen anlegen und
+    // finalisieren. Als bestätigt gilt der Aussteller darum nur mit verifizierter
+    // Firmen-Domain (V1) oder per E-Mail freigegebener Unterschrift (V2).
+    const issuerConfirmed = Boolean(
+      state.certificate?.verifiedDomain ||
+        state.certificate?.signatory1ConfirmedAt ||
+        state.certificate?.signatory2ConfirmedAt,
+    );
     return (
       <>
       <div className="card overflow-hidden">
@@ -202,7 +211,10 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
             </div>
             <div>
               <div className="text-[11px] font-medium uppercase tracking-wider opacity-80">Resultat</div>
-              <div className="text-[18px] font-medium">Echt – Hash stimmt überein</div>
+              <div className="text-[18px] font-medium">Registriert und unverändert</div>
+              <div className="text-[12px] opacity-90">
+                {issuerConfirmed ? "Aussteller bestätigt" : "Aussteller nicht bestätigt"}
+              </div>
             </div>
           </div>
         </div>
@@ -212,6 +224,16 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
             registrierten Arbeitszeugnis überein. Der Inhalt wurde seit der
             Ausstellung nicht verändert.
           </p>
+          {!issuerConfirmed && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
+              <strong>Aussteller nicht bestätigt.</strong> Die ausstellende Firma
+              hat weder ihre E-Mail-Domain bei zeugnio verifiziert, noch haben
+              die Unterzeichnenden das Zeugnis per E-Mail freigegeben. Bestätigt
+              ist nur, dass dieses Zeugnis so registriert wurde – nicht, dass es
+              vom genannten Arbeitgeber stammt. Klären Sie das im Zweifel direkt
+              beim Arbeitgeber.
+            </div>
+          )}
           {state.certificate && (
             <div className="rounded-md border border-petrol-200 bg-petrol-50/50 p-4">
               <div className="text-[10px] font-medium uppercase tracking-wider text-petrol-700">
@@ -243,7 +265,7 @@ export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
-                    Kryptografisch signiert · nur zeugnio konnte dieses Zeugnis ausstellen
+                    Kryptografisch signiert · über zeugnio ausgestellt
                   </div>
                 </div>
               ) : null}

@@ -13,6 +13,15 @@ export interface CompanyDomain {
 interface Props {
   companyId: string;
   initialDomains: CompanyDomain[];
+  /**
+   * Domain der Anmelde-Adresse, wenn sie keine Freemail-Domain ist. Wird als
+   * Ein-Klick-Bestätigung angeboten (Fahrplan Marktstart, Schritt 6): Die
+   * Registrierung ist offen, und nur mit bestätigter Domain zeigt die
+   * öffentliche Prüfung «Aussteller bestätigt».
+   */
+  suggestedDomain?: string | null;
+  /** Anmelde-Adresse ist privat (Gmail, Bluewin …) – keine Bestätigung möglich. */
+  loginIsFreeMail?: boolean;
 }
 
 /**
@@ -23,7 +32,12 @@ interface Props {
  * Domain sofort als „verifiziert" markiert. Das ist ein Trust-Signal, das in der
  * öffentlichen Verifikation neben dem Zeugnis erscheint.
  */
-export function CompanyDomainControls({ companyId, initialDomains }: Props) {
+export function CompanyDomainControls({
+  companyId,
+  initialDomains,
+  suggestedDomain,
+  loginIsFreeMail,
+}: Props) {
   const router = useRouter();
   const [domains, setDomains] = useState<CompanyDomain[]>(initialDomains);
   const [input, setInput] = useState("");
@@ -31,8 +45,14 @@ export function CompanyDomainControls({ companyId, initialDomains }: Props) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
+  const hasVerified = domains.some((d) => d.status === "verified");
+
   async function addDomain(e: React.FormEvent) {
     e.preventDefault();
+    await submitDomain(input);
+  }
+
+  async function submitDomain(domain: string) {
     setSubmitting(true);
     setError("");
     setNotice(null);
@@ -41,7 +61,7 @@ export function CompanyDomainControls({ companyId, initialDomains }: Props) {
       const res = await fetch(`/api/companies/${companyId}/domain`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ domain: input }),
+        body: JSON.stringify({ domain }),
       });
       const data = await res.json();
 
@@ -101,7 +121,7 @@ export function CompanyDomainControls({ companyId, initialDomains }: Props) {
   }
 
   return (
-    <div className="card p-5">
+    <div className={`card p-5${hasVerified ? "" : " ring-1 ring-amber-300"}`}>
       <div className="mb-1 text-[13px] font-medium tracking-tight">
         Aussteller-Domain
       </div>
@@ -111,6 +131,37 @@ export function CompanyDomainControls({ companyId, initialDomains }: Props) {
         bestätigter Aussteller. Die Verifikation erfolgt automatisch, wenn Ihre
         angemeldete E-Mail-Adresse auf diese Domain endet.
       </p>
+
+      {!hasVerified && (
+        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] leading-relaxed text-amber-900">
+          <strong>Noch keine bestätigte Domain.</strong> Bis dahin zeigt die
+          öffentliche Prüfung Ihrer Zeugnisse «Aussteller nicht bestätigt».
+          {suggestedDomain ? (
+            <>
+              {" "}
+              Sie sind mit einer @{suggestedDomain}-Adresse angemeldet – ein
+              Klick genügt.
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => submitDomain(suggestedDomain)}
+                  disabled={submitting}
+                  className="btn-primary px-4 py-2 text-[13px] disabled:opacity-50"
+                >
+                  {submitting ? "Wird geprüft…" : `${suggestedDomain} bestätigen`}
+                </button>
+              </div>
+            </>
+          ) : loginIsFreeMail ? (
+            <>
+              {" "}
+              Mit einer privaten Adresse (z.B. Gmail, Bluewin) lässt sich keine
+              Firmen-Domain bestätigen. Melden Sie sich mit Ihrer Firmenadresse
+              an und bestätigen Sie die Domain dann hier.
+            </>
+          ) : null}
+        </div>
+      )}
 
       {domains.length > 0 && (
         <ul className="mb-4 space-y-2">
