@@ -73,8 +73,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | # | Bitte | Für | Stand |
 |---|---|---|---|
-| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | **entschieden**; Verfahren und Kosten geklärt (16.10.). Fehlt nur noch **unsere Terminzusage** — zusammen mit A4 verschicken |
-| A2 | **vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`** — wir sitzen heute in `www-data`, das mit nginx geteilt wird | zeugnio | zu stellen; **gehört vor das Deployment** |
+| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | **entschieden**; Verfahren und Kosten geklärt (16.10.). Fehlt nur noch **unsere Terminzusage** — zusammen mit A4 verschicken. **28.10.:** versandbereit als Mail A in `antwort-2026-10-13.email.md`; Albis Run ist jetzt produktiv, also Termin von nine vorschlagen lassen |
+| A2 | **vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`** — wir sitzen heute in `www-data`, das mit nginx geteilt wird | zeugnio | zu stellen; **gehört vor das Deployment**. **28.10.:** versandbereit als Mail B, zusammen mit A6 und A8 |
 | A3 | **vhost `benchmark.ag` + App-Benutzer `www-benchmark`** | Benchmark | zu stellen |
 | A4 | **Als welche Rolle läuft der Nachtdump?** Und: deckt er eine Datenbank, die wir mit dem admin-Benutzer selbst anlegen? | zeugnio | offen seit 07.10., **mit A1 verschicken** |
 | A5 | **`proxy_read_timeout` ≥ 600 s für `/report/*`** auf dem Benchmark-vhost. Default 60 s, nines Konfiguration | Benchmark | zu stellen |
