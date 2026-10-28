@@ -592,9 +592,9 @@ der Schlüssel kein JWT (siehe Abschnitt 1, vierte Angabe).</p>
 
 <h2 id="s9">10 · Erstes Deployment auf der Testadresse</h2>
 
-<pre><code># vhost auf der nine-Testadresse, noch ohne Zertifikat und ohne DNS
-sudo nine-manage-vhosts virtual-host create zeugnio.ch.advisori01.nine.ch \
-  --template=proxy --proxy-port=3010
+<pre><code># Der vhost zeugnio.ch mit App-Benutzer www-zeugnio besteht seit
+# cutover-reihenfolge.md 1.2. Die Testadresse zeugnio.ch.advisori01.nine.ch
+# legt nine dabei selbst als Alias an; ein eigener vhost dafür ist nicht nötig.
 
 # Upload-Grenze und Antwortzeit. Gemessen am 7.10.2026: nginx.conf:42 setzt global
 # client_max_body_size 64m, proxy_read_timeout ist nicht gesetzt (Vorgabe 60s).
@@ -768,10 +768,10 @@ curl -sS http://127.0.0.1:3010/api/health     # "datenquelle":"eigene" muss dast
 # 6. Smoke-Test auf der Testadresse: anmelden, Zeugnis öffnen, PDF erzeugen, /verify
 
 # 7. DNS umstellen: A-Record zeugnio.ch und www auf 5.148.171.221
-sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --proxy-port=3010
-sudo nine-manage-vhosts certificate create zeugnio.ch
+#    (der vhost zeugnio.ch besteht schon, siehe cutover-reihenfolge.md 1.2)
+sudo nine-manage-vhosts certificate create --virtual-host=zeugnio.ch
 sudo nine-manage-vhosts virtual-host update zeugnio.ch \
-  --template=proxy_letsencrypt_https_redirect --proxy-port=3010</code></pre>
+  --template=proxy_letsencrypt_https_redirect</code></pre>
 
 <h3>Rollback-Kriterien</h3>
 

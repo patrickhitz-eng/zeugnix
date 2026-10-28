@@ -28,10 +28,11 @@
 
 ## Vier harte Abhängigkeiten — daraus folgt die Reihenfolge
 
-**1 · Der App-Benutzer kommt mit dem vhost.** nine hat `www-albisrun` über
-`nine-manage-vhosts` angelegt (SVC-116462). Es gibt kein `nine-manage-users`. Alles, was in
-diesem Konto liegen muss — Releases, `shared/.env`, `postgrest.conf`, `backup.key`, pm2,
-systemd-User-Units, Cron — kann also erst nach dem vhost entstehen.
+**1 · Erst der App-Benutzer, dann alles in ihm.** Den Benutzer legt
+`nine-manage-vhosts user create` an, den vhost ordnet `--user` ihm zu. Beides geht als
+`www-data` selbst, ohne Ticket (nine-Doku «nine-manage-vhosts with multi-user», gelesen
+28.10.). Alles, was in diesem Konto liegen muss — Releases, `shared/.env`, `postgrest.conf`,
+`backup.key`, pm2, systemd-User-Units, Cron — kann erst danach entstehen.
 → **Das Runbook ist hier falsch:** § 3 „Benutzer, Node, PM2, Cron" steht vor jedem vhost.
 Richtig ist: vhost zuerst, § 3 danach.
 
@@ -72,16 +73,36 @@ die Zone mit.
 
 ---
 
-## Phase 1 — die zwei Mails an nine (parallel, verschiedene Vorlaufzeit)
+## Phase 1 — eine Mail an nine, der Rest selbst
 
 | # | Schritt | Entsperrt |
 |---|---|---|
-| **1.1** | **Terminzusage PG 17** im bestehenden Thread + die drei Dump-Fragen (A1/A4). Entwurf: `antwort-2026-10-13.email.md`, „Nachtrag 2026-10-16 — Mail 3" | Phase 2.3 (Schemavergleich) |
-| **1.2** | **vhost `zeugnio.ch` + `www` mit App-Benutzer `www-zeugnio`, zunächst ohne Zertifikat** (A2), dazu die Port-Bestätigung (A6). Entwurf: dieselbe Datei, „Mail 2" | Phase 2.1 — **und damit alles Übrige** |
-| **1.3** | **Neue Frage, die aus der HSTS-Messung folgt:** kann `nine-manage-vhosts certificate create` die Domainprüfung über **DNS-01** (TXT-Eintrag) machen statt über HTTP-01? Geht das, verschwindet das Downtime-Fenster aus Phase 5 vollständig, weil das Zertifikat **vor** der DNS-Umschaltung ausgestellt werden kann | entscheidet die Form von Phase 5 |
+| **1.1** | **Mail A an Patrick Lion** in SVC-117420: Upgrade auf 17 mit admin-Benutzer, Terminvorschlag, Rolle des Nachtdumps (A1/A4). Entwurf oben in `antwort-2026-10-13.email.md` | Phase 2.2 und 2.3 |
+| **1.2** | **Benutzer `www-zeugnio` und vhost `zeugnio.ch` selbst anlegen**, zunächst ohne Zertifikat. Befehle unter der Tabelle | Phase 2.1 — **und damit alles Übrige** |
+| **1.3** | **Zertifikat vor der DNS-Umschaltung, ohne DNS-01.** Die nine-Doku kennt nur HTTP-01. Let's Encrypt folgt dabei aber Weiterleitungen (auf Port 80 oder 443). In Phase 3 testen: Vercel leitet `/.well-known/acme-challenge/*` auf `http://zeugnio.ch.advisori01.nine.ch/.well-known/acme-challenge/*` weiter, dann `certificate create`. Offen ist, ob `nine-manage-vhosts` vorher selbst prüft, ob die Domain auf den Server zeigt. Lehnt es ab, nine nach DNS-01 fragen oder das Fenster aus Phase 5 hinnehmen | entscheidet die Form von Phase 5 |
 
-1.2 ist der kritische Pfad. 1.1 kostet nine einen Termin, 1.2 kostet sie fünf Minuten —
-aber ohne 1.2 steht alles.
+**Befehle zu 1.2**, als `www-data` auf advisori01. Zuerst nachsehen, was schon da ist:
+
+```bash
+nine-manage-vhosts virtual-host list
+```
+
+Gibt es noch keinen vhost für `zeugnio.ch`, den Benutzer und den vhost anlegen. Den `www`-Alias
+und die Testadresse `zeugnio.ch.advisori01.nine.ch` legt nine dabei von selbst an:
+
+```bash
+sudo nine-manage-vhosts user create www-zeugnio --no-password
+```
+
+```bash
+sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --template-variable PROXYPORT=3010 --user=www-zeugnio
+```
+
+`--no-password` heisst: keine Anmeldung mit Passwort. Hinein kommt man mit
+`sudo nine-su www-zeugnio` und trägt dort den eigenen SSH-Schlüssel in
+`~/.ssh/authorized_keys` ein. Danach Linger prüfen (`loginctl show-user www-zeugnio`).
+
+1.2 ist der kritische Pfad und liegt jetzt bei uns. Auf nine wartet nur noch 1.1.
 
 ---
 
@@ -93,7 +114,7 @@ aber ohne 1.2 steht alles.
 | 2.2 | Datenbank: `nmd_zeugnio` existiert. Mit dem **admin-Benutzer** die Connect-Grants setzen und `900_nine_bootstrap.sql` einspielen — Rollen ohne Präfix, `authenticator` **NOINHERIT** | § 4, § 5 |
 | 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Eigentum/Rechte), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
-| 2.5 | Erstes Deployment auf der Testadresse `zeugnio.advisori01.nine.ch` | § 10 |
+| 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
 
 **Geheimnisse erst ab 2.1, und nur in `/home/www-zeugnio`.** Solange wir in `www-data`
 arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine ausliefert.
@@ -130,7 +151,7 @@ arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine auslief
 | 5.4 | **Integritätsprüfung als Abbruchkriterium:** Prüfsummen über `hash`, `canonical_content`, `signature`. Abweichung = Abbruch, keine Diskussion | — |
 | 5.5 | `.env` final, `DATA_API_URL` setzen, `pm2 restart`, Smoke **auf der Testadresse** | ja |
 | 5.6 | **A-Record Apex und `www` auf 5.148.171.221** (ein A statt Vercels zwei; `www` vom CNAME zum A). Kein AAAA — nine hat kein IPv6 | ja, Rückweg dauert eine TTL |
-| 5.7 | `nine-manage-vhosts certificate create`, danach Template auf `proxy_letsencrypt_https_redirect` | ja |
+| 5.7 | `sudo nine-manage-vhosts certificate create --virtual-host=zeugnio.ch`, danach `virtual-host update zeugnio.ch --template=proxy_letsencrypt_https_redirect` (fällt weg, wenn 1.3 geklappt hat) | ja |
 | 5.8 | Smoke auf der echten Domain, beide Namen | — |
 
 **Das Downtime-Fenster liegt zwischen 5.6 und 5.7** und rechnet sich so: bis zu einer TTL
