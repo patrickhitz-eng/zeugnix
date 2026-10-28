@@ -147,9 +147,10 @@ Fenster ganz wegnehmen könnte.
 
 | # | Schritt | Warum nicht früher |
 |---|---|---|
+| 6.0 | **Datenschutzerklärung umstellen:** `RECIPIENTS` in `app/legal/privacy/page.tsx` ändern. Vercel fällt weg, Supabase bleibt nur für die Anmeldung, neu kommt nine (Zürich-Altstetten, Sicherungen Rümlang, Notfall-Support aus Kanada). Das Stand-Datum nachführen. Kunden mit Auftragsbearbeitungsvertrag den Tag des Umzugs per E-Mail melden (AVV § 6) | Die Erklärung muss den Ist-Zustand beschreiben; vor dem Fenster stimmt die neue Fassung noch nicht |
 | 6.1 | CAA-Eintrag setzen (`issue "letsencrypt.org"`) | vorher würde er die Ausstellung behindern, wenn er falsch sitzt |
 | 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload` | erst wenn das Zertifikat sicher erneuert wird |
-| 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu **SPF, DKIM, DMARC für `zeugnio.ch` neu bauen** — heute ist dort nichts | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
+| 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu **SPF, DKIM, DMARC für `zeugnio.ch` neu bauen** — heute ist dort nichts. In `RECIPIENTS` Resend durch mailomat.swiss ersetzen (mailXpert GmbH, Zürich) | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
 | 6.4 | Vercel und Supabase stilllegen | erst nach einer Frist, in der der Rückweg offen bleibt |
 
 ---
