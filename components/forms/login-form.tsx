@@ -71,10 +71,10 @@ export function LoginForm({ next }: { next?: string }) {
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
-        // Registrierung nur auf Einladung (siehe lib/site-config.ts): unbekannte
-        // Adressen bekommen keine Mail, Supabase antwortet mit einem Fehler.
-        // Serverseitig sperrt erst die Dashboard-Einstellung «Allow new users
-        // to sign up» – dieser Parameter kommt aus dem Browser und ist
+        // Schalter in lib/site-config.ts. Ist die Registrierung geschlossen,
+        // bekommen unbekannte Adressen keine Mail, Supabase antwortet mit einem
+        // Fehler. Serverseitig sperrt erst die Dashboard-Einstellung «Allow new
+        // users to sign up» – dieser Parameter kommt aus dem Browser und ist
         // umgehbar. Kehrseite: Die Antwort verrät, ob eine Adresse ein Konto
         // hat; für einen geschlossenen Kundenkreis vertretbar.
         shouldCreateUser: siteConfig.signup.open,

@@ -1,11 +1,12 @@
-// Registrierung nur auf Einladung (Fahrplan Marktstart, Schritt 6): Solange die
-// Prüfung der ausstellenden Firma freiwillig ist, legt zeugnio neue Kunden selbst
-// an (Supabase-Dashboard → Authentication → Users → Invite). Öffentliche
-// Start-Knöpfe führen darum zur Kontaktseite, und der Anmeldelink geht nur an
-// bestehende Konten. Wieder öffnen: hier `true` UND im Supabase-Dashboard
-// «Allow new users to sign up» einschalten – erst die Dashboard-Einstellung
-// sperrt serverseitig, dieser Schalter steuert nur die Oberfläche.
-const signupOpen = false;
+// Registrierung offen (Entscheid 28.10.2026): Gratis-Erstellung für alle ist der
+// Motor des Modells. Schutz gegen Fälscher ist nicht die Hürde beim Anmelden,
+// sondern die Anzeige «Aussteller bestätigt / nicht bestätigt» auf /verify.
+// Schliessen ginge über `false`: Start-Knöpfe führen dann zur Kontaktseite, der
+// Anmeldelink geht nur an bestehende Konten, neue Kunden legt zeugnio im
+// Supabase-Dashboard an (Authentication → Users → Invite). Serverseitig sperrt
+// erst die Dashboard-Einstellung «Allow new users to sign up» – dieser Schalter
+// steuert nur die Oberfläche.
+const signupOpen = true;
 
 export const siteConfig = {
   name: "zeugnio",
