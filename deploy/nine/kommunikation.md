@@ -46,8 +46,11 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | **2026-10-14** | SVC-117420 | **Antwort Patrick Lion** — Verfahren und Kosten des Upgrades | zeugnio | Upgrade über das **PostgreSQL-Standardverfahren**: die 16er-Umgebung wird **gestoppt, aber nicht entfernt**, alle Daten werden übernommen, danach Prüffenster, **Rückfall auf 16 möglich**. **Upgrade und admin-Benutzer kostenlos**; **Parallelbetrieb wäre kostenpflichtig** (nach Aufwand). Bisher hier als 16.10. geführt |
 | 2026-10-16 | *eigene Messung* | DNS und Mailweg von `advisori.ch`, `zeugnix.ch`, `zeugnio.ch` | zeugnio | s. „Mailweg und DNS" — Lars' Weg 2 (SMTP über `@advisori.ch`) ist damit **erledigt**, und die A-Records zeigen noch nicht auf den Server |
 | 2026-10-23 | SVC-117438 | Ports von aussen, Upload-Grösse der Vorlage, zwölf Chromium-Bibliotheken | Benchmark | **Nemat, 23.10.:** von aussen sind **nur 22, 80 und 443** erreichbar · `proxy_letsencrypt_https` setzt `client_max_body_size 64m` · die zwölf Bibliotheken sind **systemweit installiert**. Am 26.10. geschlossen |
-| 2026-10-23 | SVC-118041 | SSH-Anmeldungen mit dem Railway-Tunnelschlüssel seit 21.10. | Benchmark | **Marco Streich, 26.10.:** Liste in `/home/www-data/railway-ssh-connections.log`, alle Anmeldungen kamen von Railway-IPs, **auf dem Datenbankserver nichts Auffälliges**. Dazu der Hinweis auf Deploio. Wartet auf unsere Antwort |
+| 2026-10-23 | SVC-118041 | SSH-Anmeldungen mit dem Railway-Tunnelschlüssel seit 21.10. | Benchmark | **Marco Streich, 26.10.:** Liste in `/home/www-data/railway-ssh-connections.log`, alle Anmeldungen kamen von Railway-IPs, **auf dem Datenbankserver nichts Auffälliges**. Dazu der Hinweis auf Deploio. **Beantwortet 28.10.** (s. u.) |
 | 2026-10-26 | SVC-117420 | **automatisch geschlossen** | zeugnio | Zehn Tage ohne Antwort von uns. Mail A (`antwort-2026-10-13.email.md`) öffnet es wieder |
+| **2026-10-28 13:29** | SVC-117420 | **Mail A verschickt:** Upgrade auf 17 mit admin-Benutzer, Bitte um Terminvorschlag, Frage nach der Rolle des Nachtdumps | zeugnio | Antwort offen. Kommt keine Eingangsbestätigung, das Ticket auf `portal.nine.ch` wieder öffnen |
+| 2026-10-28 13:57 | SVC-118041 | Antwort an Marco: Schlüssel bleibt bis zur Umschaltung von Benchmark, Deploio passt wegen der langen Anfragen nicht, Ticket schliessen | Benchmark | verschickt |
+| 2026-10-28 | *selbst* | vhost `zeugnio.ch` angelegt (`cutover-reihenfolge.md` 1.2) | zeugnio | laut Silvan erledigt, noch ohne Zertifikat |
 
 ---
 
@@ -79,8 +82,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | # | Bitte | Für | Stand |
 |---|---|---|---|
-| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Verfahren und Kosten geklärt (14.10.), unsere Antwort fehlt; Ticket am 26.10. automatisch geschlossen. **28.10.:** Mail A in `antwort-2026-10-13.email.md`, liegt als Entwurf in Outlook. Albis Run ist produktiv, darum Termin von nine vorschlagen lassen |
-| A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Kein Ticket mehr: machen wir selbst** (`cutover-reihenfolge.md` 1.2). Gehört weiterhin vor das Deployment |
+| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Verfahren und Kosten geklärt (14.10.), unsere Antwort fehlt; Ticket am 26.10. automatisch geschlossen. **Mail A verschickt am 28.10. um 13:29**, wir warten auf den Terminvorschlag. Albis Run ist produktiv, darum schlägt nine den Termin vor |
+| A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Selbst erledigt am 28.10.** (`cutover-reihenfolge.md` 1.2), noch ohne Zertifikat |
 | A3 | ~~vhost `benchmark.ag` + App-Benutzer `www-benchmark`~~ | Benchmark | `www-benchmark` besteht (Kit `MIGRATION.md`) |
 | A4 | **Als welche Rolle läuft der Nachtdump?** | zeugnio | offen seit 07.10., **steht in Mail A**. Die Frage nach selbst angelegten Datenbanken entfällt, zeugnio nutzt `nmd_zeugnio` |
 | A5 | **`proxy_read_timeout` ≥ 600 s für `/report/*`** auf dem Benchmark-vhost. Default 60 s, nines Konfiguration | Benchmark | zu stellen |
@@ -113,7 +116,7 @@ vervielfacht, nicht neu erfunden.
 
 | Schicht | zeugnio | EHC-Sponsorenlauf | Benchmark |
 |---|---|---|---|
-| **1 · Linux-Benutzer** | `www-zeugnio` **(fehlt → selbst, `cutover-reihenfolge.md` 1.2)** | `www-albisrun` ✓ | `www-benchmark` ✓ |
+| **1 · Linux-Benutzer** | `www-zeugnio` ✓ (28.10.) | `www-albisrun` ✓ | `www-benchmark` ✓ |
 | **2 · Datenbank** | PG `nmd_zeugnio` ✓ | PG `nmd_albisrun` ✓ | MySQL `nmd_advisori_bench` ✓ |
 | **3 · Port (nur Loopback)** | 3010 App · 3011 PostgREST | 3000 | **8000** (+ `127.0.0.1:3307` falls SSH-Tunnel) |
 | **4 · vhost + Zertifikat** | `zeugnio.ch` (+ `www`) | `albisrun.ch` (+ `www`) | `benchmark.ag` (`BASE_URL`) |
