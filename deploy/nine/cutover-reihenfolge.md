@@ -104,6 +104,9 @@ sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --templa
 
 1.2 ist der kritische Pfad und liegt jetzt bei uns. Auf nine wartet nur noch 1.1.
 
+**Stand 28.10.:** 1.1 ist verschickt (13:29), wir warten auf den Terminvorschlag. 1.2 ist
+erledigt: der vhost `zeugnio.ch` steht, noch ohne Zertifikat. Weiter mit Phase 2.1.
+
 ---
 
 ## Phase 2 — Server-Bootstrap (nach 1.1 **und** 1.2)
