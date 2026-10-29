@@ -244,14 +244,25 @@ gegenseitig offen. Voraussetzung: <code>nine-manage-vhosts virtual-host list</co
 
 <h3>3.1 Eigener SSH-Zugang</h3>
 
-<p><strong>Auf dem eigenen Rechner</strong>, in einem eigenen PowerShell-Fenster und nicht in der
-SSH-Sitzung, den öffentlichen Schlüssel in die Zwischenablage legen. <code>Set-Clipboard</code> ist ein
-Windows-Befehl, braucht keine Admin-Rechte und existiert auf dem Server nicht. Der öffentliche Teil
-ist kein Geheimnis; es ist derselbe Schlüssel wie für <code>www-albisrun</code> (Kommentar
-<code>silvan@albisrun</code>). <strong>Nicht</strong> <code>benchmark_railway.pub</code> nehmen: Das ist
-der Tunnel-Schlüssel aus dem Railway-Vorfall.</p>
+<p>Für advisori01 gibt es ein eigenes Schlüsselpaar, <code>id_ed25519_advisori01</code> (eingerichtet am
+29.10.2026; zum alten <code>id_ed25519</code> fehlte die Passphrase). <code>~/.ssh/config</code> auf dem
+eigenen Rechner sagt ssh, dass es für <code>advisori01.nine.ch</code> diesen Schlüssel nimmt:</p>
 
-<pre><code>Get-Content "$HOME\.ssh\id_ed25519.pub" | Set-Clipboard</code></pre>
+<pre><code>Host advisori01.nine.ch
+    IdentityFile ~/.ssh/id_ed25519_advisori01
+    IdentitiesOnly yes</code></pre>
+
+<p>Neu erzeugt wird es nur, wenn es fehlt. <strong>Auf dem eigenen Rechner</strong>, in einem eigenen
+PowerShell-Fenster (<code>PS C:\…&gt;</code>) und nicht in der SSH-Sitzung. Die Passphrase vor dem
+Bestätigen notieren:</p>
+
+<pre><code>ssh-keygen -t ed25519 -C "silvan@advisori01" -f "$HOME\.ssh\id_ed25519_advisori01"</code></pre>
+
+<p>Den öffentlichen Teil in die Zwischenablage legen. Er ist kein Geheimnis. <code>Set-Clipboard</code>
+ist ein Windows-Befehl und existiert auf dem Server nicht. <strong>Nicht</strong>
+<code>benchmark_railway.pub</code> nehmen: Das ist der Tunnel-Schlüssel aus dem Railway-Vorfall.</p>
+
+<pre><code>Get-Content "$HOME\.ssh\id_ed25519_advisori01.pub" | Set-Clipboard</code></pre>
 
 <p>Auf dem Server als <code>www-data</code> ins neue Konto wechseln. <code>sudo</code> fragt dabei
 «[sudo] password for www-data». Gemeint ist das Passwort des Kontos <code>www-data</code> selbst:
