@@ -51,6 +51,10 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | **2026-10-28 13:29** | SVC-117420 | **Mail A verschickt:** Upgrade auf 17 mit admin-Benutzer, Bitte um Terminvorschlag, Frage nach der Rolle des Nachtdumps | zeugnio | Antwort offen. Kommt keine Eingangsbestätigung, das Ticket auf `portal.nine.ch` wieder öffnen |
 | 2026-10-28 13:57 | SVC-118041 | Antwort an Marco: Schlüssel bleibt bis zur Umschaltung von Benchmark, Deploio passt wegen der langen Anfragen nicht, Ticket schliessen | Benchmark | verschickt |
 | 2026-10-28 | *selbst* | vhost `zeugnio.ch` angelegt (`cutover-reihenfolge.md` 1.2) | zeugnio | laut Silvan erledigt, noch ohne Zertifikat |
+| 2026-10-28 13:36 | SVC-117420 | Ticket durch Mail A wieder geöffnet | zeugnio | Status «Waiting for support» |
+| 2026-10-28 16:17 | SVC-118041 | Ticket geschlossen (Josua Bryner) | Benchmark | erledigt |
+| 2026-10-29 | *selbst* | `www-zeugnio` eingerichtet: SSH-Zugang, Kit, Node 22, pm2 mit Autostart, `.env`, `backup.key`. `deploy.sh zeugnio --check` grün bis auf die erwarteten Lücken | zeugnio | `cutover-reihenfolge.md` 2.1 |
+| **2026-10-29 13:22** | SVC-117420 | **Antwort Antonios Tsianakas** | zeugnio + Albis Run | (1) **Die Postgres-Dumps laufen als Superuser.** Damit bleibt der Nachtdump vollständig, auch wenn die Tabellen `service_role` gehören. (2) **Upgrade kostenlos Mo–Fr 09:00–17:30.** Ausserhalb kostet es eine Pauschale von CHF 250 plus CHF 250 pro Stunde, mindestens eine Stunde, also mindestens CHF 500. Einen Termin hat nine nicht vorgeschlagen; das Ticket wartet auf uns |
 
 ---
 
@@ -72,7 +76,9 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | `client_max_body_size` | global **64m** (`nginx.conf:42`) — reicht für 2-MB-Logos | eigene Messung |
 | Object Storage | RZ **nine-es34**, CHF 0.03/GB/Mt | SVC-116462 |
 | PostgREST als Container | gegenstandslos — statisch geliefertes Binary als systemd-User-Dienst | Entscheid 28.09. |
-| PG-Upgrade 16 → 17 | **Standardverfahren**; 16 wird gestoppt und **behalten**, Rückfall möglich. **Kostenlos**, der admin-Benutzer ebenfalls. Nur **Parallelbetrieb** wäre kostenpflichtig | Patrick Lion 16.10. |
+| PG-Upgrade 16 → 17 | **Standardverfahren**; 16 wird gestoppt und **behalten**, Rückfall möglich. **Kostenlos**, der admin-Benutzer ebenfalls. Nur **Parallelbetrieb** wäre kostenpflichtig | Patrick Lion 14.10. |
+| Upgrade-Zeitfenster | **gratis Mo–Fr 09:00–17:30**; ausserhalb CHF 250 Pauschale + CHF 250/h, mind. 1 h (= mind. CHF 500) | Antonios Tsianakas 29.10. |
+| Rolle des Nachtdumps | **Superuser** — der Dump bleibt vollständig, auch nach dem Owner-Wechsel auf `service_role` | Antonios Tsianakas 29.10. |
 
 ---
 
@@ -82,10 +88,10 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | # | Bitte | Für | Stand |
 |---|---|---|---|
-| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Verfahren und Kosten geklärt (14.10.), unsere Antwort fehlt; Ticket am 26.10. automatisch geschlossen. **Mail A verschickt am 28.10. um 13:29**, wir warten auf den Terminvorschlag. Albis Run ist produktiv, darum schlägt nine den Termin vor |
+| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Verfahren und Kosten geklärt (14.10.), unsere Antwort fehlt; Ticket am 26.10. automatisch geschlossen. **Mail A verschickt am 28.10. um 13:29.** nine (29.10.): gratis Mo–Fr 09:00–17:30, einen Termin schlägt nine nicht vor. **Jetzt an uns:** einen Werktag in diesem Fenster nennen, nicht an Tagen des Sponsorenlaufs |
 | A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Selbst erledigt am 28.10.** (`cutover-reihenfolge.md` 1.2), noch ohne Zertifikat |
 | A3 | ~~vhost `benchmark.ag` + App-Benutzer `www-benchmark`~~ | Benchmark | `www-benchmark` besteht (Kit `MIGRATION.md`) |
-| A4 | **Als welche Rolle läuft der Nachtdump?** | zeugnio | offen seit 07.10., **steht in Mail A**. Die Frage nach selbst angelegten Datenbanken entfällt, zeugnio nutzt `nmd_zeugnio` |
+| A4 | ~~Als welche Rolle läuft der Nachtdump?~~ | zeugnio | **beantwortet 29.10.:** als Superuser |
 | A5 | **`proxy_read_timeout` ≥ 600 s für `/report/*`** auf dem Benchmark-vhost. Default 60 s, nines Konfiguration | Benchmark | zu stellen |
 | A6 | ~~Bestätigen, dass Port 5432 (und 3306) für alle Quellen gesperrt bleibt~~ | alle | **beantwortet 23.10.** (SVC-117438): von aussen nur 22, 80, 443 |
 | A7 | ~~MySQL-Datenbank für Benchmark (`nmd_`-Präfix)~~ | Benchmark | `nmd_advisori_bench` besteht (Hub-Register) |

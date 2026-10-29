@@ -137,7 +137,8 @@ geändert.</p>
 <tr>
   <td>PostgreSQL-Version</td>
   <td><strong>17</strong></td>
-  <td><strong>Plan geändert.</strong> Auf advisori01 läuft 16. Das Schema kommt darum aus dem
+  <td><strong>Plan geändert.</strong> Auf advisori01 läuft 16 (Upgrade auf 17 mit nine vereinbart,
+  Termin offen, Stand 29.10.). Das Schema kommt darum aus dem
   Repository, nicht aus einem Auszug — siehe Abschnitt 6. Für den Datenauszug braucht es einen
   17er Client auf dem Server.</td>
 </tr>
@@ -584,7 +585,10 @@ das Schema aus einem Auszug der Produktionsdatenbank kommen und die Migrationen 
 17</strong>, hier steht <strong>16</strong>. Ein Auszug ist aufwärtskompatibel, nicht abwärts —
 ihn in eine ältere Version zu laden ist nicht vorgesehen und scheitert je nach Inhalt sofort oder,
 schlimmer, erst später an einer Einzelheit.</p>
-<p>Statt nine um PostgreSQL 17 zu bitten (weiterer Complex Service, Vorlauf, Kosten) wird die
+<p><span class="label">Stand 29.10.2026:</span> nine upgradet advisori01 auf PostgreSQL 17,
+kostenlos werktags 09:00–17:30 (SVC-117420); der Termin steht noch aus. Der Weg unten bleibt
+trotzdem richtig, weil er nicht von einer Version abhängt.</p>
+<p>Ursprünglich sollte nine nicht um PostgreSQL 17 gebeten werden (weiterer Complex Service, Vorlauf, Kosten). Darum wird die
 Richtung umgedreht: <strong>das Repository ist die Quelle der Wahrheit für das Schema, die
 Produktion nur für die Daten.</strong> Daten kommen als <code>COPY</code> heraus und sind reiner
 Text ohne Versionsbezug. Der Schema-Auszug wird trotzdem gezogen — aber nur zum Vergleichen, nie
