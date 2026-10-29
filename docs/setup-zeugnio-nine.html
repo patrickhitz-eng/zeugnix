@@ -113,9 +113,13 @@ Pre-Inkasso. Alles davon kommt nach dem Datenumzug und ist absichtlich davon get
 <li><code>npm run backfill:hash</code> <strong>nie wieder ausführen.</strong> Das Skript schreibt
 die Hashes bestehender Zeugnisse neu. Jedes bereits ausgestellte Zeugnis wäre danach nicht mehr
 prüfbar — und die QR-Codes auf gedruckten Exemplaren zeigen ins Leere.</li>
-<li><span class="label">Den Signaturschlüssel nicht neu erzeugen.</span>
-<code>ZEUGNIO_SIGNING_PRIVATE_KEY</code> kommt aus dem Passwort-Manager. Ein neuer Schlüssel macht
-alle bisherigen Signaturen unprüfbar. Er wird auch nicht rotiert.</li>
+<li><span class="label">Den Signaturschlüssel nie ohne den alten öffentlichen ersetzen.</span>
+Jede Key-ID, mit der je ein Zeugnis signiert wurde, muss in
+<code>ZEUGNIO_SIGNING_PUBLIC_KEYS</code> stehen, sonst sind diese Zeugnisse nicht mehr prüfbar.
+Die gültigen öffentlichen Schlüssel zeigt die laufende App unter <code>/api/signing-keys</code>.
+advisori01 hat seit dem 29.10.2026 einen eigenen Schlüssel; der von Vercel (Key-ID
+<code>44df4953c533a8f7</code>, aktiv seit 28.10.) steht dort als zurückgezogener
+(<a href="#s2">Abschnitt 3.6</a>).</li>
 <li><span class="label">Keine Produktionsdaten für Versuche.</span> Die Rechteprobe in Abschnitt 1
 und die Vollprobe in Abschnitt 10 laufen mit erfundenen Namen. Ein Zeugnis, das während der Probe
 finalisiert wird, trägt die Testadresse dauerhaft im QR-Code.</li>
@@ -365,6 +369,17 @@ ist. Die Werte kommen aus dem Passwort-Manager und aus Vercel, nie aus einem Cha
 vorerst <code>DATA_API_URL</code> und <code>DATA_API_JWT_SECRET</code> (kommen mit PostgREST,
 <a href="#s8">Abschnitt 9</a>). Den Block «Sicherung ins zweite Rechenzentrum» am Ende löschen:
 Das Kit liest den S3-Zugang aus einer eigenen Datei (3.7).</p>
+
+<p><span class="label">Was nicht rotiert wird, und was neu entsteht.</span> Alles, was Vercel
+benutzt, bleibt unverändert, sonst steht die Live-Seite. Supabase-Adresse und -Schlüssel kommen
+aus dem Supabase-Dashboard (lesen, nicht neu erzeugen). Für Resend wird ein <em>zusätzlicher</em>
+Schlüssel angelegt. Neu und nur für den Server: das Passwort von <code>nmd_zeugnio</code>
+(<code>nine-manage-databases user update</code> als <code>www-data</code>),
+<code>CRON_SECRET</code> und der Signaturschlüssel. Diesen schreibt der folgende Befehl direkt in die
+Datei, ohne ihn anzuzeigen, und trägt den öffentlichen Vercel-Schlüssel vom 28.10. als
+zurückgezogenen ein:</p>
+
+<pre><code>node -e 'const c=require("crypto"),fs=require("fs"),f=process.env.HOME+"/zeugnio/shared/.env";const{privateKey,publicKey}=c.generateKeyPairSync("ed25519");const priv=Buffer.from(privateKey.export({type:"pkcs8",format:"pem"})).toString("base64");const old="LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUNvd0JRWURLMlZ3QXlFQVFWaHlnMk5UeERUOXkvRUgzOG13UkhjVGVybXV6Y3NMcjNFOGE0Y3J3MlE9Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=";let s=fs.readFileSync(f,"utf8");s=s.replace(/^ZEUGNIO_SIGNING_PRIVATE_KEY=.*$/m,"ZEUGNIO_SIGNING_PRIVATE_KEY=\""+priv+"\"").replace(/^ZEUGNIO_SIGNING_PUBLIC_KEYS=.*$/m,"ZEUGNIO_SIGNING_PUBLIC_KEYS=\x27{\"vercel-2026-10-28\":\""+old+"\"}\x27");fs.writeFileSync(f,s);const kid=c.createHash("sha256").update(publicKey.export({type:"spki",format:"der"})).digest("hex").slice(0,16);console.log("Neuer Signaturschluessel, Key-ID "+kid+". Alter Vercel-Schluessel 44df4953c533a8f7 bleibt pruefbar.")'</code></pre>
 
 <div class="warn">
 <p><span class="label">Die wichtigste Zeile dieser Datei.</span>
