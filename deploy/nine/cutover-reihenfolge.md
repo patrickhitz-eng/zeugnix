@@ -119,6 +119,16 @@ erledigt: der vhost `zeugnio.ch` steht, noch ohne Zertifikat. Weiter mit Phase 2
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
 | 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
 
+**Stand 29.10.: 2.1 erledigt.** `~/kit/deploy.sh zeugnio --check` mit Kit e88fd08:
+- Node v22.23.4, npm 10.9.9, pm2 7.1.1. Der Dienst `pm2` ist aktiv.
+- Der memory-Controller ist delegiert, der Speicherdeckel für Builds greift also.
+- `.env`, `backup.key` und `backup-s3.env` haben Rechte 600, `uploads/` ist da.
+- GitHub ist über HTTPS lesbar.
+- Offen sind nur die erwarteten Punkte: `postgrest.conf` fehlt (2.4), es gibt noch keinen Auszug, und es läuft noch keine Version.
+- `pg_dump` ist noch 16.15. Ab dem Upgrade braucht es 17.
+- Die `.env` hat einen **eigenen Signaturschlüssel**; der Vercel-Schlüssel `44df4953c533a8f7` steht als zurückgezogener in `ZEUGNIO_SIGNING_PUBLIC_KEYS`.
+- Das Passwort von `nmd_zeugnio` ist neu, `CRON_SECRET` und der Resend-Schlüssel gelten nur für den Server. In Vercel wurde nichts geändert.
+
 **Geheimnisse erst ab 2.1, und nur in `/home/www-zeugnio`.** Solange wir in `www-data`
 arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine ausliefert.
 
