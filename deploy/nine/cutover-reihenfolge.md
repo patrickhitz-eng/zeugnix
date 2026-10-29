@@ -33,8 +33,8 @@
 `www-data` selbst, ohne Ticket (nine-Doku «nine-manage-vhosts with multi-user», gelesen
 28.10.). Alles, was in diesem Konto liegen muss — Releases, `shared/.env`, `postgrest.conf`,
 `backup.key`, pm2, systemd-User-Units, Cron — kann erst danach entstehen.
-→ **Das Runbook ist hier falsch:** § 3 „Benutzer, Node, PM2, Cron" steht vor jedem vhost.
-Richtig ist: vhost zuerst, § 3 danach.
+→ Runbook § 3 setzt seit dem 28.10. voraus, dass der vhost mit `www-zeugnio` schon steht
+(1.2), und legt den Benutzer nicht mehr selbst an.
 
 **2 · PostgreSQL 17 vor dem Schemavergleich.** Produktion läuft 17.6; ein `pg_dump` 16
 verweigert einen 17er-Server, hart und ohne Umweg. Erst nach dem Upgrade ist der Vergleich
@@ -113,11 +113,21 @@ erledigt: der vhost `zeugnio.ch` steht, noch ohne Zertifikat. Weiter mit Phase 2
 
 | # | Schritt | Runbook |
 |---|---|---|
-| 2.1 | In `www-zeugnio`: SSH-Key, Deploy-Key (read-only), nvm + Node 22, PM2, `pm2.service`, **Linger prüfen** (kommt mit dem vhost, aber nachsehen), logrotate, Cron **ausserhalb 00:00–04:00** | § 3 |
+| 2.1 | In `www-zeugnio`: eigener SSH-Zugang, **Linger prüfen**, Kit nach `~/kit`, Ordner, nvm + Node 22, PM2 mit `pm2.service` aus dem Kit, `.env`, `backup.key`, `backup-s3.env`, `deploy.sh --check`. **Kein Deploy-Key**, solange das Repo öffentlich ist (HTTPS). Cron und logrotate erst nach dem ersten Deploy, **ausserhalb 00:00–04:00** | § 3 (korrigiert 28.10.) |
 | 2.2 | Datenbank: `nmd_zeugnio` existiert. Mit dem **admin-Benutzer** die Connect-Grants setzen und `900_nine_bootstrap.sql` einspielen — Rollen ohne Präfix, `authenticator` **NOINHERIT** | § 4, § 5 |
 | 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Eigentum/Rechte), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
 | 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
+
+**Stand 29.10.: 2.1 erledigt.** `~/kit/deploy.sh zeugnio --check` mit Kit e88fd08:
+- Node v22.23.4, npm 10.9.9, pm2 7.1.1. Der Dienst `pm2` ist aktiv.
+- Der memory-Controller ist delegiert, der Speicherdeckel für Builds greift also.
+- `.env`, `backup.key` und `backup-s3.env` haben Rechte 600, `uploads/` ist da.
+- GitHub ist über HTTPS lesbar.
+- Offen sind nur die erwarteten Punkte: `postgrest.conf` fehlt (2.4), es gibt noch keinen Auszug, und es läuft noch keine Version.
+- `pg_dump` ist noch 16.15. Ab dem Upgrade braucht es 17.
+- Die `.env` hat einen **eigenen Signaturschlüssel**; der Vercel-Schlüssel `44df4953c533a8f7` steht als zurückgezogener in `ZEUGNIO_SIGNING_PUBLIC_KEYS`.
+- Das Passwort von `nmd_zeugnio` ist neu, `CRON_SECRET` und der Resend-Schlüssel gelten nur für den Server. In Vercel wurde nichts geändert.
 
 **Geheimnisse erst ab 2.1, und nur in `/home/www-zeugnio`.** Solange wir in `www-data`
 arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine ausliefert.

@@ -92,7 +92,7 @@ Pre-Inkasso. Alles davon kommt nach dem Datenumzug und ist absichtlich davon get
 <ol>
   <li><a href="#s0">Bevor es losgeht: vier Angaben aus dem Supabase-Dashboard</a></li>
   <li><a href="#s1">Bestandsaufnahme auf dem Server (Tor)</a></li>
-  <li><a href="#s2">Benutzer, Node, PM2, Cron</a></li>
+  <li><a href="#s2">App-Benutzer, Node, PM2</a></li>
   <li><a href="#s3">Datenbank anlegen</a></li>
   <li><a href="#s4">Bootstrap: Rollen, auth-Schema, extensions</a></li>
   <li><a href="#s5">Schema aus der Produktion übernehmen</a></li>
@@ -113,9 +113,13 @@ Pre-Inkasso. Alles davon kommt nach dem Datenumzug und ist absichtlich davon get
 <li><code>npm run backfill:hash</code> <strong>nie wieder ausführen.</strong> Das Skript schreibt
 die Hashes bestehender Zeugnisse neu. Jedes bereits ausgestellte Zeugnis wäre danach nicht mehr
 prüfbar — und die QR-Codes auf gedruckten Exemplaren zeigen ins Leere.</li>
-<li><span class="label">Den Signaturschlüssel nicht neu erzeugen.</span>
-<code>ZEUGNIO_SIGNING_PRIVATE_KEY</code> kommt aus dem Passwort-Manager. Ein neuer Schlüssel macht
-alle bisherigen Signaturen unprüfbar. Er wird auch nicht rotiert.</li>
+<li><span class="label">Den Signaturschlüssel nie ohne den alten öffentlichen ersetzen.</span>
+Jede Key-ID, mit der je ein Zeugnis signiert wurde, muss in
+<code>ZEUGNIO_SIGNING_PUBLIC_KEYS</code> stehen, sonst sind diese Zeugnisse nicht mehr prüfbar.
+Die gültigen öffentlichen Schlüssel zeigt die laufende App unter <code>/api/signing-keys</code>.
+advisori01 hat seit dem 29.10.2026 einen eigenen Schlüssel; der von Vercel (Key-ID
+<code>44df4953c533a8f7</code>, aktiv seit 28.10.) steht dort als zurückgezogener
+(<a href="#s2">Abschnitt 3.6</a>).</li>
 <li><span class="label">Keine Produktionsdaten für Versuche.</span> Die Rechteprobe in Abschnitt 1
 und die Vollprobe in Abschnitt 10 laufen mit erfundenen Namen. Ein Zeugnis, das während der Probe
 finalisiert wird, trägt die Testadresse dauerhaft im QR-Code.</li>
@@ -226,42 +230,156 @@ tatsächliche Verhalten regelmässig auseinanderfallen.</p>
 </tr>
 </table>
 
-<h2 id="s2">3 · Benutzer, Node, PM2, Cron</h2>
+<h2 id="s2">3 · App-Benutzer, Node, PM2</h2>
+
+<div class="note">
+<p><span class="label">Korrigiert am 28.10.2026.</span> Die erste Fassung legte den Benutzer mit
+<code>sudo adduser</code> an und schaltete Linger mit <code>sudo loginctl enable-linger</code> ein.
+Beides geht auf advisori01 nicht, weil wir kein Root haben. Es ist auch nicht mehr nötig:
+<code>www-zeugnio</code> entsteht mit <code>nine-manage-vhosts</code> zusammen mit dem vhost
+(<code>deploy/nine/cutover-reihenfolge.md</code> 1.2), und nine schaltet Linger dabei ein.
+Autostart, Sicherung und später Cron und Log-Rotation kommen aus dem gemeinsamen advisori01-Kit,
+nicht mehr aus <code>deploy/nine/</code>.</p>
+</div>
 
 <p>Ein eigener Linux-Benutzer pro Produkt — so liegen die Geheimnisse der Anwendungen nicht
-gegenseitig offen. Als Hauptbenutzer:</p>
+gegenseitig offen. Voraussetzung: <code>nine-manage-vhosts virtual-host list</code> zeigt
+<code>zeugnio.ch</code> mit dem Benutzer <code>www-zeugnio</code>.</p>
 
-<pre><code>sudo adduser --disabled-password --gecos "" www-zeugnio
-sudo loginctl enable-linger www-zeugnio     # Dienste überleben das Abmelden und einen Neustart
-sudo su - www-zeugnio</code></pre>
+<h3>3.1 Eigener SSH-Zugang</h3>
 
-<p>Ab hier als <code>www-zeugnio</code>:</p>
+<p>Für advisori01 gibt es ein eigenes Schlüsselpaar, <code>id_ed25519_advisori01</code> (eingerichtet am
+29.10.2026; zum alten <code>id_ed25519</code> fehlte die Passphrase). <code>~/.ssh/config</code> auf dem
+eigenen Rechner sagt ssh, dass es für <code>advisori01.nine.ch</code> diesen Schlüssel nimmt:</p>
 
-<pre><code>mkdir -p ~/zeugnio/{shared,releases,backups,logs}
-mkdir -p ~/zeugnio/shared/uploads/logos
-chmod 700 ~/zeugnio/shared
+<pre><code>Host advisori01.nine.ch
+    IdentityFile ~/.ssh/id_ed25519_advisori01
+    IdentitiesOnly yes</code></pre>
 
-# Node aus der .nvmrc (22) und PM2
+<p>Neu erzeugt wird es nur, wenn es fehlt. <strong>Auf dem eigenen Rechner</strong>, in einem eigenen
+PowerShell-Fenster (<code>PS C:\…&gt;</code>) und nicht in der SSH-Sitzung. Die Passphrase vor dem
+Bestätigen notieren:</p>
+
+<pre><code>ssh-keygen -t ed25519 -C "silvan@advisori01" -f "$HOME\.ssh\id_ed25519_advisori01"</code></pre>
+
+<p>Den öffentlichen Teil in die Zwischenablage legen. Er ist kein Geheimnis. <code>Set-Clipboard</code>
+ist ein Windows-Befehl und existiert auf dem Server nicht. <strong>Nicht</strong>
+<code>benchmark_railway.pub</code> nehmen: Das ist der Tunnel-Schlüssel aus dem Railway-Vorfall.</p>
+
+<pre><code>Get-Content "$HOME\.ssh\id_ed25519_advisori01.pub" | Set-Clipboard</code></pre>
+
+<p>Auf dem Server als <code>www-data</code> ins neue Konto wechseln. <code>sudo</code> fragt dabei
+«[sudo] password for www-data». Gemeint ist das Passwort des Kontos <code>www-data</code> selbst:
+<code>sudo</code> fragt immer nach dem Passwort dessen, der es aufruft, nicht nach dem von Root oder
+von <code>www-zeugnio</code>. Es ist das Login-Passwort, das nine beim Aufschalten des Servers vergeben
+hat (bei Albis Run im Passwort-Manager als «nine.ch SSH www-data»). Fehlt es, setzt nine es über das
+Cockpit oder den Support zurück. Danach merkt sich <code>sudo</code> es rund 15 Minuten.</p>
+
+<p>Erst wenn <code>whoami</code> <code>www-zeugnio</code> zeigt, den Schlüssel als eine Zeile eintragen
+(in nano mit Rechtsklick einfügen, dann <code>Ctrl+O</code>, <code>Enter</code>, <code>Ctrl+X</code>).
+Sonst landet er im Konto <code>www-data</code>:</p>
+
+<pre><code>sudo nine-su www-zeugnio
+whoami
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+nano ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys</code></pre>
+
+<p>Gegenprobe vom eigenen Rechner (PowerShell). Erwartet: <code>www-zeugnio</code> und
+<code>Linger=yes</code>. Linger heisst: Die Dienste dieses Benutzers laufen weiter, auch wenn niemand
+angemeldet ist.</p>
+
+<pre><code>ssh www-zeugnio@advisori01.nine.ch "whoami; loginctl show-user www-zeugnio --property=Linger"</code></pre>
+
+<p>Ab hier alles als <code>www-zeugnio</code>, <strong>direkt per SSH</strong> angemeldet, nicht über
+<code>nine-su</code>. Nur so findet <code>systemctl --user</code> den eigenen systemd.</p>
+
+<h3>3.2 Das Kit</h3>
+
+<p>Das advisori01-Kit liefert Deploy, Sicherung und Restore-Test für alle Apps auf dem Server; jeder
+App-Benutzer hat eine eigene Kopie unter <code>~/kit</code>. Solange das Kit-Repo kein Remote hat,
+kommt es als Git-Bundle auf den Server, also als ganzes Repo in einer Datei. Auf dem eigenen Rechner
+(PowerShell), zwei Befehle:</p>
+
+<pre><code>git -C "$HOME\advisori-advisori01-kit" bundle create "$HOME\advisori01-kit.bundle" --all
+scp "$HOME\advisori01-kit.bundle" www-zeugnio@advisori01.nine.ch:advisori01-kit.bundle</code></pre>
+
+<p>Auf dem Server:</p>
+
+<pre><code>git clone ~/advisori01-kit.bundle ~/kit && rm ~/advisori01-kit.bundle</code></pre>
+
+<h3>3.3 Ordner</h3>
+
+<pre><code>mkdir -p ~/zeugnio/shared/uploads/logos ~/zeugnio/releases ~/zeugnio/backups ~/zeugnio/logs
+chmod 700 ~/zeugnio/shared</code></pre>
+
+<p>Jeder Deploy baut in einem neuen Ordner unter <code>releases/</code>; der Verweis
+<code>current</code> zeigt auf die laufende Version. Was jeden Deploy überleben muss —
+Geheimnisse und Firmenlogos —, liegt in <code>shared/</code> und wird in jede Version nur verknüpft.</p>
+
+<h3>3.4 Node und PM2</h3>
+
+<pre><code># Node aus der .nvmrc (22) und PM2
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 . ~/.nvm/nvm.sh
-nvm install 22 && nvm use 22
+nvm install 22
 npm install -g pm2
+node -v && pm2 -v</code></pre>
 
-# Lesezugriff auf das Repository (Deploy-Key, nur lesen)
-ssh-keygen -t ed25519 -C "advisori01 zeugnio deploy" -f ~/.ssh/id_ed25519 -N ""
-cat ~/.ssh/id_ed25519.pub</code></pre>
+<p>nvm installiert Node im eigenen Heimatverzeichnis, ohne Root. PM2 hält die App am Laufen und
+startet sie nach einem Absturz neu. Damit PM2 auch einen Neustart des Servers übersteht, startet
+ihn ein systemd-Dienst dieses Benutzers (Vorlage aus dem Kit, ohne <code>NODE_ENV</code>):</p>
 
-<p>Den öffentlichen Schlüssel in GitHub unter <em>Settings → Deploy keys</em> des Repositories
-<code>patrickhitz-eng/zeugnix</code> eintragen, <strong>ohne</strong> Schreibrecht. Dann prüfen:</p>
+<pre><code>mkdir -p ~/.config/systemd/user
+cp ~/kit/templates/pm2.service ~/.config/systemd/user/pm2.service
+systemctl --user daemon-reload && systemctl --user enable pm2</code></pre>
 
-<pre><code>ssh -T git@github.com    # "successfully authenticated" genügt</code></pre>
+<p>Meldet <code>systemctl</code> «Failed to connect to bus», ist die Sitzung über
+<code>nine-su</code> entstanden. Dann zuerst <code>export XDG_RUNTIME_DIR="/run/user/$(id -u)"</code>.</p>
 
-<h3>Umgebung anlegen</h3>
+<h3>3.5 Lesezugriff auf das Repository</h3>
 
-<pre><code>git clone --depth 1 git@github.com:patrickhitz-eng/zeugnix.git /tmp/zeugnio-setup
-cp /tmp/zeugnio-setup/deploy/nine/env.production.example ~/zeugnio/shared/.env
-chmod 600 ~/zeugnio/shared/.env
+<p>Das Repository <code>patrickhitz-eng/zeugnix</code> ist öffentlich (geprüft am 28.10.2026). Der
+Server holt den Code darum über HTTPS, ohne Deploy-Key — es liegt kein weiterer Schlüssel auf dem
+Server, und niemand muss auf GitHub etwas eintragen. <code>GIT_URL</code> in
+<code>apps/zeugnio/kit.conf</code> des Kits ist darauf eingestellt. Gegenprobe:</p>
+
+<pre><code>git ls-remote https://github.com/patrickhitz-eng/zeugnix.git HEAD</code></pre>
+
+<p>Die Abschnitte 6, 9 und 11 arbeiten mit Skripten aus dem Repository, bevor die App ausgeliefert
+ist. Dafür eine Arbeitskopie, die nach dem ersten Deploy wieder weg kann:</p>
+
+<pre><code>git clone --depth 1 https://github.com/patrickhitz-eng/zeugnix.git ~/zeugnio-setup</code></pre>
+
+<div class="warn">
+<p><span class="label">Wird das Repository privat,</span> scheitert der nächste Deploy mit «kein
+Lesezugriff». Dann braucht der Server einen Deploy-Key: ein eigenes Schlüsselpaar, dessen
+öffentlicher Teil im Repository unter <em>Settings → Deploy keys</em> <strong>ohne</strong>
+Schreibrecht steht. Eintragen kann ihn nur, wer auf dem Repository Admin ist (heute Patrick).
+<code>GIT_URL</code> kommt dann zurück auf <code>git@github.com:patrickhitz-eng/zeugnix.git</code>.</p>
+</div>
+
+<h3>3.6 Umgebung anlegen</h3>
+
+<pre><code>(umask 077; curl -fsSL https://raw.githubusercontent.com/patrickhitz-eng/zeugnix/main/deploy/nine/env.production.example -o ~/zeugnio/shared/.env)
 nano ~/zeugnio/shared/.env</code></pre>
+
+<p><code>umask 077</code> sorgt dafür, dass die Datei von Anfang an nur für den Benutzer selbst lesbar
+ist. Die Werte kommen aus dem Passwort-Manager und aus Vercel, nie aus einem Chat. Leer bleiben
+vorerst <code>DATA_API_URL</code> und <code>DATA_API_JWT_SECRET</code> (kommen mit PostgREST,
+<a href="#s8">Abschnitt 9</a>). Den Block «Sicherung ins zweite Rechenzentrum» am Ende löschen:
+Das Kit liest den S3-Zugang aus einer eigenen Datei (3.7).</p>
+
+<p><span class="label">Was nicht rotiert wird, und was neu entsteht.</span> Alles, was Vercel
+benutzt, bleibt unverändert, sonst steht die Live-Seite. Supabase-Adresse und -Schlüssel kommen
+aus dem Supabase-Dashboard (lesen, nicht neu erzeugen). Für Resend wird ein <em>zusätzlicher</em>
+Schlüssel angelegt. Neu und nur für den Server: das Passwort von <code>nmd_zeugnio</code>
+(<code>nine-manage-databases user update</code> als <code>www-data</code>),
+<code>CRON_SECRET</code> und der Signaturschlüssel. Diesen schreibt der folgende Befehl direkt in die
+Datei, ohne ihn anzuzeigen, und trägt den öffentlichen Vercel-Schlüssel vom 28.10. als
+zurückgezogenen ein:</p>
+
+<pre><code>node -e 'const c=require("crypto"),fs=require("fs"),f=process.env.HOME+"/zeugnio/shared/.env";const{privateKey,publicKey}=c.generateKeyPairSync("ed25519");const priv=Buffer.from(privateKey.export({type:"pkcs8",format:"pem"})).toString("base64");const old="LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUNvd0JRWURLMlZ3QXlFQVFWaHlnMk5UeERUOXkvRUgzOG13UkhjVGVybXV6Y3NMcjNFOGE0Y3J3MlE9Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=";let s=fs.readFileSync(f,"utf8");s=s.replace(/^ZEUGNIO_SIGNING_PRIVATE_KEY=.*$/m,"ZEUGNIO_SIGNING_PRIVATE_KEY=\""+priv+"\"").replace(/^ZEUGNIO_SIGNING_PUBLIC_KEYS=.*$/m,"ZEUGNIO_SIGNING_PUBLIC_KEYS=\x27{\"vercel-2026-10-28\":\""+old+"\"}\x27");fs.writeFileSync(f,s);const kid=c.createHash("sha256").update(publicKey.export({type:"spki",format:"der"})).digest("hex").slice(0,16);console.log("Neuer Signaturschluessel, Key-ID "+kid+". Alter Vercel-Schluessel 44df4953c533a8f7 bleibt pruefbar.")'</code></pre>
 
 <div class="warn">
 <p><span class="label">Die wichtigste Zeile dieser Datei.</span>
@@ -275,21 +393,33 @@ diese Regel verletzt wird.</p>
 läuft alles unverändert über Supabase — genau so wird vor dem Cutover getestet.</p>
 </div>
 
-<pre><code># Dienste und Log-Rotation einrichten
-mkdir -p ~/.config/systemd/user
-cp /tmp/zeugnio-setup/deploy/nine/pm2.service ~/.config/systemd/user/pm2.service
-systemctl --user daemon-reload && systemctl --user enable pm2
-cat /tmp/zeugnio-setup/deploy/nine/logrotate.conf >> ~/.logrotate.conf
+<h3>3.7 Schlüssel und Zugang für die eigene Sicherung</h3>
 
-# Schlüssel für die eigene Sicherung
-openssl rand -base64 48 > ~/zeugnio/shared/backup.key
-chmod 600 ~/zeugnio/shared/backup.key</code></pre>
+<pre><code>(umask 077; openssl rand -base64 48 > ~/zeugnio/shared/backup.key)
+cat ~/zeugnio/shared/backup.key</code></pre>
 
 <div class="danger">
-<p><span class="label">Diesen Schlüssel sofort in den Passwort-Manager.</span> Ohne ihn ist jede
-Sicherung unbrauchbar — und zwar auch dann, wenn der Server noch steht. Er liegt danach an genau
-zwei Stellen: auf dem Server und im Passwort-Manager.</p>
+<p><span class="label">Diesen Schlüssel sofort in den Passwort-Manager</span> (Titel
+«Backup-Schlüssel zeugnio.ch»), danach <code>clear</code>. Ohne ihn ist jede Sicherung unbrauchbar —
+und zwar auch dann, wenn der Server noch steht. Er liegt danach an genau zwei Stellen: auf dem
+Server und im Passwort-Manager.</p>
 </div>
+
+<pre><code>cp ~/kit/templates/backup-s3.env.example ~/zeugnio/shared/backup-s3.env
+chmod 600 ~/zeugnio/shared/backup-s3.env</code></pre>
+
+<p>Die Werte darin folgen, sobald der Bucket im nine-Cockpit bestellt ist (Journal B3).</p>
+
+<h3>3.8 Gegenprobe</h3>
+
+<pre><code>~/kit/deploy.sh zeugnio --check</code></pre>
+
+<p>In diesem Stand sind Warnungen erwartet: <code>postgrest.conf</code> fehlt (Abschnitt 9), es gibt
+noch keine laufende Version und keinen Prozess in PM2 (Abschnitt 10), noch keinen Auszug und keine
+Statusdateien der Cron-Jobs, vielleicht auch «memory-Controller nicht delegiert». <strong>Nicht</strong>
+erwartet sind Warnungen zu Node, PM2, dem Dienst <code>pm2</code>, den Rechten in
+<code>shared/</code> und zum Lesezugriff auf GitHub. Cron und Log-Rotation kommen erst nach dem ersten
+Deploy, aus <code>cron/zeugnio.crontab</code> und <code>templates/logrotate.conf</code> des Kits.</p>
 
 <h2 id="s3">4 · Datenbank anlegen</h2>
 
@@ -370,7 +500,7 @@ Abschnitt 11).</p>
 Schema <code>extensions</code> können wir selbst anlegen.</p>
 </div>
 
-<pre><code>cd /tmp/zeugnio-setup
+<pre><code>cd ~/zeugnio-setup
 psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/900_nine_bootstrap.sql
 
 # Passwort für die Rolle, mit der PostgREST sich verbindet.
@@ -463,7 +593,7 @@ zum Einspielen.</p>
 
 <h3>Migrationen einspielen</h3>
 
-<pre><code>cd /tmp/zeugnio-setup
+<pre><code>cd ~/zeugnio-setup
 ln -sf ~/zeugnio/shared/.env .env
 node --env-file=.env scripts/migrate.mjs --status     # zeigt, was ansteht
 node --env-file=.env scripts/migrate.mjs              # 001-026 wirklich ausführen
@@ -552,7 +682,7 @@ eine Zahl über 0 eine wirkungslose Regel</td></tr>
 
 <h2 id="s8">9 · Daten-API: PostgREST</h2>
 
-<pre><code>cd /tmp/zeugnio-setup
+<pre><code>cd ~/zeugnio-setup
 ./deploy/nine/install-postgrest.sh                 # zeigt nur die Prüfsumme, installiert nicht</code></pre>
 
 <p>Die ausgegebene Prüfsumme mit der Angabe auf der Release-Seite von PostgREST vergleichen — von
@@ -604,7 +734,7 @@ der Schlüssel kein JWT (siehe Abschnitt 1, vierte Angabe).</p>
 #   client_max_body_size 4m;
 #   proxy_read_timeout   60s;</code></pre>
 
-<pre><code>cp /tmp/zeugnio-setup/deploy/nine/deploy.sh ~/deploy-zeugnio.sh   # nur für den ersten Lauf
+<pre><code>cp ~/zeugnio-setup/deploy/nine/deploy.sh ~/deploy-zeugnio.sh   # nur für den ersten Lauf
 chmod +x ~/deploy-zeugnio.sh
 ~/deploy-zeugnio.sh --check      # prüft Rechte, Dienste, Zugriff — ändert nichts
 ~/deploy-zeugnio.sh main</code></pre>
