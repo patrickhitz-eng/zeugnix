@@ -244,16 +244,28 @@ gegenseitig offen. Voraussetzung: <code>nine-manage-vhosts virtual-host list</co
 
 <h3>3.1 Eigener SSH-Zugang</h3>
 
-<p>Auf dem eigenen Rechner (PowerShell) den öffentlichen Schlüssel in die Zwischenablage legen. Der
-öffentliche Teil ist kein Geheimnis; es ist derselbe Schlüssel wie für <code>www-albisrun</code>:</p>
+<p><strong>Auf dem eigenen Rechner</strong>, in einem eigenen PowerShell-Fenster und nicht in der
+SSH-Sitzung, den öffentlichen Schlüssel in die Zwischenablage legen. <code>Set-Clipboard</code> ist ein
+Windows-Befehl, braucht keine Admin-Rechte und existiert auf dem Server nicht. Der öffentliche Teil
+ist kein Geheimnis; es ist derselbe Schlüssel wie für <code>www-albisrun</code> (Kommentar
+<code>silvan@albisrun</code>). <strong>Nicht</strong> <code>benchmark_railway.pub</code> nehmen: Das ist
+der Tunnel-Schlüssel aus dem Railway-Vorfall.</p>
 
 <pre><code>Get-Content "$HOME\.ssh\id_ed25519.pub" | Set-Clipboard</code></pre>
 
-<p>Auf dem Server als <code>www-data</code> ins neue Konto wechseln und den Schlüssel als eine Zeile
-eintragen (in nano mit Rechtsklick einfügen, dann <code>Ctrl+O</code>, <code>Enter</code>,
-<code>Ctrl+X</code>):</p>
+<p>Auf dem Server als <code>www-data</code> ins neue Konto wechseln. <code>sudo</code> fragt dabei
+«[sudo] password for www-data». Gemeint ist das Passwort des Kontos <code>www-data</code> selbst:
+<code>sudo</code> fragt immer nach dem Passwort dessen, der es aufruft, nicht nach dem von Root oder
+von <code>www-zeugnio</code>. Es ist das Login-Passwort, das nine beim Aufschalten des Servers vergeben
+hat (bei Albis Run im Passwort-Manager als «nine.ch SSH www-data»). Fehlt es, setzt nine es über das
+Cockpit oder den Support zurück. Danach merkt sich <code>sudo</code> es rund 15 Minuten.</p>
+
+<p>Erst wenn <code>whoami</code> <code>www-zeugnio</code> zeigt, den Schlüssel als eine Zeile eintragen
+(in nano mit Rechtsklick einfügen, dann <code>Ctrl+O</code>, <code>Enter</code>, <code>Ctrl+X</code>).
+Sonst landet er im Konto <code>www-data</code>:</p>
 
 <pre><code>sudo nine-su www-zeugnio
+whoami
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
 nano ~/.ssh/authorized_keys
 chmod 600 ~/.ssh/authorized_keys</code></pre>
