@@ -104,8 +104,16 @@ sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --templa
 
 1.2 ist der kritische Pfad und liegt jetzt bei uns. Auf nine wartet nur noch 1.1.
 
-**Stand 28.10.:** 1.1 ist verschickt (13:29), wir warten auf den Terminvorschlag. 1.2 ist
-erledigt: der vhost `zeugnio.ch` steht, noch ohne Zertifikat. Weiter mit Phase 2.1.
+**Stand 29.10.:**
+- **1.1:** nine hat geantwortet. Das Upgrade ist **gratis Mo–Fr 09:00–17:30** (sonst mind. CHF 500), und der Nachtdump läuft als **Superuser**. Einen Termin schlägt nine nicht vor, **den nennen wir**.
+- **1.2:** erledigt. Der vhost `zeugnio.ch` steht, noch ohne Zertifikat.
+- **2.1:** erledigt.
+
+**Am Tag des Upgrades** (Albis Run ist dabei kurz weg):
+1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
+2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
+3. `~/kit/deploy.sh zeugnio --check` meldet `pg_dump (PostgreSQL) 17`.
+4. Am Morgen danach prüfen, ob das Albis-Run-Backup von 03:30 durchgelaufen ist.
 
 ---
 
