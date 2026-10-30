@@ -375,7 +375,7 @@ Das Kit liest den S3-Zugang aus einer eigenen Datei (3.7).</p>
 benutzt, bleibt unverändert, sonst steht die Live-Seite. Supabase-Adresse und -Schlüssel kommen
 aus dem Supabase-Dashboard (lesen, nicht neu erzeugen). Für Resend wird ein <em>zusätzlicher</em>
 Schlüssel angelegt. Neu und nur für den Server: das Passwort von <code>nmd_zeugnio</code>
-(<code>nine-manage-databases user update</code> als <code>www-data</code>),
+(seit dem 30.10. als <code>pgadmin</code>, Abschnitt 4),
 <code>CRON_SECRET</code> und der Signaturschlüssel. Diesen schreibt der folgende Befehl direkt in die
 Datei, ohne ihn anzuzeigen, und trägt den öffentlichen Vercel-Schlüssel vom 28.10. als
 zurückgezogenen ein:</p>
@@ -423,6 +423,16 @@ erwartet sind Warnungen zu Node, PM2, dem Dienst <code>pm2</code>, den Rechten i
 Deploy, aus <code>cron/zeugnio.crontab</code> und <code>templates/logrotate.conf</code> des Kits.</p>
 
 <h2 id="s3">4 · Datenbank anlegen</h2>
+
+<div class="warn">
+<p><span class="label">Seit dem 30.10.2026 überholt.</span> <code>nmd_zeugnio</code> besteht schon,
+und nach dem Upgrade auf PostgreSQL 17 verwaltet <code>nine-manage-databases</code> nur noch MySQL.
+PostgreSQL-Datenbanken und -Benutzer verwaltet jetzt <code>pgadmin</code> (Zugang in
+<code>/home/www-data/.pg_credentials</code>, nur für <code>www-data</code> lesbar). Er ist kein
+Superuser: Rollen, die er nicht selbst angelegt hat, kann er erst ändern, wenn nine ihm die
+ADMIN-Option gibt (angefragt am 30.10. für <code>nmd_zeugnio</code> und <code>nmd_albisrun</code>).
+Der Befehl unten bleibt als Verlauf stehen.</p>
+</div>
 
 <pre><code>sudo nine-manage-databases database create \
   --database-type=postgresql --user=nmd_zeugnio nmd_zeugnio</code></pre>
@@ -521,9 +531,10 @@ dem Server <code>log_statement</code> mitschreibt, zusätzlich im PostgreSQL-Pro
 nine lesen kann. <code>\password</code> vermeidet alle drei: es fragt ohne Anzeige, rechnet
 den SCRAM-SHA-256-Verifier <strong>im Client</strong> aus und schickt nur diesen Hash. Das
 Klartextpasswort verlässt deinen Rechner nie. Dasselbe Werkzeug ist auch der Weg, ein
-Passwort später zu wechseln – ausser bei den von <code>nine-manage-databases</code>
-verwalteten Benutzern: dort <code>nine-manage-databases user update &lt;name&gt; -p
---database-type=postgresql</code>, sonst zeigt nines Oberfläche weiterhin den alten Wert
+Passwort später zu wechseln. Für die von nine angelegten Rollen (<code>nmd_*</code>) als
+<code>pgadmin</code>, verbunden mit <code>-d postgres</code>; das klappt erst mit der ADMIN-Option
+von nine (Abschnitt 4). Bis zum 30.10.2026 lief das über <code>nine-manage-databases user update
+&lt;name&gt; -p --database-type=postgresql</code>, damit nines Oberfläche nicht den alten Wert
 an.</p>
 
 <p>Was diese Datei herstellt und warum, steht in ihrem Kopf. Drei Punkte, die im Betrieb
@@ -781,6 +792,10 @@ Zeugnis aus dem Bestand</li>
 
 <p>Eine Sicherung, die nie zurückgespielt wurde, ist eine Vermutung. Die Übung misst zugleich, wie
 lange es im Ernstfall dauert:</p>
+
+<p>Seit dem 30.10.2026 legt <code>nine-manage-databases</code> keine PostgreSQL-Datenbank mehr an.
+Die Übung läuft darum mit <code>~/kit/restore-test.sh zeugnio</code>, der einen eigenen
+Wegwerf-Server startet. Die Befehle unten bleiben als Verlauf stehen.</p>
 
 <pre><code>node ~/zeugnio/current/deploy/nine/db-backup.mjs --full
 sudo nine-manage-databases database create --database-type=postgresql \
