@@ -58,7 +58,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | 2026-10-29 17:45 | SVC-117420 | Unser Terminvorschlag: Mi 4.11. oder Fr 6.11., je ab 10:00 | zeugnio | überholt, nine war schneller |
 | **2026-10-30 08:43** | SVC-117420 | **Antonios Tsianakas: Upgrade auf PostgreSQL 17 abgeschlossen** | zeugnio + Albis Run | admin-Benutzer **`pgadmin`** angelegt, Zugangsdaten in `/home/www-data/.pg_credentials`. **`nine-manage-databases` verwaltet nur noch MySQL.** Bitte um Prüfung |
 | 2026-10-30 | *eigene Prüfung* | Upgrade nachgeprüft | zeugnio + Albis Run | **In Ordnung:** `albisrun.ch/api/health` meldet Datenbank, Tabellen und Anmeldung ok; `pg_dump` 17.11 liegt systemweit, also auch für die Sicherung um 03:30; der Kit-Check sieht 17.11. **Nicht in Ordnung:** `pgadmin` ist kein Superuser und hat kein `CONNECT` auf `nmd_zeugnio`. `\password nmd_zeugnio` scheitert, weil seit PG 16 die ADMIN-Option auf der Rolle fehlt. Die Anmeldung als `nmd_zeugnio` mit dem Passwort aus der `.env` scheitert |
-| 2026-10-30 | SVC-117420 | Bestätigung, dazu die Bitte `GRANT nmd_zeugnio, nmd_albisrun TO pgadmin WITH ADMIN OPTION` und `GRANT CONNECT ON DATABASE nmd_zeugnio, nmd_albisrun TO pgadmin`; Frage, ob der Nachtdump auch selbst angelegte Datenbanken erfasst | zeugnio + Albis Run | Entwurf am 30.10. in Outlook |
+| 2026-10-30 | SVC-117420 | Bestätigung, dazu die Bitte `GRANT nmd_zeugnio, nmd_albisrun TO pgadmin WITH ADMIN OPTION` und `GRANT CONNECT ON DATABASE nmd_zeugnio, nmd_albisrun TO pgadmin`; Frage, ob der Nachtdump auch selbst angelegte Datenbanken erfasst | zeugnio + Albis Run | **verschickt am 30.10. um 09:25**, Antwort offen |
 
 ---
 
