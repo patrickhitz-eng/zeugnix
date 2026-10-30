@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   schlusssatzPreview,
+  zwischenAnlass,
   type SchlusssatzSubject,
+  type ZwischenAnlass,
 } from "@/lib/phrases/schlusssaetze";
 
 type ZeugnisTyp = "schluss" | "zwischen" | "arbeitsbestaetigung";
@@ -34,9 +36,10 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 /**
  * Schlusssatz-Steuerung auf der Detailseite (vormals Schritt 1). Sitzt zwischen
  * dem Aktionen-Panel und der A4-Vorschau. Die Vorschau-Box läuft sofort live
- * (Client-Berechnung mit echtem Namen/Anrede); der volle A4-Text aktualisiert
- * sich bewusst erst über „Neu generieren" im Aktionen-Panel, damit manuelle
- * Editor-Änderungen nicht bei jeder Auswahl überschrieben werden.
+ * (Client-Berechnung mit echtem Namen/Anrede). Nach dem Speichern tauscht der
+ * Server den Satz auch im Zeugnistext, sofern er dort unverändert steht; der
+ * übrige Text (auch Handänderungen) bleibt unberührt. Klappt der Tausch nicht,
+ * zeigt die Box einen Hinweis.
  */
 export function SchlusssatzControls({
   certificateId,
@@ -72,6 +75,21 @@ export function SchlusssatzControls({
 
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState("");
+  const [nichtImText, setNichtImText] = useState(false);
+
+  // Beim Zwischenzeugnis gibt es genau einen Anlass; gespeichert wird er
+  // weiterhin als die drei Opt-in-Felder.
+  const anlass = zwischenAnlass({
+    zeugnisTyp,
+    optinReorg,
+    optinVorgesetztenwechsel,
+    optinInternerWechsel,
+  });
+  const setAnlass = (a: ZwischenAnlass) => {
+    setOptinVorgesetztenwechsel(a === "vorgesetztenwechsel");
+    setOptinInternerWechsel(a === "interner_wechsel");
+    setOptinReorg(a === "reorganisation");
+  };
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showWechselFields = optinVorgesetztenwechsel || optinInternerWechsel;
@@ -130,9 +148,11 @@ export function SchlusssatzControls({
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error ?? "Speichern fehlgeschlagen");
         }
+        const data = await res.json().catch(() => ({}));
         savedSnapshot.current = body;
         setSaveState("saved");
         setSaveError("");
+        setNichtImText(data.schlusssatzImText === "nicht_gefunden");
         // Server-State (u.a. abgeleiteter type/Statusanzeige) auffrischen.
         router.refresh();
       } catch (e: any) {
@@ -197,26 +217,18 @@ export function SchlusssatzControls({
         )}
 
         {zeugnisTyp === "zwischen" && (
-          <div className="space-y-2">
-            <span className="block text-[12px] font-medium text-ink-700">
-              Optionale Zusätze / Anlass
-            </span>
-            <Check
-              checked={optinReorg}
-              onChange={setOptinReorg}
-              label="Reorganisation"
-            />
-            <Check
-              checked={optinVorgesetztenwechsel}
-              onChange={setOptinVorgesetztenwechsel}
-              label="Vorgesetztenwechsel"
-            />
-            <Check
-              checked={optinInternerWechsel}
-              onChange={setOptinInternerWechsel}
-              label="Interner Wechsel"
-            />
-          </div>
+          <Field label="Anlass des Zwischenzeugnisses">
+            <select
+              className="input"
+              value={anlass}
+              onChange={(e) => setAnlass(e.target.value as ZwischenAnlass)}
+            >
+              <option value="wunsch">Wunsch der/des Mitarbeitenden</option>
+              <option value="vorgesetztenwechsel">Vorgesetztenwechsel</option>
+              <option value="interner_wechsel">Interner Wechsel</option>
+              <option value="reorganisation">Reorganisation</option>
+            </select>
+          </Field>
         )}
 
         <Field label="Wertschätzungsgrad (Schlusssatz)">
@@ -268,9 +280,16 @@ export function SchlusssatzControls({
             {vorschau}
           </p>
           <p className="mt-2 text-[11px] leading-relaxed text-ink-400">
-            Änderungen werden gespeichert. Über „Neu generieren" oben wird der
-            volle Zeugnistext mit diesem Schlusssatz aktualisiert.
+            Änderungen werden gespeichert und sofort in den Zeugnistext
+            übernommen.
           </p>
+          {nichtImText && (
+            <p className="mt-2 rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2 text-[12px] leading-relaxed text-amber-900">
+              Im Zeugnistext steht der bisherige Schlusssatz nicht mehr
+              unverändert, darum wurde er dort nicht ersetzt. Ersetze ihn im
+              Editor von Hand oder generiere den Text über „Neu generieren" neu.
+            </p>
+          )}
         </div>
       )}
 
