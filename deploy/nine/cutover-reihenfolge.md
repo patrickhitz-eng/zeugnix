@@ -109,7 +109,12 @@ sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --templa
 - **1.2:** erledigt. Der vhost `zeugnio.ch` steht, noch ohne Zertifikat.
 - **2.1:** erledigt.
 
-**Am Tag des Upgrades** (Albis Run ist dabei kurz weg):
+**Stand 30.10.: Upgrade erledigt** (nine, 08:43, ohne auf unseren Termin zu warten).
+- **In Ordnung:** Albis Run läuft, die Health-Prüfung meldet die Datenbank ok. `pg_dump` 17.11 liegt systemweit.
+- **Admin-Benutzer** heisst `pgadmin` und ist kein Superuser. **2.2 wartet darum auf A9:** die ADMIN-Option und `CONNECT` auf `nmd_zeugnio`, angefragt am 30.10.
+- **Fallback, falls nine ablehnt:** `pgadmin` legt eine eigene Datenbank mit eigenem Eigentümer an. Die SQL-Dateien 900 bis 903 nennen `nmd_zeugnio` nur in Kommentaren. Zu ändern wären dann `.env`, `postgrest.conf` und das Runbook.
+
+**Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
 3. `~/kit/deploy.sh zeugnio --check` meldet `pg_dump (PostgreSQL) 17`.

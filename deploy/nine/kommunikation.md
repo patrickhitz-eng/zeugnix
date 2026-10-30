@@ -55,6 +55,10 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | 2026-10-28 16:17 | SVC-118041 | Ticket geschlossen (Josua Bryner) | Benchmark | erledigt |
 | 2026-10-29 | *selbst* | `www-zeugnio` eingerichtet: SSH-Zugang, Kit, Node 22, pm2 mit Autostart, `.env`, `backup.key`. `deploy.sh zeugnio --check` grün bis auf die erwarteten Lücken | zeugnio | `cutover-reihenfolge.md` 2.1 |
 | **2026-10-29 13:22** | SVC-117420 | **Antwort Antonios Tsianakas** | zeugnio + Albis Run | (1) **Die Postgres-Dumps laufen als Superuser.** Damit bleibt der Nachtdump vollständig, auch wenn die Tabellen `service_role` gehören. (2) **Upgrade kostenlos Mo–Fr 09:00–17:30.** Ausserhalb kostet es eine Pauschale von CHF 250 plus CHF 250 pro Stunde, mindestens eine Stunde, also mindestens CHF 500. Einen Termin hat nine nicht vorgeschlagen; das Ticket wartet auf uns |
+| 2026-10-29 17:45 | SVC-117420 | Unser Terminvorschlag: Mi 4.11. oder Fr 6.11., je ab 10:00 | zeugnio | überholt, nine war schneller |
+| **2026-10-30 08:43** | SVC-117420 | **Antonios Tsianakas: Upgrade auf PostgreSQL 17 abgeschlossen** | zeugnio + Albis Run | admin-Benutzer **`pgadmin`** angelegt, Zugangsdaten in `/home/www-data/.pg_credentials`. **`nine-manage-databases` verwaltet nur noch MySQL.** Bitte um Prüfung |
+| 2026-10-30 | *eigene Prüfung* | Upgrade nachgeprüft | zeugnio + Albis Run | **In Ordnung:** `albisrun.ch/api/health` meldet Datenbank, Tabellen und Anmeldung ok; `pg_dump` 17.11 liegt systemweit, also auch für die Sicherung um 03:30; der Kit-Check sieht 17.11. **Nicht in Ordnung:** `pgadmin` ist kein Superuser und hat kein `CONNECT` auf `nmd_zeugnio`. `\password nmd_zeugnio` scheitert, weil seit PG 16 die ADMIN-Option auf der Rolle fehlt. Die Anmeldung als `nmd_zeugnio` mit dem Passwort aus der `.env` scheitert |
+| 2026-10-30 | SVC-117420 | Bestätigung, dazu die Bitte `GRANT nmd_zeugnio, nmd_albisrun TO pgadmin WITH ADMIN OPTION` und `GRANT CONNECT ON DATABASE nmd_zeugnio, nmd_albisrun TO pgadmin`; Frage, ob der Nachtdump auch selbst angelegte Datenbanken erfasst | zeugnio + Albis Run | **verschickt am 30.10. um 09:25**, Antwort offen |
 
 ---
 
@@ -79,6 +83,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | PG-Upgrade 16 → 17 | **Standardverfahren**; 16 wird gestoppt und **behalten**, Rückfall möglich. **Kostenlos**, der admin-Benutzer ebenfalls. Nur **Parallelbetrieb** wäre kostenpflichtig | Patrick Lion 14.10. |
 | Upgrade-Zeitfenster | **gratis Mo–Fr 09:00–17:30**; ausserhalb CHF 250 Pauschale + CHF 250/h, mind. 1 h (= mind. CHF 500) | Antonios Tsianakas 29.10. |
 | Rolle des Nachtdumps | **Superuser** — der Dump bleibt vollständig, auch nach dem Owner-Wechsel auf `service_role` | Antonios Tsianakas 29.10. |
+| PostgreSQL-Version | **17.11 seit 30.10.**, Client `pg_dump` 17.11 systemweit | Antonios Tsianakas 30.10. + eigene Prüfung |
+| PostgreSQL verwalten | admin-Benutzer **`pgadmin`** (`/home/www-data/.pg_credentials`), **kein Superuser**. `nine-manage-databases` nur noch für MySQL | Antonios Tsianakas 30.10. + eigene Prüfung |
 
 ---
 
@@ -88,7 +94,8 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 | # | Bitte | Für | Stand |
 |---|---|---|---|
-| A1 | **PG 16 → 17 upgraden** (statt zweiter Umgebung) **+ admin-Benutzer** | zeugnio | Verfahren und Kosten geklärt (14.10.), unsere Antwort fehlt; Ticket am 26.10. automatisch geschlossen. **Mail A verschickt am 28.10. um 13:29.** nine (29.10.): gratis Mo–Fr 09:00–17:30, einen Termin schlägt nine nicht vor. **Jetzt an uns:** einen Werktag in diesem Fenster nennen, nicht an Tagen des Sponsorenlaufs |
+| A1 | ~~PG 16 → 17 upgraden + admin-Benutzer~~ | zeugnio | **erledigt am 30.10.** (`pgadmin`) |
+| A9 | **ADMIN-Option und `CONNECT` für `pgadmin`** auf `nmd_zeugnio` und `nmd_albisrun` | zeugnio + Albis Run | angefragt am 30.10. Ohne sie kann `pgadmin` weder Passwörter dieser Rollen setzen noch `nmd_zeugnio` einrichten (2.2) |
 | A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Selbst erledigt am 28.10.** (`cutover-reihenfolge.md` 1.2), noch ohne Zertifikat |
 | A3 | ~~vhost `benchmark.ag` + App-Benutzer `www-benchmark`~~ | Benchmark | `www-benchmark` besteht (Kit `MIGRATION.md`) |
 | A4 | ~~Als welche Rolle läuft der Nachtdump?~~ | zeugnio | **beantwortet 29.10.:** als Superuser |
@@ -108,8 +115,9 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 ### C) Machen wir selbst → kein Ticket
 
-Linux-Benutzer und vhosts anlegen (`nine-manage-vhosts`) · Datenbanken und DB-Benutzer
-anlegen (`nine-manage-databases`) · Datenbankinhalt, Rollen, Rechte (mit A1) · Ports ·
+Linux-Benutzer und vhosts anlegen (`nine-manage-vhosts`) · MySQL-Datenbanken und -Benutzer
+anlegen (`nine-manage-databases`) · PostgreSQL-Datenbanken, Rollen und Rechte mit `pgadmin`
+(für die `nmd_*`-Rollen erst nach A9) · Ports ·
 Prozesse, pm2, systemd-User-Units · Cron · Deployment · Chromium in den User-Space ·
 Mailanbieter (mailomat.swiss) · DNS — beides geprüft am 16.10., siehe „Mailweg und DNS".
 
