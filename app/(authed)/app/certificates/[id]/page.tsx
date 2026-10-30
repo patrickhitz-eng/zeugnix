@@ -81,6 +81,11 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   const isLocked = isCertificateLocked(cert.status);
   const hasText = !!cert.generated_text;
   const isArchived = !!cert.archived_at;
+  // Der Editor liest seinen Text nur beim Mounten. Ändert der Server den
+  // generierten Text («Neu generieren», Schlusssatz-Tausch), wird er über
+  // diesen Schlüssel neu aufgebaut. Eigene Editor-Speicherungen ändern nur
+  // formatted_content und lösen darum keinen Neuaufbau aus.
+  const editorKey = textSchluessel(cert.generated_text ?? "");
 
   // Verlauf (H3): Statuswechsel-Historie, wird automatisch per DB-Trigger
   // befüllt (supabase/021_revocation_and_audit_log.sql). Nur lesend, kein
@@ -309,6 +314,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             Zeugnistext bearbeiten und Vorschau
           </h2>
           <CertificateRichWorkspace
+            key={editorKey}
             certificateId={cert.id}
             generatedText={cert.generated_text ?? ""}
             initialFormattedContent={cert.formatted_content ?? null}
@@ -469,4 +475,11 @@ function StepBadge({
 
 function Connector() {
   return <div className="h-px flex-1 bg-ink-200" />;
+}
+
+/** Kurzer, stabiler Schlüssel für einen Text (djb2), nur für React-`key`. */
+function textSchluessel(text: string): string {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return `t${(h >>> 0).toString(36)}-${text.length}`;
 }

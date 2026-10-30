@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { userIsCompanyMember } from "@/lib/auth/ownership";
-import { deriveLegacyType } from "@/lib/phrases/schlusssaetze";
+import {
+  deriveLegacyType,
+  schlusssatzPreview,
+  type SchlusssatzParams,
+} from "@/lib/phrases/schlusssaetze";
+import { tauscheImDoc, tauscheImText } from "@/lib/phrases/schlusssatz-tausch";
+import { tiptapToPlainText } from "@/lib/certificate/tiptap-plaintext";
 import { isCertificateLocked } from "@/lib/certificate/status";
 
 /**
@@ -9,6 +15,11 @@ import { isCertificateLocked } from "@/lib/certificate/status";
  * Austrittsgrund, Wertschätzungsgrad und die Opt-ins. Aus Zeugnistyp + Opt-ins
  * wird der Legacy-`type` neu abgeleitet (deriveLegacyType), damit ein späteres
  * „Neu generieren" Intro/Tempus/Wechsel-Zweig und Schlusssatz konsistent bäckt.
+ *
+ * Liegt schon ein Zeugnistext vor, wird der Schlusssatz darin sofort getauscht
+ * (generated_text und, falls bearbeitet, formatted_content/edited_text) – aber
+ * nur, wo der bisherige Satz unverändert steht. `schlusssatzImText` meldet der
+ * Steuerung, ob das geklappt hat.
  *
  * Bewusst NICHT gesetzt wird `zeugnis_typ` – der Zeugnistyp bleibt auf Schritt 1
  * gewählt und wird hier nicht verändert.
@@ -26,7 +37,9 @@ export async function PATCH(
 
   const { data: cert } = await supabase
     .from("certificates")
-    .select("company_id, status, zeugnis_typ")
+    .select(
+      "company_id, status, zeugnis_typ, austrittsgrund, wertschaetzungsgrad, optin_bedauern, optin_reorg, optin_vorgesetztenwechsel, optin_interner_wechsel, generated_text, edited_text, formatted_content, employees(first_name, last_name, gender)",
+    )
     .eq("id", id)
     .single();
 
@@ -88,9 +101,69 @@ export async function PATCH(
   const trimOrNull = (v: unknown) =>
     typeof v === "string" && v.trim() ? v.trim() : null;
 
+  // Schlusssatz im vorhandenen Text tauschen: bisheriger Satz (aus dem
+  // gespeicherten Stand) gegen den neuen.
+  const textUpdate: Record<string, unknown> = {};
+  let schlusssatzImText: "kein_text" | "unveraendert" | "getauscht" | "nicht_gefunden" =
+    "kein_text";
+  const person = Array.isArray(cert.employees) ? cert.employees[0] : cert.employees;
+  if (cert.generated_text && person) {
+    const subject = {
+      firstName: person.first_name,
+      lastName: person.last_name,
+      gender: person.gender,
+    };
+    const altParams: SchlusssatzParams = {
+      zeugnisTyp,
+      austrittsgrund: cert.austrittsgrund ?? null,
+      wertschaetzung: cert.wertschaetzungsgrad ?? null,
+      optinBedauern: cert.optin_bedauern ?? false,
+      optinReorg: cert.optin_reorg ?? false,
+      optinVorgesetztenwechsel: cert.optin_vorgesetztenwechsel ?? false,
+      optinInternerWechsel: cert.optin_interner_wechsel ?? false,
+    };
+    const neuParams: SchlusssatzParams = {
+      zeugnisTyp,
+      austrittsgrund,
+      wertschaetzung: wertschaetzungsgrad,
+      optinBedauern,
+      optinReorg,
+      optinVorgesetztenwechsel,
+      optinInternerWechsel,
+    };
+    const alt = schlusssatzPreview(altParams, subject) ?? "";
+    const neu = schlusssatzPreview(neuParams, subject) ?? "";
+
+    if (alt === neu) {
+      schlusssatzImText = "unveraendert";
+    } else {
+      const generated = tauscheImText(cert.generated_text, alt, neu);
+      if (generated) textUpdate.generated_text = generated;
+
+      // Sichtbar ist die Bearbeitung, falls vorhanden – sie entscheidet, ob der
+      // Tausch für die Nutzerin «geklappt» hat.
+      let sichtbarGetauscht = !!generated;
+      if (cert.formatted_content) {
+        const doc = tauscheImDoc(cert.formatted_content, alt, neu);
+        if (doc) {
+          textUpdate.formatted_content = doc;
+          // Autoritative Projektion wie in PUT .../content.
+          textUpdate.edited_text = tiptapToPlainText(doc);
+        }
+        sichtbarGetauscht = !!doc;
+      } else if (cert.edited_text) {
+        const edited = tauscheImText(cert.edited_text, alt, neu);
+        if (edited) textUpdate.edited_text = edited;
+        sichtbarGetauscht = !!edited;
+      }
+      schlusssatzImText = sichtbarGetauscht ? "getauscht" : "nicht_gefunden";
+    }
+  }
+
   const { error: saveErr } = await supabase
     .from("certificates")
     .update({
+      ...textUpdate,
       type,
       austrittsgrund,
       wertschaetzungsgrad,
@@ -111,5 +184,5 @@ export async function PATCH(
       { status: 500 },
     );
 
-  return NextResponse.json({ ok: true, type });
+  return NextResponse.json({ ok: true, type, schlusssatzImText });
 }

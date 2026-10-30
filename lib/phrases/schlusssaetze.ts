@@ -3,29 +3,38 @@
  * ----------------------------------------------------------------------------
  * Eine Quelle der Wahrheit für den Schlusssatz, genutzt von:
  *   - der Engine (lib/phrases/engine.ts) bei der Generierung
- *   - dem Formular (components/forms/new-certificate-form.tsx) für die
- *     Live-Vorschau
+ *   - der Schlusssatz-Steuerung (components/forms/schlusssatz-controls.tsx)
+ *     für die Live-Vorschau
+ *   - der Route PATCH .../schlusssatz, die den Satz im Zeugnistext tauscht
  *
  * Der Schlusssatz ist EIN zusammengesetzter Block (Dank + Zukunftswünsche sind
  * eingebaut). Er wird gewählt entlang:
  *   Zeugnistyp  (schluss | zwischen)
  *   Austrittsgrund (wunsch_an | wunsch_ag | einvernehmen)   – nur bei Schluss
  *   Wertschätzungsgrad (standard | wertschaetzender | top)
- *   Opt-ins Schluss:  Bedauern (ersetzt den Satz), Reorganisation
+ *   Opt-ins Schluss:  Reorganisation (eigener Satz je Grund und Grad),
+ *                     Bedauern (Zusatz zum Satz, je Grad)
  *   Opt-ins Zwischen: Anlass = Vorgesetztenwechsel | interner Wechsel |
- *                     Reorganisation (ersetzt den Standard-Zwischensatz)
+ *                     Reorganisation (eigener Satz je Grad)
+ *
+ * Jede Kombination ergibt einen eigenen Satz; ein Wechsel einer einzelnen
+ * Auswahl ändert den Satz immer (geprüft in scripts/test-schlusssaetze.ts).
+ * Die bisherigen Sätze von Christoph bleiben die Standard- bzw. wertschätzende
+ * Fassung; neu sind die Top-Fassungen (Foliensatz 30.10.2026) und die eigenen
+ * Sätze für Wunsch des Arbeitgebers und Einvernehmen. Ton-Freigabe durch
+ * Christoph steht für die neuen Sätze noch aus.
  *
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
- *
- * Leere Zellen (z.B. „Top-Mitarbeitende", wertschätzender-Zwischen, Einvernehmen)
- * sind bewusst noch nicht befüllt – die Auswahl fällt sauber auf die Standard-
- * Variante zurück. Diese Zellen werden später per Build-Time-KI ergänzt und von
- * Christoph geprüft.
  */
 
 export type Wertschaetzung = "standard" | "wertschaetzender" | "top";
 export type Grund = "wunsch_an" | "wunsch_ag" | "einvernehmen";
+export type ZwischenAnlass =
+  | "wunsch"
+  | "vorgesetztenwechsel"
+  | "interner_wechsel"
+  | "reorganisation";
 
 export interface SchlusssatzParams {
   zeugnisTyp: "schluss" | "zwischen" | "arbeitsbestaetigung";
@@ -39,98 +48,182 @@ export interface SchlusssatzParams {
   optinInternerWechsel?: boolean;
 }
 
+// Gender-Tokens, damit die Sätze unten lesbar bleiben.
+const IHM = "{{ihm|ihr|ihm/ihr}}";
+const IHN = "{{ihn|sie|ihn/sie}}";
+const ER = "{{er|sie|er/sie}}";
+const SEIN = "{{sein|ihr|sein/ihr}}";
+const SEINE = "{{seine|ihre|seine/ihre}}";
+const SEINEN = "{{seinen|ihren|seinen/ihren}}";
+const SEINER = "{{seiner|ihrer|seiner/ihrer}}";
+const NAME = "{vorname} {nachname}";
+
+// Ein Schlusssatz besteht aus einem optionalen Kontextsatz (Reorganisation)
+// und dem Kern (Dank + Wünsche). Das Bedauern wird dazwischen bzw. danach
+// eingefügt, siehe BEDAUERN.
+interface Satz {
+  kontext?: string;
+  kern: string;
+}
+
 // ---------------------------------------------------------------------------
-// Katalog – von Christoph gelieferte Formulierungen (Rest = Lücke → Fallback)
+// Schlusszeugnis
 // ---------------------------------------------------------------------------
 
-const SCHLUSS: Record<Grund, Partial<Record<Wertschaetzung, string>>> = {
+const SCHLUSS: Record<Grund, Record<Wertschaetzung, Satz>> = {
   wunsch_an: {
-    standard:
-      "Wir danken {{ihm|ihr|ihm/ihr}} für die geleistete Arbeit und wünschen {{ihm|ihr|ihm/ihr}} für die Zukunft alles Gute und weiterhin viel Erfolg.",
-    wertschaetzender:
-      "Wir danken {{ihm|ihr|ihm/ihr}} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen. Für die Zukunft wünschen wir {{ihm|ihr|ihm/ihr}} alles Gute und weiterhin viel Erfolg.",
-    // top: Lücke (KI-Ergänzung)
+    standard: {
+      kern: `Wir danken ${IHM} für die geleistete Arbeit und wünschen ${IHM} für die Zukunft alles Gute und weiterhin viel Erfolg.`,
+    },
+    wertschaetzender: {
+      kern: `Wir danken ${IHM} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen. Für die Zukunft wünschen wir ${IHM} alles Gute und weiterhin viel Erfolg.`,
+    },
+    top: {
+      kern: `Wir bedauern ${SEINEN} Entscheid sehr, danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und wünschen ${IHM} für ${SEINE} berufliche und private Zukunft alles Gute und weiterhin viel Erfolg.`,
+    },
   },
   wunsch_ag: {
-    // Lücke – fällt auf wunsch_an zurück (Reorg-AG siehe SCHLUSS_REORG_AG)
+    standard: {
+      kern: `Wir danken ${IHM} für die geleistete Arbeit und wünschen ${IHM} für den weiteren beruflichen Weg alles Gute und viel Erfolg.`,
+    },
+    wertschaetzender: {
+      kern: `Wir danken ${IHM} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen ${IHM} für den weiteren beruflichen Weg alles Gute und viel Erfolg.`,
+    },
+    // Die Weiterempfehlung beantwortet die Frage jedes Lesers («warum?»):
+    // nicht wegen der Leistung – ohne den Grund zu nennen.
+    top: {
+      kern: `Wir bedauern sehr, dass wir das Arbeitsverhältnis nicht fortsetzen können. Wir danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen, empfehlen ${IHN} uneingeschränkt weiter und wünschen ${IHM} für ${SEINE} berufliche und private Zukunft alles Gute und weiterhin viel Erfolg.`,
+    },
   },
   einvernehmen: {
-    // Lücke – fällt auf wunsch_an zurück
+    standard: {
+      kern: `Wir danken ${IHM} für die geleistete Arbeit und wünschen ${IHM} für die berufliche Zukunft alles Gute und viel Erfolg.`,
+    },
+    wertschaetzender: {
+      kern: `Wir danken ${IHM} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen ${IHM} für die berufliche Zukunft alles Gute und viel Erfolg.`,
+    },
+    top: {
+      kern: `Wir bedauern ${SEIN} Ausscheiden sehr, danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und wünschen ${IHM} für ${SEINE} berufliche und private Zukunft alles Gute und weiterhin viel Erfolg.`,
+    },
   },
 };
 
-// Opt-in „Bedauern" ersetzt den Satz (immer als Ergänzung, auch bei anderen
-// Opt-ins → hat Vorrang). Wertschätzender Grundton.
-const SCHLUSS_BEDAUERN =
-  "Wir bedauern {{sein|ihr|sein/ihr}} Ausscheiden und danken {{ihm|ihr|ihm/ihr}} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen {{ihm|ihr|ihm/ihr}} für die Zukunft alles Gute und weiterhin viel Erfolg.";
-
-// Opt-in „Reorganisation" – arbeitnehmer- vs. arbeitgeberinitiiert.
-const SCHLUSS_REORG_DEFAULT =
-  "Im Zusammenhang mit einer Reorganisation danken wir {{ihm|ihr|ihm/ihr}} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen {{ihm|ihr|ihm/ihr}} für die Zukunft alles Gute und weiterhin viel Erfolg.";
-const SCHLUSS_REORG_AG =
-  "Dieses Arbeitsverhältnis wurde im Rahmen einer Reorganisation beendet. Wir danken {{ihm|ihr|ihm/ihr}} für die geleistete Arbeit und wünschen {{ihm|ihr|ihm/ihr}} für die Zukunft alles Gute und weiterhin viel Erfolg.";
-
-const ZWISCHEN: Partial<Record<Wertschaetzung, string>> = {
-  // Ausblick statt Abschiedsformel: Die Person bleibt angestellt, «alles Gute»
-  // ohne Ausblick wird als Trennungssignal gelesen. «Auf Wunsch von {Name}»
-  // statt «des Mitarbeiters», weil der Satz auch für Kader/GF gilt.
-  standard:
-    "Dieses Zwischenzeugnis wird auf Wunsch von {vorname} {nachname} ausgestellt. Wir danken {{ihm|ihr|ihm/ihr}} für die bisherige wertvolle Mitarbeit und freuen uns auf die weitere erfolgreiche Zusammenarbeit.",
-  // wertschaetzender / top: Lücke (KI-Ergänzung)
+// Opt-in „Reorganisation": eigener Satz je Austrittsgrund und Grad.
+const KERN_REORG: Record<Wertschaetzung, string> = {
+  standard: `Wir danken ${IHM} für die geleistete Arbeit und wünschen ${IHM} für die Zukunft alles Gute und weiterhin viel Erfolg.`,
+  wertschaetzender: `Wir danken ${IHM} für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen ${IHM} für die Zukunft alles Gute und weiterhin viel Erfolg.`,
+  top: `Wir bedauern dies sehr, danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und wünschen ${IHM} für ${SEINE} berufliche und private Zukunft alles Gute und weiterhin viel Erfolg.`,
 };
 
-// Zwischenzeugnis – Anlass-Varianten. Beim Zwischenzeugnis BLEIBT die Person
-// angestellt; der gewählte Anlass verändert nur den Schlusssatz und ersetzt den
-// Standard-Zwischensatz oben. Basis = Christoph-abgesegnete Bausteine aus
-// Migration 010 (phrase_blocks: vorgesetztenwechsel / interner_wechsel), hier
-// für den Zwischen-Kontext gespiegelt/angepasst.
-// ENTWURF – finale Formulierung + Freigabe durch Christoph noch ausstehend.
-const ZWISCHEN_VORGESETZTENWECHSEL =
-  "Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken {vorname} {nachname} für die bisherige sehr wertvolle Unterstützung bestens und hoffen, noch lange auf {{seine|ihre|seine/ihre}} geschätzte Mitarbeit zählen zu dürfen.";
-const ZWISCHEN_INTERNER_WECHSEL =
-  "Dieses Zwischenzeugnis wird aufgrund eines internen Wechsels ausgestellt. Wir danken {vorname} {nachname} bestens für die bisherige wertvolle Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} viel Freude und Erfolg im neuen Aufgabengebiet.";
-const ZWISCHEN_REORG =
-  "Dieses Zwischenzeugnis wird im Zuge einer Reorganisation ausgestellt. Wir danken {vorname} {nachname} für die bisherige wertvolle Mitarbeit und wünschen {{ihm|ihr|ihm/ihr}} weiterhin viel Erfolg.";
+const REORG_AN = `Im Zusammenhang mit einer Reorganisation verlässt ${ER} unser Unternehmen auf eigenen Wunsch.`;
+const REORG_EINVERNEHMEN =
+  "Im Zusammenhang mit einer Reorganisation endet das Arbeitsverhältnis im gegenseitigen Einvernehmen.";
+const REORG_AG = "Dieses Arbeitsverhältnis wurde im Rahmen einer Reorganisation beendet.";
+
+const SCHLUSS_REORG: Record<Grund, Record<Wertschaetzung, Satz>> = {
+  wunsch_an: {
+    standard: { kontext: REORG_AN, kern: KERN_REORG.standard },
+    wertschaetzender: { kontext: REORG_AN, kern: KERN_REORG.wertschaetzender },
+    top: { kontext: REORG_AN, kern: KERN_REORG.top },
+  },
+  einvernehmen: {
+    standard: { kontext: REORG_EINVERNEHMEN, kern: KERN_REORG.standard },
+    wertschaetzender: { kontext: REORG_EINVERNEHMEN, kern: KERN_REORG.wertschaetzender },
+    top: { kontext: REORG_EINVERNEHMEN, kern: KERN_REORG.top },
+  },
+  wunsch_ag: {
+    standard: { kontext: REORG_AG, kern: KERN_REORG.standard },
+    wertschaetzender: { kontext: REORG_AG, kern: KERN_REORG.wertschaetzender },
+    // Top sagt offen, was codierte Zeugnisse nur andeuten.
+    top: {
+      kontext: `Das Arbeitsverhältnis endet infolge einer Reorganisation, nicht aus Gründen in ${SEINER} Person oder Leistung.`,
+      kern: `Wir bedauern dies sehr, danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und empfehlen ${IHN} uneingeschränkt weiter. Für ${SEINE} berufliche und private Zukunft wünschen wir ${IHM} alles Gute und weiterhin viel Erfolg.`,
+    },
+  },
+};
+
+// Opt-in „Bedauern" ergänzt den Satz, statt ihn zu ersetzen – so wirken
+// Austrittsgrund und Grad weiter. Bei Top steckt das Bedauern schon im Kern,
+// darum kommt dort ein eigener Abschluss dazu.
+const BEDAUERN: Record<Wertschaetzung, { text: string; stelle: "vor" | "nach" }> = {
+  standard: { text: `Wir bedauern ${SEIN} Ausscheiden.`, stelle: "vor" },
+  wertschaetzender: { text: `Wir bedauern ${SEIN} Ausscheiden sehr.`, stelle: "vor" },
+  top: { text: `Mit ${IHM} verlieren wir eine hervorragende Fachkraft.`, stelle: "nach" },
+};
+
+// ---------------------------------------------------------------------------
+// Zwischenzeugnis – die Person BLEIBT angestellt, darum nie ein Bedauern.
+// ---------------------------------------------------------------------------
+
+const ZWISCHEN: Record<ZwischenAnlass, Record<Wertschaetzung, string>> = {
+  // Ausblick statt Abschiedsformel: «alles Gute» ohne Ausblick wird als
+  // Trennungssignal gelesen. «Auf Wunsch von {Name}» statt «des Mitarbeiters»,
+  // weil der Satz auch für Kader/GF gilt.
+  wunsch: {
+    standard: `Dieses Zwischenzeugnis wird auf Wunsch von ${NAME} ausgestellt. Wir danken ${IHM} für die bisherige wertvolle Mitarbeit und freuen uns auf die weitere erfolgreiche Zusammenarbeit.`,
+    wertschaetzender: `Dieses Zwischenzeugnis wird auf Wunsch von ${NAME} ausgestellt. Wir danken ${IHM} für die bisherige sehr wertvolle und engagierte Mitarbeit und freuen uns auf die weitere erfolgreiche Zusammenarbeit.`,
+    top: `Dieses Zwischenzeugnis wird auf Wunsch von ${NAME} ausgestellt. Wir danken ${IHM} herzlich für die bisherige ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und freuen uns, weiterhin auf ${SEINE} wertvolle Mitarbeit zählen zu dürfen.`,
+  },
+  // Standard = Christophs Baustein aus Migration 010, für den Zwischen-Kontext
+  // gespiegelt.
+  vorgesetztenwechsel: {
+    standard: `Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken ${NAME} für die bisherige sehr wertvolle Unterstützung bestens und hoffen, noch lange auf ${SEINE} geschätzte Mitarbeit zählen zu dürfen.`,
+    wertschaetzender: `Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken ${NAME} bestens für die bisherige sehr gute Zusammenarbeit und die wertvollen Leistungen und hoffen, noch lange auf ${SEINE} geschätzte Mitarbeit zählen zu dürfen.`,
+    top: `Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken ${NAME} herzlich für die bisherige ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und hoffen, noch lange auf ${SEINE} sehr geschätzte Mitarbeit zählen zu dürfen.`,
+  },
+  interner_wechsel: {
+    standard: `Dieses Zwischenzeugnis wird aufgrund eines internen Wechsels ausgestellt. Wir danken ${NAME} bestens für die bisherige wertvolle Mitarbeit und wünschen ${IHM} viel Freude und Erfolg im neuen Aufgabengebiet.`,
+    wertschaetzender: `Dieses Zwischenzeugnis wird aufgrund eines internen Wechsels ausgestellt. Wir danken ${NAME} bestens für die bisherige sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen ${IHM} im neuen Aufgabengebiet viel Freude und weiterhin viel Erfolg.`,
+    top: `Dieses Zwischenzeugnis wird aufgrund eines internen Wechsels ausgestellt. Wir danken ${NAME} herzlich für die bisherige ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen. Wir freuen uns, dass ${ER} ${SEIN} Können künftig im neuen Aufgabengebiet einbringt, und wünschen ${IHM} dort viel Freude und weiterhin viel Erfolg.`,
+  },
+  // Kein «weiterhin zählen zu dürfen»: Bei einer Reorganisation ist offen, ob
+  // die Stelle bleibt.
+  reorganisation: {
+    standard: `Dieses Zwischenzeugnis wird im Zuge einer Reorganisation ausgestellt. Wir danken ${NAME} für die bisherige wertvolle Mitarbeit und wünschen ${IHM} weiterhin viel Erfolg.`,
+    wertschaetzender: `Dieses Zwischenzeugnis wird im Zuge einer Reorganisation ausgestellt. Wir danken ${NAME} für die bisherige sehr gute Zusammenarbeit und die wertvollen Leistungen und wünschen ${IHM} weiterhin viel Erfolg.`,
+    top: `Dieses Zwischenzeugnis wird im Zuge einer Reorganisation ausgestellt. Wir danken ${NAME} herzlich für die bisherige ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und wünschen ${IHM} weiterhin viel Freude und Erfolg.`,
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Auswahl
 // ---------------------------------------------------------------------------
 
 /**
+ * Anlass des Zwischenzeugnisses aus den Opt-ins. Die Steuerung erlaubt nur
+ * einen Anlass; für Alt-Daten mit mehreren gilt die Reihenfolge wie in
+ * deriveLegacyType: Vorgesetztenwechsel vor internem Wechsel, Reorg zuletzt.
+ */
+export function zwischenAnlass(p: SchlusssatzParams): ZwischenAnlass {
+  if (p.optinVorgesetztenwechsel) return "vorgesetztenwechsel";
+  if (p.optinInternerWechsel) return "interner_wechsel";
+  if (p.optinReorg) return "reorganisation";
+  return "wunsch";
+}
+
+/**
  * Liefert die Schlusssatz-Vorlage (mit {{m|f|d}}-Tokens und {vorname}/{nachname})
- * für die gegebene Kombination – oder null, wenn kein Satz zutrifft (Aufrufer
- * nutzt dann einen eigenen Fallback). Für schluss/zwischen wird über sinnvolle
- * Fallbacks stets ein Satz geliefert.
+ * für die gegebene Kombination – oder null bei der Arbeitsbestätigung (die
+ * Engine hat dafür einen eigenen Satz).
  */
 export function pickSchlusssatz(p: SchlusssatzParams): string | null {
   const grad: Wertschaetzung = p.wertschaetzung ?? "standard";
 
   if (p.zeugnisTyp === "schluss") {
-    if (p.optinBedauern) return SCHLUSS_BEDAUERN;
-    if (p.optinReorg)
-      return p.austrittsgrund === "wunsch_ag"
-        ? SCHLUSS_REORG_AG
-        : SCHLUSS_REORG_DEFAULT;
-
     const grund: Grund = p.austrittsgrund ?? "wunsch_an";
-    const byGrund = SCHLUSS[grund] ?? {};
-    return (
-      byGrund[grad] ??
-      byGrund.standard ??
-      SCHLUSS.wunsch_an[grad] ??
-      SCHLUSS.wunsch_an.standard ??
-      null
-    );
+    const satz = (p.optinReorg ? SCHLUSS_REORG : SCHLUSS)[grund][grad];
+    const teile = [satz.kontext];
+    if (p.optinBedauern) {
+      const b = BEDAUERN[grad];
+      teile.push(...(b.stelle === "vor" ? [b.text, satz.kern] : [satz.kern, b.text]));
+    } else {
+      teile.push(satz.kern);
+    }
+    return teile.filter(Boolean).join(" ");
   }
 
   if (p.zeugnisTyp === "zwischen") {
-    // Anlass-Opt-ins haben Vorrang vor dem grad-basierten Standard-Zwischensatz
-    // (analog zu Bedauern/Reorg beim Schlusszeugnis). Reihenfolge wie in
-    // deriveLegacyType: Vorgesetztenwechsel vor internem Wechsel, Reorg zuletzt.
-    if (p.optinVorgesetztenwechsel) return ZWISCHEN_VORGESETZTENWECHSEL;
-    if (p.optinInternerWechsel) return ZWISCHEN_INTERNER_WECHSEL;
-    if (p.optinReorg) return ZWISCHEN_REORG;
-    return ZWISCHEN[grad] ?? ZWISCHEN.standard ?? null;
+    return ZWISCHEN[zwischenAnlass(p)][grad];
   }
 
   // arbeitsbestaetigung: eigener Satz direkt in der Engine
