@@ -10,7 +10,8 @@
  * Der Schlusssatz ist EIN zusammengesetzter Block (Dank + Zukunftswünsche sind
  * eingebaut). Er wird gewählt entlang:
  *   Zeugnistyp  (schluss | zwischen)
- *   Austrittsgrund (wunsch_an | wunsch_ag | einvernehmen)   – nur bei Schluss
+ *   Austrittsgrund (wunsch_an | wunsch_ag | einvernehmen | pensionierung)
+ *                  – nur bei Schluss
  *   Wertschätzungsgrad (standard | wertschaetzender | top)
  *   Opt-ins Schluss:  Reorganisation (eigener Satz je Grund und Grad),
  *                     Bedauern (Zusatz zum Satz, je Grad)
@@ -22,14 +23,16 @@
  * Die bisherigen Sätze von Christoph bleiben die Standard- bzw. wertschätzende
  * Fassung; neu sind die Top-Fassungen (Foliensatz 30.10.2026) und die eigenen
  * Sätze für Wunsch des Arbeitgebers und Einvernehmen. Ton-Freigabe durch
- * Christoph steht für die neuen Sätze noch aus.
+ * Christoph steht für die neuen Sätze noch aus. Pensionierung: Standard ist
+ * Christophs Satz (E-Mail 03.11.2026), wertschätzend, Top und der
+ * Reorganisations-Kontext sind neu.
  *
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
  */
 
 export type Wertschaetzung = "standard" | "wertschaetzender" | "top";
-export type Grund = "wunsch_an" | "wunsch_ag" | "einvernehmen";
+export type Grund = "wunsch_an" | "wunsch_ag" | "einvernehmen" | "pensionierung";
 export type ZwischenAnlass =
   | "wunsch"
   | "vorgesetztenwechsel"
@@ -106,6 +109,19 @@ const SCHLUSS: Record<Grund, Record<Wertschaetzung, Satz>> = {
       kern: `Wir bedauern ${SEIN} Ausscheiden sehr, danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und wünschen ${IHM} für ${SEINE} berufliche und private Zukunft alles Gute und weiterhin viel Erfolg.`,
     },
   },
+  // Kein beruflicher Ausblick und kein «weiterhin viel Erfolg»: Die Person
+  // tritt aus dem Erwerbsleben aus. Der Wunsch gilt dem neuen Lebensabschnitt.
+  pensionierung: {
+    standard: {
+      kern: `Wir danken ${NAME} für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
+    },
+    wertschaetzender: {
+      kern: `Wir danken ${NAME} für die langjährige wertvolle Mitarbeit, das grosse Engagement und die stets sehr gute Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
+    },
+    top: {
+      kern: `Wir bedauern sehr, ${NAME} zu verabschieden, und danken ${IHM} herzlich für die langjährige ausgezeichnete Zusammenarbeit, die hervorragenden Leistungen und das grosse Engagement. Für den neuen Lebensabschnitt wünschen wir ${IHM} von Herzen alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
+    },
+  },
 };
 
 // Opt-in „Reorganisation": eigener Satz je Austrittsgrund und Grad.
@@ -119,6 +135,9 @@ const REORG_AN = `Im Zusammenhang mit einer Reorganisation verlässt ${ER} unser
 const REORG_EINVERNEHMEN =
   "Im Zusammenhang mit einer Reorganisation endet das Arbeitsverhältnis im gegenseitigen Einvernehmen.";
 const REORG_AG = "Dieses Arbeitsverhältnis wurde im Rahmen einer Reorganisation beendet.";
+// Pensionierung wegen Reorganisation ist praktisch immer eine Frühpensionierung.
+// Der Kern bleibt der Pensionierungssatz, nicht KERN_REORG.
+const REORG_PENSION = `Im Zusammenhang mit einer Reorganisation geht ${ER} vorzeitig in Pension.`;
 
 const SCHLUSS_REORG: Record<Grund, Record<Wertschaetzung, Satz>> = {
   wunsch_an: {
@@ -139,6 +158,11 @@ const SCHLUSS_REORG: Record<Grund, Record<Wertschaetzung, Satz>> = {
       kontext: `Das Arbeitsverhältnis endet infolge einer Reorganisation, nicht aus Gründen in ${SEINER} Person oder Leistung.`,
       kern: `Wir bedauern dies sehr, danken ${IHM} herzlich für die stets ausgezeichnete Zusammenarbeit und die hervorragenden Leistungen und empfehlen ${IHN} uneingeschränkt weiter. Für ${SEINE} berufliche und private Zukunft wünschen wir ${IHM} alles Gute und weiterhin viel Erfolg.`,
     },
+  },
+  pensionierung: {
+    standard: { kontext: REORG_PENSION, kern: SCHLUSS.pensionierung.standard.kern },
+    wertschaetzender: { kontext: REORG_PENSION, kern: SCHLUSS.pensionierung.wertschaetzender.kern },
+    top: { kontext: REORG_PENSION, kern: SCHLUSS.pensionierung.top.kern },
   },
 };
 
