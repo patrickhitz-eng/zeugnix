@@ -25,7 +25,7 @@
  * Sätze für Wunsch des Arbeitgebers und Einvernehmen. Ton-Freigabe durch
  * Christoph steht für die neuen Sätze noch aus. Pensionierung: Standard ist
  * Christophs Satz (E-Mail 03.11.2026), wertschätzend, Top und der
- * Reorganisations-Kontext sind neu.
+ * Reorganisations-Kontext sind neu und von ihm mündlich freigegeben.
  *
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
@@ -111,15 +111,17 @@ const SCHLUSS: Record<Grund, Record<Wertschaetzung, Satz>> = {
   },
   // Kein beruflicher Ausblick und kein «weiterhin viel Erfolg»: Die Person
   // tritt aus dem Erwerbsleben aus. Der Wunsch gilt dem neuen Lebensabschnitt.
+  // Christophs Wunsch hiess «beste Gesundheit und viel Freude bei bester
+  // Lebensqualität»; das doppelte «beste» ist zu «viel Lebensfreude» geglättet.
   pensionierung: {
     standard: {
-      kern: `Wir danken ${NAME} für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
+      kern: `Wir danken ${NAME} für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Lebensfreude.`,
     },
     wertschaetzender: {
-      kern: `Wir danken ${NAME} für die langjährige wertvolle Mitarbeit, das grosse Engagement und die stets sehr gute Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
+      kern: `Wir danken ${NAME} für die langjährige wertvolle Mitarbeit, das grosse Engagement und die stets sehr gute Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Lebensfreude.`,
     },
     top: {
-      kern: `Wir bedauern sehr, ${NAME} zu verabschieden, und danken ${IHM} herzlich für die langjährige ausgezeichnete Zusammenarbeit, die hervorragenden Leistungen und das grosse Engagement. Für den neuen Lebensabschnitt wünschen wir ${IHM} von Herzen alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
+      kern: `Wir bedauern sehr, ${NAME} zu verabschieden, und danken ${IHM} herzlich für die langjährige ausgezeichnete Zusammenarbeit, die hervorragenden Leistungen und das grosse Engagement. Für den neuen Lebensabschnitt wünschen wir ${IHM} von Herzen alles Gute, beste Gesundheit und viel Lebensfreude.`,
     },
   },
 };
