@@ -116,11 +116,12 @@ eq(
   schlusssatzPreview({ zeugnisTyp: "zwischen", wertschaetzung: "standard", optinVorgesetztenwechsel: true }, anna),
   "Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken Anna Muster für die bisherige sehr wertvolle Unterstützung bestens und hoffen, noch lange auf ihre geschätzte Mitarbeit zählen zu dürfen.",
 );
-// Pensionierung, Standard: Christophs Satz aus der E-Mail vom 03.11.2026.
+// Pensionierung, Standard: Christophs Satz aus der E-Mail vom 03.11.2026, im
+// Wunsch geglättet (kein doppeltes «beste»).
 eq(
   "Standard, Pensionierung (Christoph)",
   schlusssatzPreview({ zeugnisTyp: "schluss", austrittsgrund: "pensionierung", wertschaetzung: "standard" }, anna),
-  "Wir danken Anna Muster für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ihr alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.",
+  "Wir danken Anna Muster für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ihr alles Gute, beste Gesundheit und viel Lebensfreude.",
 );
 // Wer in Pension geht, bekommt keinen beruflichen Ausblick.
 for (const k of schlussKombis().filter((k) => k.austrittsgrund === "pensionierung"))
