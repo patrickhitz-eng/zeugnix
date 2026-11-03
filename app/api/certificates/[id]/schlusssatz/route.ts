@@ -74,7 +74,7 @@ export async function PATCH(
   if (!body || typeof body !== "object")
     return NextResponse.json({ error: "Ungültige Daten" }, { status: 400 });
 
-  const validGrund = ["wunsch_an", "wunsch_ag", "einvernehmen"];
+  const validGrund = ["wunsch_an", "wunsch_ag", "einvernehmen", "pensionierung"];
   const validGrad = ["standard", "wertschaetzender", "top"];
 
   const austrittsgrund =

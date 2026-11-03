@@ -10,7 +10,7 @@ import {
 } from "@/lib/phrases/schlusssaetze";
 
 type ZeugnisTyp = "schluss" | "zwischen" | "arbeitsbestaetigung";
-type Grund = "wunsch_an" | "wunsch_ag" | "einvernehmen";
+type Grund = "wunsch_an" | "wunsch_ag" | "einvernehmen" | "pensionierung";
 type Grad = "standard" | "wertschaetzender" | "top";
 
 interface Props {
@@ -196,6 +196,7 @@ export function SchlusssatzControls({
                 <option value="wunsch_an">Wunsch der/des Mitarbeitenden</option>
                 <option value="wunsch_ag">Wunsch des Arbeitgebers</option>
                 <option value="einvernehmen">Gegenseitiges Einvernehmen</option>
+                <option value="pensionierung">Pensionierung</option>
               </select>
             </Field>
             <div className="space-y-2">

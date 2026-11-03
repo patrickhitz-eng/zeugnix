@@ -1,0 +1,21 @@
+-- ============================================================================
+-- 032_austrittsgrund_pensionierung.sql
+-- ============================================================================
+-- PROBLEM: Beim Schlusszeugnis fehlte ein Schlusssatz fuer die Pensionierung
+--   (Hinweis Christoph Senn, E-Mail 03.11.2026). Der Austrittsgrund kannte nur
+--   wunsch_an, wunsch_ag und einvernehmen; alle drei wuenschen beruflichen
+--   Erfolg, was bei einer Pensionierung nicht passt.
+--
+-- LOESUNG: Vierter Wert 'pensionierung' im Enum austrittsgrund (aus 012). Die
+--   Saetze selbst stehen im Katalog lib/phrases/schlusssaetze.ts, nicht in der
+--   Datenbank.
+--
+-- Bestehende Zeilen bleiben unveraendert. 'add value' haengt nur an; der neue
+--   Wert ist erst nach dem Commit nutzbar, darum steht hier nichts anderes.
+--
+-- Idempotent; manuell in Prod einspielen (SQL-Editor, Projekt „zeugnix"),
+--   VOR dem Code-Deploy. Fehlt der Wert, scheitert nur das Speichern, wenn
+--   jemand «Pensionierung» waehlt; die anderen Gruende laufen weiter.
+-- ----------------------------------------------------------------------------
+
+alter type austrittsgrund add value if not exists 'pensionierung';

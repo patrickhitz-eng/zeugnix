@@ -72,7 +72,7 @@ export interface CertificateData {
   // Alt-Aufrufer weiter funktionieren; steuert u.a. den Arbeitsbestätigungs-Zweig
   // und den Schlusssatz aus dem Katalog (lib/phrases/schlusssaetze.ts).
   zeugnisTyp?: "schluss" | "zwischen" | "arbeitsbestaetigung";
-  austrittsgrund?: "wunsch_an" | "wunsch_ag" | "einvernehmen" | null;
+  austrittsgrund?: "wunsch_an" | "wunsch_ag" | "einvernehmen" | "pensionierung" | null;
   wertschaetzung?: "standard" | "wertschaetzender" | "top" | null;
   optinBedauern?: boolean;
   optinReorg?: boolean;
