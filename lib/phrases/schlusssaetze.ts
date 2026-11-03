@@ -25,7 +25,7 @@
  * Sätze für Wunsch des Arbeitgebers und Einvernehmen. Ton-Freigabe durch
  * Christoph steht für die neuen Sätze noch aus. Pensionierung: Standard ist
  * Christophs Satz (E-Mail 03.11.2026), wertschätzend, Top und der
- * Reorganisations-Kontext sind neu.
+ * Reorganisations-Kontext sind neu und von ihm mündlich freigegeben.
  *
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
@@ -111,6 +111,8 @@ const SCHLUSS: Record<Grund, Record<Wertschaetzung, Satz>> = {
   },
   // Kein beruflicher Ausblick und kein «weiterhin viel Erfolg»: Die Person
   // tritt aus dem Erwerbsleben aus. Der Wunsch gilt dem neuen Lebensabschnitt.
+  // «beste Gesundheit … bei bester Lebensqualität» wiederholt «beste» bewusst;
+  // Christoph kennt die Doppelung und will den Wortlaut so. Nicht glätten.
   pensionierung: {
     standard: {
       kern: `Wir danken ${NAME} für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Freude bei bester Lebensqualität.`,
