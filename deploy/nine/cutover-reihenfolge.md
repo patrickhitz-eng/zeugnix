@@ -159,10 +159,16 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - **`CONNECT` für `authenticator`:** über `nmd_zeugnio_ro` (erben ja, wechseln nein). Das
   geerbte `SELECT` ist vertretbar, weil `authenticator` ohnehin in `service_role` wechseln
   darf. Begründung im Kopf von `900_0`.
-- **Neu und offen für 2.3:** `901` bricht so ab. Für `ALTER … OWNER TO service_role` braucht
-  `service_role` `CREATE` auf `public`, und das kann nur nines `nmd` vergeben (Runbook § 7).
-  Entweder fragen wir nine, oder 901 ersetzt das Eigentum durch eine Regel pro Tabelle.
-  Entscheid vor 2.3.
+- **Neu für 2.3, entschieden am 6.11.: Regel statt Eigentum.** Das alte `901` brach ab. Für
+  `ALTER … OWNER TO service_role` braucht `service_role` `CREATE` auf `public`, und das kann
+  nur nines `nmd` vergeben. Jetzt heisst die Datei `901_nine_rechte.sql`. Die Tabellen bleiben
+  bei `nmd_zeugnio_rw`, und `service_role` bekommt pro Tabelle die Regel
+  `service_role_alles` sowie die vier Datenrechte (Runbook § 7). Kein Ticket bei nine.
+  Nach jeder Migration mit neuer Tabelle `901` nochmals laufen lassen.
+- **Lokal geprüft (PGlite, nines Rollenlage):** 900_0, 900, alle 31 Migrationen, 901 (zweimal),
+  902 und 903 laufen durch. `service_role` sieht alles, `authenticated` nur die eigenen Zeilen,
+  `anon` schreibt nicht. Dabei kam ein alter Fehler in 903 ans Licht: Die Rechteabfrage über den
+  Tabellennamen brach an `auth.users` ab. Sie läuft jetzt über die Objektkennung.
 
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
@@ -178,7 +184,7 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 |---|---|---|
 | 2.1 | In `www-zeugnio`: eigener SSH-Zugang, **Linger prüfen**, Kit nach `~/kit`, Ordner, nvm + Node 22, PM2 mit `pm2.service` aus dem Kit, `.env`, `backup.key`, `backup-s3.env`, `deploy.sh --check`. **Kein Deploy-Key**, solange das Repo öffentlich ist (HTTPS). Cron und logrotate erst nach dem ersten Deploy, **ausserhalb 00:00–04:00** | § 3 (korrigiert 28.10.) |
 | 2.2 | Datenbank: `nmd_zeugnio` existiert. Als `pgadmin`: `900_0_nine_rollen.sql` (Rollen ohne Präfix, `authenticator` **NOINHERIT**, `CONNECT` über `_ro`), dann `\password` für `nmd_zeugnio` und `authenticator`. Als `nmd_zeugnio`: `900_nine_bootstrap.sql` | § 4, § 5 |
-| 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Eigentum/Rechte), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
+| 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Rechte, Regel für `service_role`), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
 | 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
 

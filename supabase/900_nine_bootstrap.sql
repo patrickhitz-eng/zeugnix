@@ -20,7 +20,7 @@
 --     Kein `--baseline`: die Migrationen laufen hier wirklich. `--baseline`
 --     würde sie nur als erledigt vermerken, ohne sie auszuführen – das war die
 --     Reihenfolge, als das Schema noch aus dem Auszug kam.
---   901_nine_ownership.sql   NACH dem Schema: Eigentum und Rechte
+--   901_nine_rechte.sql      NACH dem Schema: Rechte und Regel für service_role
 --   902_auth_bridge.sql      NACH 901: Trigger und ensure_auth_user
 --   903_nine_verify.sql      nur SELECTs – prüft, ob alles davon getragen hat
 --
@@ -56,8 +56,7 @@ begin
     raise exception 'Rollen fehlen: %. Zuerst 900_0_nine_rollen.sql als pgadmin ausführen.', fehlend;
   end if;
 
-  if not (pg_has_role(current_user, 'service_role', 'USAGE')
-          and pg_has_role(current_user, 'service_role', 'SET')
+  if not (pg_has_role(current_user, 'service_role', 'SET')
           and pg_has_role(current_user, 'authenticated', 'SET')
           and pg_has_role(current_user, 'anon', 'SET')) then
     raise exception '% fehlt eine Mitgliedschaft (service_role, anon oder authenticated). '
@@ -241,5 +240,5 @@ grant select, insert, update on auth.users to service_role;
 
 -- ----------------------------------------------------------------------------
 -- Fertig. Nächster Schritt: `node scripts/migrate.mjs` – das legt das Schema aus
--- den Migrationen im Repository an. Danach 901_nine_ownership.sql.
+-- den Migrationen im Repository an. Danach 901_nine_rechte.sql.
 -- ----------------------------------------------------------------------------

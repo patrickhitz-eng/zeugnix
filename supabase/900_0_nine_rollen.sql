@@ -157,14 +157,13 @@ grant :"app_ro" to authenticator with inherit true, set false;
 -- An die _rw-Rolle, nicht an den Anmeldebenutzer: Sie ist current_user, wenn
 -- 900 bis 903 und die Migrationen laufen (oben, Punkt 1).
 --
--- service_role mit INHERIT und SET: Die Schreibrolle muss in service_role
--- wechseln und deren Rechte nutzen können, wenn sie Rechte und Eigentum
--- einrichtet (901) und wenn spätere Migrationen Tabellen ändern.
---
--- anon und authenticated nur mit SET: Die Gegenprobe in 903 führt
--- `set local role authenticated` aus und beweist so, dass die
--- Zeilensicherheit greift, ohne dass dafür ein JWT ausgestellt werden muss.
-grant service_role  to :"app_rw" with inherit true,  set true;
+-- Alle drei nur mit SET, ohne INHERIT. Die Schreibrolle besitzt die Tabellen
+-- selbst und braucht keine Rechte der drei. Wechseln muss sie nur für die
+-- Gegenprobe in 903: `set local role authenticated` und
+-- `set local role service_role` beweisen, dass die Zeilensicherheit greift
+-- und dass die Regel für service_role trägt, ohne dass dafür ein JWT
+-- ausgestellt werden muss.
+grant service_role  to :"app_rw" with inherit false, set true;
 grant anon          to :"app_rw" with inherit false, set true;
 grant authenticated to :"app_rw" with inherit false, set true;
 

@@ -96,7 +96,7 @@ Pre-Inkasso. Alles davon kommt nach dem Datenumzug und ist absichtlich davon get
   <li><a href="#s3">Datenbank anlegen</a></li>
   <li><a href="#s4">Bootstrap: Rollen, auth-Schema, extensions</a></li>
   <li><a href="#s5">Schema aus der Produktion übernehmen</a></li>
-  <li><a href="#s6">Eigentum, Rechte, Auth-Brücke</a></li>
+  <li><a href="#s6">Rechte, Regel für service_role, Auth-Brücke</a></li>
   <li><a href="#s7">Gegenprobe (Tor)</a></li>
   <li><a href="#s8">Daten-API: PostgREST</a></li>
   <li><a href="#s9">Erstes Deployment auf der Testadresse</a></li>
@@ -727,28 +727,47 @@ Nummer nachziehen — nicht in eine bestehende Datei hineinschreiben,
 beantwortet das in einer Zeile.</p>
 </div>
 
-<h2 id="s6">7 · Eigentum, Rechte, Auth-Brücke</h2>
+<h2 id="s6">7 · Rechte, Regel für service_role, Auth-Brücke</h2>
 
-<pre><code>psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/901_nine_ownership.sql
-psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/902_auth_bridge.sql</code></pre>
+<pre><code>cd ~/zeugnio-setup
+psql -w -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -v ON_ERROR_STOP=1 -f supabase/901_nine_rechte.sql
+psql -w -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -v ON_ERROR_STOP=1 -f supabase/902_auth_bridge.sql</code></pre>
 
-<p><code>901</code> überträgt das Eigentum an allen Objekten auf <code>service_role</code>. Das ist
-der Ersatz für <code>BYPASSRLS</code>, das Superuser-Rechte bräuchte: PostgreSQL wendet die
-Zeilensicherheit auf den Eigentümer einer Tabelle nicht an. Die Datei bricht selbst ab, falls
-irgendeine Tabelle <code>FORCE ROW LEVEL SECURITY</code> trägt.</p>
+<p><code>901</code> ersetzt <code>BYPASSRLS</code>. Bei Supabase umgeht <code>service_role</code>
+die Zeilensicherheit über dieses Rollenattribut; vergeben darf es nur ein Superuser oder eine
+Rolle, die es selbst hat. Hier bekommt jede Tabelle mit Zeilensicherheit stattdessen eine Regel
+<code>service_role_alles</code>, die für <code>service_role</code> alles erlaubt
+(<code>using (true) with check (true)</code>). PostgreSQL verknüpft mehrere zulässige Regeln mit
+ODER: Für <code>service_role</code> ist jede Zeile frei, für alle anderen Rollen ändert sich
+nichts. Dazu bekommt <code>service_role</code> <code>SELECT</code>, <code>INSERT</code>,
+<code>UPDATE</code> und <code>DELETE</code> auf alle Tabellen ausser <code>schema_migrations</code>.</p>
+
+<p>Die Tabellen gehören weiter <code>nmd_zeugnio_rw</code>, so wie sie bei Supabase
+<code>postgres</code> gehören. Auch die SECURITY-DEFINER-Funktionen laufen darum wie dort mit
+den Rechten der Eigentümerin. Die Datei bricht selbst ab, falls irgendeine Tabelle
+<code>FORCE ROW LEVEL SECURITY</code> trägt; dann gälte die Zeilensicherheit auch für diese
+Funktionen.</p>
 
 <div class="warn">
-<p><span class="label">Offen seit 6.11.2026: 901 bricht auf advisori01 so ab.</span>
-Wer ohne Superuser-Rechte <code>ALTER … OWNER TO service_role</code> ausführt, braucht drei
-Dinge: Er muss Eigentümer sein, er muss in <code>service_role</code> wechseln dürfen, und
-<code>service_role</code> muss <code>CREATE</code> auf dem Schema haben. Die ersten zwei sind
-erfüllt. Das dritte nicht: <code>public</code> gehört <code>pg_database_owner</code>, also
-nines <code>nmd</code>, und <code>nmd_zeugnio_rw</code> hält <code>CREATE</code> ohne
-Weitergaberecht (<code>UC/pg_database_owner</code>, ohne Sternchen). Auch ein Umweg über eine
-Mitgliedschaft geht nicht: <code>service_role</code> müsste von <code>nmd_zeugnio_rw</code>
-erben, und das ist schon Mitglied von <code>service_role</code>. PostgreSQL lehnt solche Kreise
-ab. Entweder vergibt nine <code>CREATE ON SCHEMA public</code> an <code>service_role</code>,
-oder 901 ersetzt das Eigentum durch eine Regel pro Tabelle. Entscheid vor Schritt 2.3.</p>
+<p><span class="label">Nach jeder Migration mit neuer Tabelle: 901 nochmals.</span> Die Rechte
+für <code>service_role</code> kommen über Vorgaberechte automatisch mit, die Regel nicht. Fehlt
+sie, sieht <code>service_role</code> in der neuen Tabelle nichts, und die Anwendung zeigt leere
+Listen statt eines Fehlers. 901 ist idempotent, ein zweiter Lauf legt nur an, was fehlt.
+Abschnitt 4 von 903 meldet eine fehlende Regel.</p>
+</div>
+
+<div class="note">
+<p><span class="label">Warum nicht mehr über das Eigentum (bis 6.11.2026).</span> Früher machte
+901 <code>service_role</code> zur Eigentümerin aller Tabellen, denn für die Eigentümerin gilt die
+Zeilensicherheit nicht. Ohne Superuser verlangt <code>ALTER … OWNER TO</code> aber, dass die neue
+Eigentümerin <code>CREATE</code> auf dem Schema hat. <code>public</code> gehört
+<code>pg_database_owner</code>, also nines <code>nmd</code>, und <code>nmd_zeugnio_rw</code>
+hält <code>CREATE</code> ohne Weitergaberecht (<code>UC/pg_database_owner</code>, ohne
+Sternchen). Ein Umweg über eine Mitgliedschaft ginge auch nicht: <code>service_role</code>
+müsste von <code>nmd_zeugnio_rw</code> erben, und das ist schon Mitglied von
+<code>service_role</code>. PostgreSQL lehnt solche Kreise ab. Lokal nachgestellt am 6.11.2026
+mit PGlite: <code>permission denied for schema public</code> und
+<code>role "nmd_zeugnio_rw" is a member of role "service_role"</code>.</p>
 </div>
 
 <p><code>902</code> schliesst die Lücke zwischen den beiden Cutovers: solange Supabase anmeldet und
@@ -1068,10 +1087,9 @@ des Servers, und bei der Zeitumstellung läuft er entweder zweimal oder gar nich
 <h3>Am Morgen nach dem Cutover</h3>
 
 <ul>
-<li><span class="label">Grösse des Nachtauszugs von nine vergleichen.</span> Das Eigentum an den
-Tabellen liegt jetzt bei <code>service_role</code>. Läuft nines Auszug als Datenbankbenutzer ohne
-diese Mitgliedschaft, fehlen Tabellen — lautlos. <code>900</code> setzt die Mitgliedschaft, aber
-die Bestätigung ist die Dateigrösse.</li>
+<li><span class="label">Grösse des Nachtauszugs von nine vergleichen.</span> Nines Auszug läuft
+als Superuser (Antwort vom 29.10.2026) und sieht darum alle Tabellen. Die Dateigrösse bleibt
+trotzdem die schnellste Bestätigung, dass er vollständig ist.</li>
 <li><code>~/zeugnio/logs/backup.log</code> ansehen: liegen Journal und Auszug im Object Storage?</li>
 <li><span class="label">Prüfen, dass der Logo-Rückfallweg nicht mehr betreten wird.</span> Solange
 die Produktion auf Vercel lief, gingen neue Logos in den Supabase-Storage; auf dem eigenen Server

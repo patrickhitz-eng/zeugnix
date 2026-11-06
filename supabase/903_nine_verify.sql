@@ -36,7 +36,7 @@ select rolname, rolcanlogin, rolinherit, rolsuper, rolbypassrls, rolcreaterole
 \echo '    Erwartet (angelegt von 900_0_nine_rollen.sql):'
 \echo '      authenticator in anon, authenticated, service_role: erbt = f, wechseln = t'
 \echo '      authenticator in nmd_zeugnio_ro:                    erbt = t, wechseln = f  (nur für CONNECT)'
-\echo '      nmd_zeugnio_rw in service_role: erbt = t; in anon und authenticated: erbt = f'
+\echo '      nmd_zeugnio_rw in anon, authenticated, service_role: erbt = f, wechseln = t'
 \echo '    pgadmin steht mit admin = t da, weil er die Rollen angelegt hat.'
 select m.rolname as mitglied, g.rolname as in_rolle, a.admin_option as admin,
        a.inherit_option as erbt, a.set_option as wechseln
@@ -54,20 +54,48 @@ select has_database_privilege('authenticator', current_database(), 'CONNECT') as
 
 \echo
 \echo '=== 3  FORCE ROW LEVEL SECURITY  (MUSS LEER SEIN) ==='
-\echo '    Ist hier eine Tabelle aufgeführt, greift der Eigentümer-Ersatz für den'
-\echo '    service_role-Bypass nicht: die Anwendung lieferte leere Ergebnisse.'
+\echo '    Ist hier eine Tabelle aufgeführt, gilt die Zeilensicherheit auch für die'
+\echo '    Eigentümerin. Die SECURITY-DEFINER-Funktionen fänden dort nichts mehr.'
 select n.nspname, c.relname
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
  where c.relrowsecurity and c.relforcerowsecurity
  order by 1, 2;
 
 \echo
-\echo '=== 4  Tabellen, die NICHT service_role gehören  (sollte leer sein) ==='
-select c.relname, pg_get_userbyid(c.relowner) as eigentuemer, c.relkind
+\echo '=== 4  Tabellen mit Zeilensicherheit OHNE Regel für service_role  (MUSS LEER SEIN) ==='
+\echo '    Hier sähe service_role nichts: leere Ergebnisse statt Fehler.'
+\echo '    Abhilfe: 901_nine_rechte.sql nochmals laufen lassen.'
+select c.relname
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
- where n.nspname = 'public'
-   and c.relkind in ('r', 'p', 'v', 'm', 'S')
-   and pg_get_userbyid(c.relowner) <> 'service_role'
+ where n.nspname = 'public' and c.relkind in ('r', 'p') and c.relrowsecurity
+   and not exists (
+         select 1 from pg_policy p
+          where p.polrelid = c.oid
+            and p.polname = 'service_role_alles'
+            and p.polpermissive
+            and p.polcmd = '*'
+            and p.polroles @> array['service_role'::regrole::oid])
+ order by 1;
+
+\echo
+\echo '=== 4a  Tabellen, auf denen service_role nicht lesen und schreiben darf  (MUSS LEER SEIN) ==='
+\echo '    schema_migrations ist absichtlich ausgenommen und erscheint hier nicht.'
+select c.relname
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public' and c.relkind in ('r', 'p')
+   and c.relname <> 'schema_migrations'
+   and not (has_table_privilege('service_role', c.oid, 'SELECT')
+        and has_table_privilege('service_role', c.oid, 'INSERT')
+        and has_table_privilege('service_role', c.oid, 'UPDATE')
+        and has_table_privilege('service_role', c.oid, 'DELETE'))
+ order by 1;
+
+\echo
+\echo '=== 4b  Eigentümer in public  (erwartet: eine Zeile, die Schreibrolle) ==='
+select pg_get_userbyid(c.relowner) as eigentuemer, count(*) as objekte
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public' and c.relkind in ('r', 'p', 'v', 'm', 'S')
+ group by 1
  order by 1;
 
 \echo
@@ -78,7 +106,7 @@ select c.relname,
        c.relrowsecurity as rls_an,
        (select count(*) from pg_policies p
          where p.schemaname = 'public' and p.tablename = c.relname) as regeln,
-       has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'SELECT') as anon_darf_lesen
+       has_table_privilege('anon', c.oid, 'SELECT') as anon_darf_lesen
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
  where n.nspname = 'public' and c.relkind in ('r', 'p')
    and not c.relrowsecurity
@@ -88,25 +116,25 @@ select c.relname,
 \echo '=== 6  Schreibrechte von anon  (MUSS LEER SEIN) ==='
 \echo '    Nach Schritt C4 schreibt kein Browser mehr direkt in die Datenbank.'
 select c.relname,
-       has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'INSERT') as insert,
-       has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'UPDATE') as update,
-       has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'DELETE') as delete
+       has_table_privilege('anon', c.oid, 'INSERT') as insert,
+       has_table_privilege('anon', c.oid, 'UPDATE') as update,
+       has_table_privilege('anon', c.oid, 'DELETE') as delete
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
  where n.nspname = 'public' and c.relkind in ('r', 'p')
-   and (has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'INSERT')
-     or has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'UPDATE')
-     or has_table_privilege('anon', 'public.' || quote_ident(c.relname), 'DELETE'))
+   and (has_table_privilege('anon', c.oid, 'INSERT')
+     or has_table_privilege('anon', c.oid, 'UPDATE')
+     or has_table_privilege('anon', c.oid, 'DELETE'))
  order by 1;
 
 \echo
-\echo '=== 7  Views, die service_role gehören und nicht security_invoker sind ==='
-\echo '    (MUSS LEER SEIN) Eine solche View umgeht die Zeilensicherheit der'
-\echo '    darunterliegenden Tabellen – auch für authenticated. Heute gibt es keine'
-\echo '    Views; diese Prüfung ist für den Tag, an dem jemand die erste anlegt.'
+\echo '=== 7  Views, die nicht security_invoker sind  (MUSS LEER SEIN) ==='
+\echo '    Eine solche View liest mit den Rechten ihrer Eigentümerin, und das ist'
+\echo '    die Eigentümerin der Tabellen. Sie umgeht damit die Zeilensicherheit, auch'
+\echo '    für authenticated. Heute gibt es keine Views; diese Prüfung ist für den'
+\echo '    Tag, an dem jemand die erste anlegt.'
 select c.relname, pg_get_userbyid(c.relowner) as eigentuemer
   from pg_class c join pg_namespace n on n.oid = c.relnamespace
  where n.nspname = 'public' and c.relkind = 'v'
-   and pg_get_userbyid(c.relowner) = 'service_role'
    and coalesce((select option_value from pg_options_to_table(c.reloptions)
                   where option_name = 'security_invoker'), 'false') <> 'true'
  order by 1;
@@ -194,7 +222,7 @@ select current_user as laeuft_als, auth.uid() as uid, auth.role() as rolle;
 select count(*) as sichtbare_zeugnisse_fuer_fremden_benutzer from public.certificates;
 select count(*) as sichtbare_profile_fuer_fremden_benutzer   from public.profiles;
 
-\echo '--- 13c  Als service_role: alles sichtbar (Eigentümer-Ersatz für BYPASSRLS) ---'
+\echo '--- 13c  Als service_role: alles sichtbar (Regel service_role_alles statt BYPASSRLS) ---'
 reset role;
 set local role service_role;
 select current_user as laeuft_als;
@@ -208,7 +236,9 @@ rollback;
 \echo 'Zusammengefasst muss gelten:'
 \echo '  Abschnitt 2a t             (authenticator darf sich verbinden)'
 \echo '  Abschnitt 3  leer          (kein FORCE ROW LEVEL SECURITY)'
-\echo '  Abschnitt 4  leer          (alles gehört service_role)'
+\echo '  Abschnitt 4  leer          (jede Tabelle mit Zeilensicherheit hat die service_role-Regel)'
+\echo '  Abschnitt 4a leer          (service_role darf überall lesen und schreiben)'
+\echo '  Abschnitt 4b eine Zeile    (alles gehört der Schreibrolle)'
 \echo '  Abschnitt 6  leer          (anon schreibt nichts)'
 \echo '  Abschnitt 7  leer          (keine View umgeht die Zeilensicherheit)'
 \echo '  Abschnitt 9  anon und authenticated auf handle_new_user = false'
