@@ -116,13 +116,21 @@ eq(
   schlusssatzPreview({ zeugnisTyp: "zwischen", wertschaetzung: "standard", optinVorgesetztenwechsel: true }, anna),
   "Dieses Zwischenzeugnis wird aufgrund eines Vorgesetztenwechsels ausgestellt. Wir danken Anna Muster für die bisherige sehr wertvolle Unterstützung bestens und hoffen, noch lange auf ihre geschätzte Mitarbeit zählen zu dürfen.",
 );
-// Pensionierung, Standard: Christophs Satz aus der E-Mail vom 03.11.2026, im
-// Wunsch geglättet (kein doppeltes «beste»).
+// Pensionierung, Standard: Christophs Satz aus den E-Mails vom 03. und
+// 04.11.2026 (Grund vorangestellt), im Wunsch geglättet (kein doppeltes «beste»).
 eq(
   "Standard, Pensionierung (Christoph)",
   schlusssatzPreview({ zeugnisTyp: "schluss", austrittsgrund: "pensionierung", wertschaetzung: "standard" }, anna),
-  "Wir danken Anna Muster für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ihr alles Gute, beste Gesundheit und viel Lebensfreude.",
+  "Anna Muster verlässt uns heute aufgrund ihrer Pensionierung. Wir danken Anna Muster für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ihr alles Gute, beste Gesundheit und viel Lebensfreude.",
 );
+// Der Grund steht immer genau einmal: ohne Reorg der Pensionierungssatz,
+// mit Reorg nur «vorzeitig in Pension».
+for (const k of schlussKombis().filter((k) => k.austrittsgrund === "pensionierung")) {
+  const s = pickSchlusssatz(k)!;
+  const pension = /verlässt uns heute aufgrund .* Pensionierung\./.test(s);
+  const vorzeitig = /vorzeitig in Pension\./.test(s);
+  ok(`Pensionierung nennt den Grund genau einmal ${JSON.stringify(k)}`, k.optinReorg ? vorzeitig && !pension : pension && !vorzeitig);
+}
 // Wer in Pension geht, bekommt keinen beruflichen Ausblick.
 for (const k of schlussKombis().filter((k) => k.austrittsgrund === "pensionierung"))
   ok(`Pensionierung ohne beruflichen Ausblick ${JSON.stringify(k)}`, !/beruflich|Erfolg|weiterempfehl/i.test(pickSchlusssatz(k)!));
