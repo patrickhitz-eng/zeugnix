@@ -11,7 +11,8 @@
 > **Nachbarn:** `cutover-reihenfolge.md` = Reihenfolge und Gates des Umzugs ·
 > `docs/setup-zeugnio-nine.html` = die Befehle · `antwort-2026-10-13.email.md` = Entwürfe.
 >
-> Stand: 2026-10-28, abgeglichen mit dem Postfach `silvan.schueck@advisori.ch` (Outlook).
+> Stand: 2026-11-06, abgeglichen mit dem Postfach `silvan.schueck@advisori.ch` (Outlook):
+> seit der Antwort vom 3.11. ist von nine nichts Neues gekommen, ausser einem Newsletter-Hinweis.
 > Erstmalig am 16.10. rückwirkend aus allen drei Repos zusammengetragen.
 
 ---
@@ -36,6 +37,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | 2026-09-15 | Vorfragen | PostgreSQL vorhanden / Version / Kosten · laufen schon andere Apps · **Auftragsbearbeitungsvertrag** | EHC | führte zu Ticket SVC-116462; ABV **unbeantwortet** |
 | 2026-09-18 | Mail | Alles auf den Managed Server oder die drei Produkte auf deplo.io? Können sie eine Business-Instanz teilen? | alle | Betriebsantworten 18./25.09. (s. u.) |
 | 2026-09-23 | **SVC-116462** | PostgreSQL 16 installieren | EHC | **installiert**; Complex Service CHF 60/Mt **pro Server, nicht pro App** |
+| 2026-09-23 | **SVC-116708** «Korrektur» | MySQL lauscht auf `*:3306`, Verbindung von Railway wird abgewiesen — welche Quell-IP? | Benchmark | **Dirk Rauber:** Firewall lokal per iptables, **kein Logging**, wir sollen die Quell-IP selbst nachweisen. Am 6.10. automatisch geschlossen; überholt durch den SSH-Tunnel (SVC-118041) |
 | 2026-09-25 | Mail | Betriebsgrenzen deplo.io / On-Demand | alle | **kein PITR** (kein DB-Typ), **kein SLA** für deplo.io/On-Demand, SLA nur auf Managed Server zubuchbar, Support Mo–Fr 09–18, Abrechnung minutengenau pro Replikat |
 | 2026-09-28 | — | *Entscheid intern:* deplo.io verworfen, alles auf `advisori01` | alle | drei der fünf Blocker entfallen damit |
 | 2026-10-09 | Mail (Cockpit ging nicht) | Ticket `deploy/nine/ticket-nine-createrole.md`: `CREATEROLE` · `CONNECT` mit Weitergaberecht · `postgresql-client-17` | zeugnio | → Antwort Patrick Lion 2026-10-13 |
@@ -58,7 +60,10 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | 2026-10-29 17:45 | SVC-117420 | Unser Terminvorschlag: Mi 4.11. oder Fr 6.11., je ab 10:00 | zeugnio | überholt, nine war schneller |
 | **2026-10-30 08:43** | SVC-117420 | **Antonios Tsianakas: Upgrade auf PostgreSQL 17 abgeschlossen** | zeugnio + Albis Run | admin-Benutzer **`pgadmin`** angelegt, Zugangsdaten in `/home/www-data/.pg_credentials`. **`nine-manage-databases` verwaltet nur noch MySQL.** Bitte um Prüfung |
 | 2026-10-30 | *eigene Prüfung* | Upgrade nachgeprüft | zeugnio + Albis Run | **In Ordnung:** `albisrun.ch/api/health` meldet Datenbank, Tabellen und Anmeldung ok; `pg_dump` 17.11 liegt systemweit, also auch für die Sicherung um 03:30; der Kit-Check sieht 17.11. **Nicht in Ordnung:** `pgadmin` ist kein Superuser und hat kein `CONNECT` auf `nmd_zeugnio`. `\password nmd_zeugnio` scheitert, weil seit PG 16 die ADMIN-Option auf der Rolle fehlt. Die Anmeldung als `nmd_zeugnio` mit dem Passwort aus der `.env` scheitert |
-| 2026-10-30 | SVC-117420 | Bestätigung, dazu die Bitte `GRANT nmd_zeugnio, nmd_albisrun TO pgadmin WITH ADMIN OPTION` und `GRANT CONNECT ON DATABASE nmd_zeugnio, nmd_albisrun TO pgadmin`; Frage, ob der Nachtdump auch selbst angelegte Datenbanken erfasst | zeugnio + Albis Run | **verschickt am 30.10. um 09:25**, Antwort offen |
+| 2026-10-30 | SVC-117420 | Bestätigung, dazu die Bitte `GRANT nmd_zeugnio, nmd_albisrun TO pgadmin WITH ADMIN OPTION` und `GRANT CONNECT ON DATABASE nmd_zeugnio, nmd_albisrun TO pgadmin`; Frage, ob der Nachtdump auch selbst angelegte Datenbanken erfasst | zeugnio + Albis Run | **verschickt am 30.10. um 09:25** |
+| **2026-11-03 11:32** | SVC-117420 | **Antwort Daniel Wilhelm: A9 erteilt** | zeugnio + Albis Run | `pgadmin` hat jetzt die ADMIN-Option auf `nmd_zeugnio`, `nmd_albisrun` und deren `_ro`/`_rw`-Rollen. Die Rollen können ihr Passwort auch selbst ändern. **Nachtdump:** erfasst alle Datenbanken, solange dem Benutzer `postgres` der Zugriff nicht verwehrt wird. `CONNECT` ist in der Antwort nicht erwähnt, beim ersten Login mit `pgadmin` prüfen. Status «Waiting for customer»: nach der Prüfung bestätigen und schliessen lassen |
+| **2026-11-06** | *eigene Prüfung* | `pgadmin` nach A9 getestet | zeugnio + Albis Run | **ADMIN-Option in Ordnung:** `admin_option = t` auf `nmd_zeugnio`, `nmd_albisrun` und allen vier `_ro`/`_rw`-Rollen. **`CONNECT` fehlt weiterhin:** `permission denied for database "nmd_zeugnio"` bzw. `"nmd_albisrun"`, «User does not have CONNECT privilege». **Ursache:** nine hat die sechs Mitgliedschaften mit `INHERIT FALSE` und `SET FALSE` angelegt (`erbt = f`, `wechseln = f`). Das ist nicht der Standard, denn `pgadmin` selbst steht auf `rolinherit = t`, war also eine bewusste Wahl. `pgadmin` darf die Rollen verwalten, aber weder deren Rechte nutzen noch in sie wechseln. **Eigentümer** beider Datenbanken ist nines Rolle `nmd`; `CONNECT` haben nur `_ro` (`c`) und `_rw` (`Cc`), **ohne Weitergaberecht**. `pgadmin`: kein Superuser, `CREATEROLE` und `CREATEDB`. 2.2 bleibt damit blockiert |
+| **2026-11-06 08:44** | SVC-117420 | **Nachfrage `CONNECT` verschickt** | zeugnio | Bewusst **ohne SQL-Anweisungen**, nur Befund und Begründung: ADMIN-Option funktioniert; `pgadmin` scheitert an «User does not have CONNECT privilege», weil die Mitgliedschaften auf `INHERIT`/`SET` = `FALSE` stehen; wir brauchen `CONNECT`, weil `pgadmin` in `nmd_zeugnio` das Grundgerüst einrichtet (900) und die Rolle der Datenschnittstelle (`authenticator`) ebenfalls `CONNECT` braucht, das wir nicht selbst vergeben können. Antwort offen. **Erwartete Lösung**, falls nine zurückfragt: `GRANT nmd_zeugnio_rw TO pgadmin WITH INHERIT TRUE, SET TRUE` und `GRANT CONNECT ON DATABASE nmd_zeugnio TO nmd_zeugnio_rw WITH GRANT OPTION` |
 
 ---
 
@@ -95,7 +100,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | # | Bitte | Für | Stand |
 |---|---|---|---|
 | A1 | ~~PG 16 → 17 upgraden + admin-Benutzer~~ | zeugnio | **erledigt am 30.10.** (`pgadmin`) |
-| A9 | **ADMIN-Option und `CONNECT` für `pgadmin`** auf `nmd_zeugnio` und `nmd_albisrun` | zeugnio + Albis Run | angefragt am 30.10. Ohne sie kann `pgadmin` weder Passwörter dieser Rollen setzen noch `nmd_zeugnio` einrichten (2.2) |
+| A9 | ~~ADMIN-Option und `CONNECT` für `pgadmin`~~ auf `nmd_zeugnio` und `nmd_albisrun` | zeugnio + Albis Run | **halb erteilt:** ADMIN-Option am 3.11. ✓; **`CONNECT` fehlt** (geprüft 6.11.), Nachfrage in SVC-117420 **verschickt am 6.11. um 08:44**, Antwort offen |
 | A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Selbst erledigt am 28.10.** (`cutover-reihenfolge.md` 1.2), noch ohne Zertifikat |
 | A3 | ~~vhost `benchmark.ag` + App-Benutzer `www-benchmark`~~ | Benchmark | `www-benchmark` besteht (Kit `MIGRATION.md`) |
 | A4 | ~~Als welche Rolle läuft der Nachtdump?~~ | zeugnio | **beantwortet 29.10.:** als Superuser |
