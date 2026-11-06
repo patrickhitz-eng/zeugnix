@@ -83,3 +83,96 @@ Ich schaue mir diese Punkte genauer an und gebe dir Bescheid.
 
 Liebe Grüsse
 Silvan
+
+## Antwort vom 3.11. (Entwurf)
+
+Grundlage ist der Outreach-Plan vom 3.11. (`.claude/plans/2026-11-03-outreach-dezember.md`, nicht
+in Git). Geprüft am 3.11.:
+- **Lohngleichheitsanalyse** nach dem Gleichstellungsgesetz: ab 100 Mitarbeitenden, alle vier
+  Jahre, befristet bis 1.7.2032 ([BJ](https://www.bj.admin.ch/de/verwirklichung-der-lohngleichheit)).
+- **EU-Richtlinie 2023/970** zur Lohntransparenz: gilt in der EU ab 7.6.2026. Laut
+  [EFTA-Factsheet](https://www.efta.int/eea-lex/32023l0970) noch nicht ins EWR-Abkommen
+  übernommen.
+
+**Betreff:** AW: zeugnio: Recap unseres Treffens vom 30. Oktober
+**Anhang:** `zeugnio-Bausteine-Entwurf-2026-11-03.docx` (Kopie von `docs/bausteine-uncodiert-entwurf-2026-11-03.docx`)
+
+Hallo Christoph
+
+Wie versprochen melde ich mich zu den Punkten von Freitag. Ich habe sie mir angeschaut und
+daraus einen Plan für den Start im Dezember gemacht.
+
+**Der Plan in Kürze**
+
+- Am **Dienstag, 1. Dezember**, starte ich mit dem Outreach in der Deutschschweiz und in
+  Liechtenstein. Ich spreche alle Firmen an. Besonders interessant sind grössere Firmen mit HR,
+  Behörden und Branchen mit vielen Austritten.
+- Wir starten mit **Pilotfirmen**. Sie nutzen zeugnio bis 31. März 2027 gratis und geben uns
+  dafür in einem Gespräch Feedback. Bis Ende Januar wollen wir möglichst viele Firmen gewinnen,
+  die mindestens ein Zeugnis finalisiert haben.
+- Bis zum Start sollen vier Dinge fertig sein:
+  - mehrere Benutzer pro Firma mit Rollen
+  - eine Mastervorlage pro Firma
+  - Export und Löschen der eigenen Daten
+  - überarbeitete Bausteine für «genügend» und «ungenügend»
+- **Eine Korrektur zu meinen Folien:** Der Umzug in die Schweiz zu nine ist vorbereitet, aber
+  noch nicht abgeschlossen. Die Umschaltung ist für Ende November geplant, also vor dem Start.
+  Danach liegen Datenbank und Anwendung in Zürich.
+
+**Zu den sechs Punkten**
+
+1. **Lohntransparenz:** Ein Schweizer «Lohntransparenzgesetz» gibt es nicht.
+   - Am nächsten kommt die Lohngleichheitsanalyse nach dem Gleichstellungsgesetz: Pflicht ab
+     100 Mitarbeitenden, alle vier Jahre, befristet bis 2032.
+   - Die EU-Richtlinie zur Lohntransparenz gilt in der EU seit Juni 2026. Ins EWR-Abkommen und
+     damit für Liechtenstein ist sie nach meinem Stand noch nicht übernommen.
+
+   Lohnbänder in zeugnio sind machbar. Ich würde sie im Dezember und Januar mit den Pilotfirmen
+   konkretisieren, statt sie auf Verdacht zu bauen.
+2. **Bewusst Weggelassenes:** Geplant für Dezember. HR hält intern fest, was bewusst nicht ins
+   Zeugnis kommt und warum. Diese Notiz landet nie im Zeugnis.
+   - Das passt zu deinem PDF zu negativen Tatsachen: Wenn ein Zeugnis wahr und vollständig sein
+     muss, hilft im Streitfall eine saubere Begründung.
+   - Dazu kommen neue, uncodierte Bausteine für «genügend» und «ungenügend». Den Entwurf
+     findest du im Anhang zur Durchsicht.
+3. **Mastervorlage pro Firma:** Kommt vor dem Start. Die Admin-Person legt pro Firma fest:
+   - Stil und Marke
+   - Fusszeile und Unterzeichnende
+   - Standardwerte, zum Beispiel für den Schlusssatz
+   - ob der Hash im Dokument steht
+
+   HR übernimmt die Vorlage und kann sie nicht ändern. Fehlt aus deiner Sicht etwas, damit
+   niemand mehr nach Word muss?
+4. **Kombi-Abos:** Das Preismodell legen wir bis Ende März fest, wenn die Pilotphase endet. Eine
+   qualifizierte elektronische Unterschrift, etwa über Swisscom oder Skribble, prüfe ich als
+   Zusatz zum Abo.
+5. **Weitere Mehrwerte:** Meine Kandidaten sind:
+   - Zeugnisse von Bewerbenden entschlüsseln und prüfen
+   - Zwischenzeugnisse automatisch anstossen, etwa bei einem Vorgesetztenwechsel
+   - eine Prüfung auf Widersprüche und Codes
+   - Auswertungen über alle Zeugnisse, etwa Notenverteilung und Austrittsgründe
+   - Zeugnisse auf Französisch, Italienisch und Englisch
+   - ein Zugang für ehemalige Mitarbeitende zu ihrem Zeugnis
+
+   Welche davon würde First bezahlen? Dieselbe Frage stelle ich auch den Pilotfirmen.
+6. **Gratisangebot:** Erstellen bleibt gratis. Wo die Grenze liegt, entscheiden wir mit den
+   Erfahrungen aus der Pilotphase.
+
+**Benutzer und Rollen**
+
+Jeder Kunde bekommt eine Organisation mit einer oder mehreren Firmen.
+- Die Admin-Person, zum Beispiel die Head of HR, lädt Kolleginnen und Kollegen über ihre
+  Mailadresse ein.
+- Sie vergibt pro Firma eine Rolle:
+  - **HR:** erstellt und bearbeitet Zeugnisse
+  - **Freigabe:** darf zusätzlich finalisieren
+  - **Lesen:** darf nur ansehen
+- Sie kann festlegen, dass nur Adressen der eigenen Firmendomain eingeladen werden dürfen.
+
+Für First hiesse das: eine Organisation, darunter die fünf Marken.
+
+**Eine Frage an dich:** Ich würde First in Gesprächen nur mündlich erwähnen, ohne Namen oder Logo
+in Unterlagen. Ist das für dich in Ordnung?
+
+Liebe Grüsse
+Silvan

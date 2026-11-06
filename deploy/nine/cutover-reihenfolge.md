@@ -69,7 +69,9 @@ die Zone mit.
 | 0.5 | `install-postgrest.sh` erstmals ohne Prüfsumme laufen lassen, Prüfsumme **von Hand** mit der Release-Seite vergleichen, Wert bei `PINNED_SHA256` eintragen und einchecken | Prüfsumme steht im Repo |
 | 0.6 | Serverweite Build-Sperre im EHC-Repo nachtragen (`/tmp/nine-next-build.lock`). Ohne sie können zwei `next build` gleichzeitig laufen — auf 7,8 GB ist das der wahrscheinlichste Selbstschaden | Sperre in beiden Repos |
 
-**0.1 braucht einen Entscheid, den nur du treffen kannst** — siehe `TODO(human)` unten.
+**0.1 ist entschieden (3.11.):** Infomaniak, und weil Vercel auch Registrar ist, zieht die
+Domain mit. Ablauf unten unter «Entscheid zur DNS-Zone». **0.3** liegt als Code-Änderung im
+Branch `fix/umzug-vorbereitung` und wirkt, sobald er auf Vercel deployt ist.
 
 ---
 
@@ -113,6 +115,23 @@ sudo nine-manage-vhosts virtual-host create zeugnio.ch --template=proxy --templa
 - **In Ordnung:** Albis Run läuft, die Health-Prüfung meldet die Datenbank ok. `pg_dump` 17.11 liegt systemweit.
 - **Admin-Benutzer** heisst `pgadmin` und ist kein Superuser. **2.2 wartet darum auf A9:** die ADMIN-Option und `CONNECT` auf `nmd_zeugnio`, angefragt am 30.10.
 - **Fallback, falls nine ablehnt:** `pgadmin` legt eine eigene Datenbank mit eigenem Eigentümer an. Die SQL-Dateien 900 bis 903 nennen `nmd_zeugnio` nur in Kommentaren. Zu ändern wären dann `.env`, `postgrest.conf` und das Runbook.
+
+**Stand 3.11.: A9 erteilt** (Daniel Wilhelm, 11:32). `pgadmin` hat die ADMIN-Option auf
+`nmd_zeugnio` und die `_ro`/`_rw`-Rollen. `CONNECT` erwähnt die Antwort nicht: beim ersten
+Login mit `pgadmin` auf `nmd_zeugnio` prüfen. Damit ist **2.2 entsperrt**. Der Fallback
+entfällt.
+
+**Stand 6.11.: 2.2 doch noch blockiert.** Geprüft: Die ADMIN-Option sitzt (`admin_option = t`
+auf allen sechs `nmd_*`-Rollen), aber `pgadmin` hat **kein `CONNECT`** auf `nmd_zeugnio`
+und `nmd_albisrun` («User does not have CONNECT privilege»). `900_nine_bootstrap.sql` läuft
+mit `-d nmd_zeugnio`, braucht also die Verbindung. Ursache: Die Mitgliedschaften stehen
+auf `INHERIT FALSE, SET FALSE`, Eigentümer der Datenbank ist nines `nmd`. Selbst lösen
+können wir das nicht sauber. Nachfrage in SVC-117420 **verschickt am 6.11. um 08:44**
+(Befund und Begründung, bewusst ohne SQL). Was wir eigentlich brauchen:
+`GRANT nmd_zeugnio_rw TO pgadmin WITH INHERIT TRUE, SET TRUE` und
+`GRANT CONNECT ON DATABASE nmd_zeugnio TO nmd_zeugnio_rw WITH GRANT OPTION`. Nach nines
+Antwort den Test aus dem Journal (6.11.) wiederholen: Anmeldung als `pgadmin` mit
+`-d nmd_zeugnio`.
 
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
@@ -198,7 +217,7 @@ Fenster ganz wegnehmen könnte.
 | 6.1 | CAA-Eintrag setzen (`issue "letsencrypt.org"`) | vorher würde er die Ausstellung behindern, wenn er falsch sitzt |
 | 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload` | erst wenn das Zertifikat sicher erneuert wird |
 | 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu **SPF, DKIM, DMARC für `zeugnio.ch` neu bauen** — heute ist dort nichts. In `RECIPIENTS` Resend durch mailomat.swiss ersetzen (mailXpert GmbH, Zürich) | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
-| 6.4 | Vercel und Supabase stilllegen | erst nach einer Frist, in der der Rückweg offen bleibt |
+| 6.4 | Vercel und Supabase stilllegen. **Vorher** `zeugnix.ch` auf advisori01 umleiten (siehe «Entscheid zur DNS-Zone») | erst nach einer Frist, in der der Rückweg offen bleibt; ohne die Umleitung wären alte Links und QR-Codes auf `zeugnix.ch` tot |
 
 ---
 
@@ -214,31 +233,30 @@ Fenster ganz wegnehmen könnte.
 
 ---
 
-## Was diese Datei bewusst nicht entscheidet
+## Entscheid zur DNS-Zone (Phase 0.1, Silvan 3.11.2026)
 
-Den Zielanbieter der DNS-Zone. Das ist kein technischer, sondern ein betrieblicher
-Entscheid — er hängt daran, wo `zeugnio.ch` registriert ist und wen Advisori ohnehin
-bewirtschaftet.
+**Infomaniak wird Registrar und DNS-Anbieter von `zeugnio.ch`.** Die Domain wurde am
+24.07.2026 **über Vercel gekauft**. Vercel ist also nicht nur DNS-Anbieter, sondern auch
+Registrar. Darum zieht die Domain selbst mit um, nicht nur die Zone. Verworfen: der
+Registrar selbst (das wäre Vercel), nine (Abhängigkeit 4) und Hostpoint (gleichwertig, kein
+Grund für ein drittes Konto). Kontoinhaber bei Infomaniak: advisori, Domaininhaber
+advisori GmbH (Marktstart-Schritt 14).
 
-```
-TODO(human) — Phase 0.1: Zielanbieter der DNS-Zone eintragen
+**Eine Regel trägt alles:** Die neue Zone steht vollständig, **bevor** die Nameserver auf
+sie zeigen. Ob der Registrar-Wechsel vor oder nach dem Nameserver-Wechsel kommt, ist egal.
 
-Zur Wahl stehen grob drei Wege, mit je einem Nachteil:
+| # | Schritt | Gate |
+|---|---|---|
+| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird | Liste vollständig, mit dem Vercel-Dashboard abgeglichen |
+| 0.1b | Bei Infomaniak die Zone mit genau diesen Einträgen anlegen, TTL der Apex-A-Records gleich auf 300 (ersetzt 0.2) | Abfrage direkt beim Infomaniak-Nameserver liefert dieselben Antworten wie Vercel |
+| 0.1c | Nameserver auf Infomaniak umstellen. **Kein DNSSEC aktiv** (kein DS-Eintrag, gemessen 3.11.), der Wechsel braucht also keinen Schlüsseltausch | `NS zeugnio.ch` zeigt Infomaniak, Seite und Anmeldemail laufen |
+| 0.1d | Domain mit dem Transfer-Code aus Vercel zu Infomaniak übertragen, automatische Verlängerung und Zwei-Faktor-Anmeldung an | RDAP bei `rdap.nic.ch` zeigt das neue Registrierungsereignis |
 
-  a) Beim Registrar selbst (dort, wo zeugnio.ch registriert ist).
-     Wenig Aufwand, ein Konto weniger. Dafuer oft eine duerftige
-     Oberflaeche und manchmal keine kurzen TTLs.
+Lässt Infomaniak die Zone erst nach dem Transfer anlegen, gilt die Reihenfolge 0.1a, 0.1d
+(Nameserver bleiben bei Vercel), 0.1b, 0.1c.
 
-  b) Ein schweizerischer DNS-Anbieter (z. B. Infomaniak, Hostpoint).
-     Passt zur Standortaussage, gute Oberflaeche, kurze TTLs.
-     Dafuer ein weiteres Konto und eine weitere Rechnung.
-
-  c) nine selbst, falls sie DNS anbieten.
-     Alles an einem Ort - und genau das ist der Nachteil:
-     Server und Zone beim gleichen Anbieter nehmen dir den
-     unabhaengigen Umschalthebel, den wir gerade erst
-     zurueckgewinnen (Abhaengigkeit 4).
-
-Eintragen: Anbieter, wer das Konto haelt, und ob kurze TTLs (300 s)
-moeglich sind. Danach wird 0.1 ausfuehrbar.
-```
+**`zeugnix.ch` gehört mit dazu.** Die Altdomain hat eine eigene Zone (Nameserver
+`ch.pro.io`, `nl.pro.io`, `p.dnh.net`) und zeigt mit A `216.150.1.1` auf Vercel, das per 301
+auf `www.zeugnio.ch` weiterleitet. Ältere Links und QR-Codes nutzen sie. Bevor Vercel in 6.4
+abgeschaltet wird, muss `zeugnix.ch` auf advisori01 zeigen und dort weiterleiten
+(vhost-Alias oder eigener Redirect-vhost). Wer die Zone von `zeugnix.ch` verwaltet, ist offen.

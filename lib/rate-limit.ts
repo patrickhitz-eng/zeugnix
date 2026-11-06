@@ -134,20 +134,8 @@ export async function rateLimit(
   }
 }
 
-/**
- * Client-IP aus den Proxy-Headern bestimmen. Auf Vercel ist
- * `x-forwarded-for` gesetzt; der erste Eintrag ist der ursprüngliche Client.
- */
-export function getClientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
-  }
-  const real = req.headers.get("x-real-ip")?.trim();
-  if (real) return real;
-  return "unknown";
-}
+/** Client-IP aus den Proxy-Headern; Begründung in `lib/client-ip.ts`. */
+export { getClientIp } from "@/lib/client-ip";
 
 /** Einheitliche 429-Antwort inkl. `Retry-After`-Header. */
 export function tooManyRequests(retryAfter?: number): NextResponse {
