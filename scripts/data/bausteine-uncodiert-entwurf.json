@@ -1,0 +1,132 @@
+{
+  "_info": "Entwurf 2026-11-03 (Marktstart Schritt 19): neue Präsens-Texte für «genügend» und «ungenügend». Schlüssel = category|rating|variant. Nicht aufgeführte Bausteine bleiben unverändert. Präteritum und Migration 032 erst nach Christophs Freigabe.",
+  "aenderungen": {
+    "vorbild|genuegend|1": { "neu": "{vorname} {nachname} erfüllt die Anforderungen an {{seine|ihre|seine/ihre}} Vorbildrolle als Führungskraft und handelt glaubwürdig und integer.", "grund": "Klingt wie «gut» ohne ein Wort. Neu sagt der Satz die Stufe offen." },
+    "vorbild|ungenuegend|1": { "neu": "{vorname} {nachname} handelt als Führungskraft glaubwürdig. Die Anforderungen an {{seine|ihre|seine/ihre}} Vorbildrolle erfüllt {{er|sie|er/sie}} jedoch nicht immer.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Code durch Weglassen)." },
+    "vorbild|ungenuegend|2": { "neu": "{vorname} {nachname} erleben wir als {{Vorgesetzten|Vorgesetzte|Vorgesetzten/Vorgesetzte}}, {{der|die|der/die}} mit {{seinem|ihrem|seinem/ihrem}} Team die laufenden Aufgaben erledigt. Als Vorbild in Haltung und Verantwortung überzeugt {{er|sie|er/sie}} uns allerdings nicht immer.", "grund": "Codewörter «jeweils» und «solide»." },
+
+    "offenheit_vertrauen|genuegend|1": { "neu": "Den Anliegen {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden begegnet {{er|sie|er/sie}} offen und schafft so ein vertrauensvolles Arbeitsklima.", "grund": "Codewort «Interesse»." },
+    "offenheit_vertrauen|genuegend|2": { "neu": "Den Anliegen {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden gegenüber ist {vorname} {nachname} offen. Durch {{seine|ihre|seine/ihre}} wertschätzende Haltung schafft {{er|sie|er/sie}} ein förderliches Arbeitsklima.", "grund": "Codewort «jeweils» gestrichen." },
+    "offenheit_vertrauen|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} pflegt einen freundlichen Umgang mit {{seinen|ihren|seinen/ihren}} Mitarbeitenden. Ein offenes und vertrauensvolles Arbeitsklima zu schaffen, gelingt {{ihm|ihr|ihm/ihr}} jedoch nicht immer.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Codewort «Interesse», «angenehm» statt «vertrauensvoll»)." },
+    "offenheit_vertrauen|ungenuegend|2": { "neu": "Den Anliegen {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden hört {vorname} {nachname} zu, nimmt sie aber nicht immer im erforderlichen Mass auf.", "grund": "Codewort «jeweils», sonst positiv klingend." },
+
+    "verantwortung_uebertragen|ungenuegend|1": { "neu": "Als {{Vorgesetzter|Vorgesetzte|Vorgesetzter/Vorgesetzte}} delegiert {{er|sie|er/sie}} Aufgaben, jedoch nicht immer im erforderlichen Umfang.", "grund": "Codewörter «Wir möchten erwähnen» und «massvoll»." },
+    "verantwortung_uebertragen|ungenuegend|2": { "neu": "Aufgaben und Verantwortung gibt {{er|sie|er/sie}} nicht immer im erforderlichen Mass an {{sein|ihr|sein/ihr}} Team weiter.", "grund": "«teilweise» allein ist mehrdeutig." },
+    "verantwortung_uebertragen|ungenuegend|3": { "neu": "{{Er|Sie|Er/Sie}} delegiert Aufgaben, berücksichtigt dabei aber nicht immer die Fähigkeiten und die Auslastung {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden.", "grund": "«undifferenziert» konkretisiert, Aussage gleich." },
+
+    "lenkung_arbeitsleistung|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} setzt {{seinen|ihren|seinen/ihren}} Mitarbeitenden Ziele. Die Arbeitsleistung im Team lenkt und fördert {{er|sie|er/sie}} jedoch nicht immer im erforderlichen Mass.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Code durch Weglassen)." },
+
+    "aktives_change_management|ungenuegend|1": { "neu": "Bei Veränderungen informiert {{er|sie|er/sie}} {{seine|ihre|seine/ihre}} Mitarbeitenden. Sie darauf vorzubereiten und durch den Wandel zu begleiten, gelingt {{ihm|ihr|ihm/ihr}} jedoch nicht immer.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Codewort «gewissenhaft»)." },
+    "aktives_change_management|ungenuegend|2": { "neu": "Veränderungsprozesse setzt {{er|sie|er/sie}} um, nimmt {{sein|ihr|sein/ihr}} Team dabei aber nicht immer ausreichend mit.", "grund": "Klingt positiv, gemeint ist «ungenügend»." },
+
+    "mitarbeiterfoerderung|genuegend|1": { "neu": "Ausserdem bespricht {{er|sie|er/sie}} mit {{seinen|ihren|seinen/ihren}} Mitarbeitenden Entwicklungsmöglichkeiten und Karriereperspektiven.", "grund": "«überlegt sich» heisst im Code: tut es nicht." },
+    "mitarbeiterfoerderung|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} zeigt {{seinen|ihren|seinen/ihren}} Mitarbeitenden Weiterbildungsangebote auf. Deren Entwicklung fördert {{er|sie|er/sie}} jedoch nicht immer im erforderlichen Mass.", "grund": "Codewort «überlegt sich»." },
+    "mitarbeiterfoerderung|ungenuegend|2": { "neu": "Die gezielte Förderung und Entwicklung {{seiner|ihrer|seiner/ihrer}} Mitarbeitenden kommt bei {{ihm|ihr|ihm/ihr}} teilweise zu kurz.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Code durch Weglassen)." },
+
+    "wissensaustausch|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} gibt Informationen an {{sein|ihr|sein/ihr}} Team weiter, fördert den Wissensaustausch und die Zusammenarbeit jedoch nicht immer ausreichend.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Code durch Weglassen)." },
+    "wissensaustausch|ungenuegend|2": { "neu": "Den Informations- und Wissensaustausch in {{seinem|ihrem|seinem/ihrem}} Arbeitsbereich unterstützt {{er|sie|er/sie}} nicht immer im erforderlichen Mass.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Code durch Weglassen)." },
+
+    "strategieorientierung|ungenuegend|1": { "neu": "Visionen, Strategien und Ziele gibt {{er|sie|er/sie}} an {{sein|ihr|sein/ihr}} Team weiter. Sie verständlich zu erläutern und Ideen aus dem Team einzubeziehen, gelingt {{ihm|ihr|ihm/ihr}} jedoch nicht immer.", "grund": "Codewort «den Vorgaben gemäss»." },
+    "strategieorientierung|ungenuegend|2": { "neu": "Strategien und Ziele vermittelt {{er|sie|er/sie}} {{seinem|ihrem|seinem/ihrem}} Team nicht immer verständlich und überzeugend.", "grund": "Codewort «den Vorgaben gemäss»." },
+
+    "initiativ_fleiss|genuegend|3": { "neu": "Initiative und Engagement von {vorname} {nachname} entsprechen den Anforderungen {{seines|ihres|seines/ihres}} Aufgabenbereichs.", "grund": "«zufrieden» wird als Abwertung gelesen (Häusermann)." },
+    "initiativ_fleiss|ungenuegend|1": { "neu": "{vorname} {nachname} erledigt die übertragenen Aufgaben. Eigeninitiative und Einsatz entsprechen jedoch nicht immer unseren Erwartungen.", "grund": "Wörtlich «genügend» («in ausreichendem Masse»), steht aber bei «ungenügend»." },
+    "initiativ_fleiss|ungenuegend|2": { "neu": "Die übertragenen Arbeiten erledigt {vorname} {nachname}, allerdings nicht immer auftragsgemäss.", "grund": "«mehrheitlich» ist ein Abschwächer mit Code-Wirkung." },
+
+    "selbstaendigkeit_nach_eintritt|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} hat sich in {{seinen|ihren|seinen/ihren}} Arbeitsbereich eingearbeitet, benötigt jedoch häufiger Unterstützung, als es die Stelle erfordert.", "grund": "Sagt fast dasselbe wie «genügend» Variante 1." },
+
+    "motivation_engagement|genuegend|1": { "neu": "{{Er|Sie|Er/Sie}} ist motiviert und arbeitet sich bereitwillig in neue Arbeitsgebiete ein.", "grund": "Codewort «mit Interesse»." },
+    "motivation_engagement|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} arbeitet sich in neue Arbeitsgebiete ein. {{Seine|Ihre|Seine/Ihre}} Motivation und {{sein|ihr|sein/ihr}} Einsatz entsprechen dabei jedoch nicht immer unseren Erwartungen.", "grund": "Wörtlich «genügend» («genügend motiviert», «erwartungsgemäss»)." },
+    "motivation_engagement|ungenuegend|2": { "neu": "{{Er|Sie|Er/Sie}} erledigt {{seine|ihre|seine/ihre}} Aufgaben, zeigt dabei aber nicht immer das erforderliche Engagement.", "grund": "Wörtlich «genügend» («erwartungsgemäss»)." },
+
+    "unternehmensbeitrag|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} arbeitet im Team mit. {{Sein|Ihr|Sein/Ihr}} Beitrag zum gemeinsamen Ergebnis entspricht jedoch nicht immer den Anforderungen {{seiner|ihrer|seiner/ihrer}} Funktion.", "grund": "Wörtlich «genügend» («den erwarteten Beitrag»)." },
+    "unternehmensbeitrag|ungenuegend|2": { "neu": "Im eigenen Verantwortungsbereich leistet {{er|sie|er/sie}} nicht immer den Beitrag, den die Stelle erfordert.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen)." },
+
+    "berufserfahrung|ungenuegend|1": { "neu": "{vorname} {nachname} ist mit {{seinem|ihrem|seinem/ihrem}} Arbeitsgebiet vertraut, beherrscht es jedoch nicht in dem Mass, das die Stelle erfordert.", "grund": "Wörtlich «genügend» («unseren Erwartungen entsprechend»)." },
+    "berufserfahrung|ungenuegend|2": { "neu": "{vorname} {nachname} verfügt über erste Erfahrungen im Arbeitsgebiet, die für die Anforderungen der Stelle jedoch nicht ausreichen.", "grund": "Klingt neutral, gemeint ist «ungenügend»." },
+
+    "fachliche_anforderungen|genuegend|1": { "neu": "{{Er|Sie|Er/Sie}} erfüllt die fachlichen Anforderungen {{seiner|ihrer|seiner/ihrer}} Stelle.", "grund": "«stellt an sich selbst Anforderungen, die er erfüllt» heisst im Code: tiefe Latte." },
+    "fachliche_anforderungen|ungenuegend|1": { "neu": "Den fachlichen Anforderungen {{seiner|ihrer|seiner/ihrer}} Stelle wird {{er|sie|er/sie}} nicht immer gerecht.", "grund": "Wörtlich «genügend» («wird gerecht»)." },
+
+    "verantwortung_aufgabenbewaeltigung|ungenuegend|1": { "neu": "Aufträge führt {{er|sie|er/sie}} aus, übernimmt dabei aber nicht immer die Verantwortung, die {{seine|ihre|seine/ihre}} Aufgabe erfordert.", "grund": "Klingt positiv («keine Unsicherheiten»), gemeint ist «ungenügend»." },
+
+    "auffassungsgabe|ungenuegend|1": { "neu": "Neues nimmt {{er|sie|er/sie}} auf, setzt es in {{seinem|ihrem|seinem/ihrem}} Aufgabengebiet jedoch nicht immer erfolgreich um.", "grund": "Codewort «versucht»." },
+
+    "innovation|genuegend|3": { "neu": "Ferner wirkt {{er|sie|er/sie}} an Neuerungen mit.", "grund": "Codewort «interessiert»." },
+    "innovation|ungenuegend|1": { "neu": "Bestehende Abläufe setzt {{er|sie|er/sie}} um. Eigene Ideen und Verbesserungsvorschläge bringt {{er|sie|er/sie}} jedoch selten ein.", "grund": "Klingt positiv, gemeint ist «ungenügend» («überlegt sich»)." },
+    "innovation|ungenuegend|2": { "neu": "Ferner stützt {{er|sie|er/sie}} sich vorwiegend auf Bestehendes und zeigt wenig Bereitschaft, Neues einzubringen.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen)." },
+
+    "ausdauer_belastbarkeit|genuegend|1": { "neu": "Ausserdem ist {{er|sie|er/sie}} {{ein|eine|ein/eine}} {{belastbarer|belastbare|belastbare/r}} {{Mitarbeitender|Mitarbeitende|Mitarbeitende/r}}, {{der|die|der/die}} {{seine|ihre|seine/ihre}} Aufgaben auch unter Belastung bewältigt.", "grund": "Codewort «in der Regel»." },
+    "ausdauer_belastbarkeit|ungenuegend|1": { "neu": "Bei normaler Arbeitslast bewältigt {{er|sie|er/sie}} {{seine|ihre|seine/ihre}} Aufgaben. Unter erhöhter Belastung lässt {{seine|ihre|seine/ihre}} Leistung jedoch wiederholt nach.", "grund": "Klingt positiv («grösstenteils gut»), gemeint ist «ungenügend»." },
+    "ausdauer_belastbarkeit|ungenuegend|3": { "neu": "Ohne Zeitdruck arbeitet {{er|sie|er/sie}} zuverlässig. Unter Zeitdruck erfüllt {{er|sie|er/sie}} die Anforderungen allerdings nicht immer.", "grund": "Code: Das Wichtige (unter Zeitdruck) steht nur zwischen den Zeilen." },
+
+    "fachkenntnisse_lernbereitschaft|genuegend|1": { "neu": "{vorname} {nachname} verfügt in {{seinem|ihrem|seinem/ihrem}} Gebiet über die erforderlichen Fachkenntnisse und erweitert diese bei Bedarf.", "grund": "«fundiert» übertreibt für «genügend», «von Zeit zu Zeit» ist ein Code." },
+    "fachkenntnisse_lernbereitschaft|ungenuegend|1": { "neu": "{vorname} {nachname} verfügt über Grundkenntnisse in {{seinem|ihrem|seinem/ihrem}} Gebiet. Für die Anforderungen der Stelle reichen {{seine|ihre|seine/ihre}} Fachkenntnisse jedoch nicht immer aus.", "grund": "Wörtlich «genügend» («die nötigen Fachkenntnisse»)." },
+
+    "methodeneinsatz|genuegend|3": { "neu": "Betriebsmittel setzt {{er|sie|er/sie}} wirtschaftlich, kostenbewusst und zweckmässig ein.", "grund": "Codewort «meistens»." },
+    "methodeneinsatz|ungenuegend|1": { "neu": "Vorhandene Methoden und Techniken wendet {{er|sie|er/sie}} in {{seiner|ihrer|seiner/ihrer}} Berufspraxis nicht immer sachgerecht an.", "grund": "Codewort «den Vorgaben entsprechend»." },
+
+    "verlaesslichkeit_pflichtbewusstsein|genuegend|2": { "neu": "{vorname} {nachname} ist {{ein|eine|ein/eine}} {{zuverlässiger|zuverlässige|zuverlässiger/zuverlässige}} {{Mitarbeiter|Mitarbeiterin|Mitarbeiter/in}}, {{der|die|der/die}} sich {{seiner|ihrer|seiner/ihrer}} Aufgabe und dem Unternehmen verpflichtet fühlt.", "grund": "Codewort «Wir lernten … kennen»." },
+    "verlaesslichkeit_pflichtbewusstsein|ungenuegend|1": { "neu": "{vorname} {nachname} nimmt {{seine|ihre|seine/ihre}} Pflichten wahr. Auf {{seine|ihre|seine/ihre}} Zuverlässigkeit können wir uns jedoch nicht immer verlassen.", "grund": "Klingt positiv, gemeint ist «ungenügend» (Code durch Weglassen von «verlässlich»)." },
+    "verlaesslichkeit_pflichtbewusstsein|ungenuegend|2": { "neu": "Vereinbarungen und Pflichten hält {vorname} {nachname} nicht immer zuverlässig ein.", "grund": "Doppelt: war wortgleich mit Variante 1." },
+
+    "selbstaendigkeit_sorgfalt_genauigkeit|genuegend|1": { "neu": "{{Er|Sie|Er/Sie}} arbeitet selbständig und findet sich in {{seinem|ihrem|seinem/ihrem}} Arbeitsbereich zurecht. Dabei arbeitet {{er|sie|er/sie}} sorgfältig und genau.", "grund": "Codewort «grösstenteils»." },
+    "selbstaendigkeit_sorgfalt_genauigkeit|genuegend|2": { "neu": "{{Er|Sie|Er/Sie}} arbeitet sorgfältig und trifft Entscheidungen selbständig.", "grund": "Codewort «grösstenteils»." },
+    "selbstaendigkeit_sorgfalt_genauigkeit|ungenuegend|1": { "neu": "{{Er|Sie|Er/Sie}} findet sich in den gestellten Aufgaben zurecht, arbeitet jedoch nicht immer mit der erforderlichen Selbständigkeit und Sorgfalt.", "grund": "Starkes Codewort «seinen Möglichkeiten entsprechend»." },
+    "selbstaendigkeit_sorgfalt_genauigkeit|ungenuegend|2": { "neu": "Für Entscheidungen benötigt {{er|sie|er/sie}} häufig Rückfragen, und {{seine|ihre|seine/ihre}} Arbeiten müssen wiederholt nachkontrolliert werden.", "grund": "Starkes Codewort «seinen Möglichkeiten entsprechend»." },
+
+    "termintreue|genuegend|1": { "neu": "Termine hält {{er|sie|er/sie}} zuverlässig ein.", "grund": "Codewort «meist»." },
+    "termintreue|genuegend|2": { "neu": "{{Er|Sie|Er/Sie}} hält Terminauflagen ein und befolgt allgemeine Richtlinien sowie konkrete Vorgaben.", "grund": "Codewörter «meist» und «weitgehend»." },
+    "termintreue|ungenuegend|1": { "neu": "Vereinbarte Termine hält {{er|sie|er/sie}} nicht immer ein.", "grund": "Codewort «grundsätzlich»." },
+
+    "arbeitsorganisation|genuegend|4": { "neu": "{vorname} {nachname} informiert angemessen über den eigenen Arbeitsbereich und leitet wichtige Informationen weiter. {{Er|Sie|Er/Sie}} bezieht Vorgesetzte bei Bedarf mit ein.", "grund": "Codewörter «auf Verlangen» und «meistens»." },
+    "arbeitsorganisation|ungenuegend|1": { "neu": "{vorname} {nachname} setzt geplante Aufgaben um, organisiert {{seine|ihre|seine/ihre}} Arbeit aber nicht immer zweckmässig.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen von «richtig»)." },
+    "arbeitsorganisation|ungenuegend|3": { "neu": "{{Sein|Ihr|Sein/Ihr}} organisatorisches Geschick reicht für die Anforderungen der Stelle nicht immer aus. Bei der Aufgabenerfüllung braucht {{er|sie|er/sie}} deshalb manchmal Vorgaben.", "grund": "Aussage gleich, fairer formuliert." },
+
+    "arbeitsqualitaet|genuegend|1": { "neu": "{{Seine|Ihre|Seine/Ihre}} Arbeitsergebnisse entsprechen den Qualitätsanforderungen.", "grund": "«gute Qualität» übertreibt für «genügend»." },
+    "arbeitsqualitaet|ungenuegend|1": { "neu": "{{Seine|Ihre|Seine/Ihre}} Arbeitsergebnisse erreichen nicht immer die geforderte Qualität.", "grund": "Codewort «strebt an»." },
+
+    "zielerreichung|genuegend|1": { "neu": "Dabei erreicht {{er|sie|er/sie}} die vereinbarten Ziele.", "grund": "Codewort «meist»." },
+    "zielerreichung|genuegend|2": { "neu": "Dabei erfüllt {{er|sie|er/sie}} die vereinbarten Ziele und Vorgaben.", "grund": "«vereinbarte Ziele» ohne Artikel heisst im Code: nicht alle." },
+    "zielerreichung|genuegend|3": { "neu": "Die qualitativen und quantitativen Vorgaben erfüllt {{er|sie|er/sie}}. {{Seine|Ihre|Seine/Ihre}} Leistungen entsprechen damit unseren Erwartungen.", "grund": "«zufrieden» wird als Abwertung gelesen (Häusermann)." },
+    "zielerreichung|ungenuegend|1": { "neu": "Dabei erreicht {{er|sie|er/sie}} einen Teil der vereinbarten Ziele, jedoch nicht alle.", "grund": "Codewörter «meist viele»." },
+    "zielerreichung|ungenuegend|2": { "neu": "Die vereinbarten Ziele erreicht {{er|sie|er/sie}} dabei nicht immer.", "grund": "Codewort «meist»." },
+    "zielerreichung|ungenuegend|3": { "neu": "Die qualitativen und quantitativen Vorgaben erfüllt {{er|sie|er/sie}} nicht immer. {{Seine|Ihre|Seine/Ihre}} Leistungen entsprechen damit nicht in allen Bereichen unseren Erwartungen.", "grund": "«meist zufrieden» ist ein Code." },
+
+    "zufriedenheit_leistung|genuegend|3": { "neu": "Die Leistungen von {vorname} {nachname} entsprechen unseren Erwartungen.", "grund": "«weitgehend» heisst: nicht ganz, also unter «genügend»." },
+    "zufriedenheit_leistung|ungenuegend|1": { "neu": "Zusammengefasst entsprechen die Leistungen von {vorname} {nachname} in wesentlichen Punkten nicht unseren Erwartungen.", "grund": "Wörtlich «genügend» («unseren Erwartungen entsprechende Leistungen»)." },
+
+    "verhalten_gegenueber_dritten|ungenuegend|1": { "neu": "Das Verhalten von {vorname} {nachname} gegenüber Vorgesetzten, anderen Mitarbeitenden, Kunden und Geschäftspartnern ist nicht immer angemessen.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen)." },
+    "verhalten_gegenueber_dritten|ungenuegend|2": { "neu": "Im Umgang mit Vorgesetzten, Mitarbeitenden, Kundinnen und Kunden verhält sich {vorname} {nachname} nicht immer korrekt.", "grund": "Klingt neutral, gemeint ist «ungenügend» («korrekt» ohne «stets»)." },
+    "verhalten_gegenueber_dritten|ungenuegend|3": { "neu": "Gegenüber Vorgesetzten, Mitarbeitenden und Anspruchsgruppen tritt {vorname} {nachname} nicht immer angemessen auf.", "grund": "Codewort «akzeptiert» statt «anerkannt»." },
+
+    "konfliktfaehigkeit|genuegend|1": { "neu": "{{Er|Sie|Er/Sie}} bleibt auch in schwierigen Situationen sachlich. Darüber hinaus trägt {{er|sie|er/sie}} zu angemessenen Lösungen bei.", "grund": "Codewort «versucht»." },
+    "konfliktfaehigkeit|genuegend|3": { "neu": "Bei Diskussionen und Auseinandersetzungen verhält {{er|sie|er/sie}} sich zurückhaltend und sachlich.", "grund": "Codewörter «eher» und «meist»." },
+    "konfliktfaehigkeit|ungenuegend|1": { "neu": "In schwierigen Situationen gelingt es {{ihm|ihr|ihm/ihr}} nicht immer, sachlich zu bleiben.", "grund": "Codewort «angebracht»." },
+
+    "kommunikationsfaehigkeit|genuegend|3": { "neu": "{{Er|Sie|Er/Sie}} verfügt über eine adressatengerechte mündliche und schriftliche Ausdrucksfähigkeit.", "grund": "Codewort «weitgehend»." },
+    "kommunikationsfaehigkeit|ungenuegend|1": { "neu": "In Gesprächen drückt {{er|sie|er/sie}} sich verständlich aus, geht jedoch nicht immer ausreichend auf andere Standpunkte ein.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen)." },
+    "kommunikationsfaehigkeit|ungenuegend|2": { "neu": "In Fachgesprächen gelingt es {{ihm|ihr|ihm/ihr}} nicht immer, Sachverhalte klar und nachvollziehbar darzulegen.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen)." },
+
+    "teamfaehigkeit|genuegend|1": { "neu": "{{Er|Sie|Er/Sie}} pflegt ein kollegiales Verhältnis zu {{seinem|ihrem|seinem/ihrem}} Team.", "grund": "Starkes Codewort «bemüht»." },
+    "teamfaehigkeit|genuegend|3": { "neu": "{{Er|Sie|Er/Sie}} fügt sich ins Team ein und arbeitet mit den anderen zusammen.", "grund": "Rechtschreibung («anderen» klein)." },
+    "teamfaehigkeit|ungenuegend|1": { "neu": "Im Team arbeitet {{er|sie|er/sie}} mit, trägt jedoch nicht immer zu einer guten Zusammenarbeit bei.", "grund": "Starkes Codewort «bemüht»." },
+    "teamfaehigkeit|ungenuegend|2": { "neu": "{{Er|Sie|Er/Sie}} arbeitet im Team mit, die Zusammenarbeit mit {{ihm|ihr|ihm/ihr}} gestaltet sich allerdings nicht immer reibungslos.", "grund": "Klingt neutral, gemeint ist «ungenügend»." },
+
+    "offenheit_fuer_feedback|ungenuegend|1": { "neu": "Ausserdem hört {{er|sie|er/sie}} sich Anregungen und Vorschläge an, setzt sie jedoch nicht immer um.", "grund": "Klingt positiv, gemeint ist «ungenügend» (hört zu, handelt nicht)." },
+    "offenheit_fuer_feedback|ungenuegend|2": { "neu": "Feedback nimmt {{er|sie|er/sie}} entgegen, lässt es aber selten in {{seine|ihre|seine/ihre}} Arbeit einfliessen.", "grund": "Klingt neutral, gemeint ist «ungenügend»." },
+
+    "wissen_teilen|genuegend|3": { "neu": "{{Sein|Ihr|Sein/Ihr}} Wissen und Können vermittelt {{er|sie|er/sie}} geschickt.", "grund": "Codewort «im Allgemeinen»." },
+    "wissen_teilen|ungenuegend|1": { "neu": "{{Sein|Ihr|Sein/Ihr}} Wissen und Informationen teilt {{er|sie|er/sie}} nicht immer rechtzeitig mit {{seinem|ihrem|seinem/ihrem}} Team und {{seinen|ihren|seinen/ihren}} Vorgesetzten.", "grund": "Klingt positiv, gemeint ist «ungenügend» («stets» weggelassen)." },
+    "wissen_teilen|ungenuegend|2": { "neu": "{{Er|Sie|Er/Sie}} gibt {{sein|ihr|sein/ihr}} Wissen und Informationen meist erst auf Nachfrage an Vorgesetzte und Mitarbeitende weiter.", "grund": "Offen gesagt, was «auf Nachfrage» andeutet." },
+
+    "synergien_nutzen|ungenuegend|1": { "neu": "{vorname} {nachname} erkennt funktions- und bereichsübergreifende Synergien nicht immer und nutzt sie selten für {{seine|ihre|seine/ihre}} Arbeit.", "grund": "Klingt positiv, gemeint ist «ungenügend»." },
+
+    "flexibilitaet|ungenuegend|1": { "neu": "Veränderungen nimmt {{er|sie|er/sie}} an, braucht jedoch länger als erwartet, um sich auf neue Gegebenheiten einzustellen.", "grund": "Codewort «vertraut Bewährtem»." },
+    "flexibilitaet|ungenuegend|2": { "neu": "{{Er|Sie|Er/Sie}} hält bevorzugt an Bewährtem fest und stellt sich nicht immer im erforderlichen Mass auf Veränderungen ein.", "grund": "Codewort «vertraut Bewährtem», fast gleich wie Variante 1." },
+
+    "kundenorientierung|ungenuegend|1": { "neu": "Zudem nimmt {{er|sie|er/sie}} Kundenbedürfnisse auf, geht jedoch nicht immer ausreichend auf sie ein.", "grund": "Codewort «als wichtig erachtet»." },
+    "kundenorientierung|ungenuegend|2": { "neu": "Zudem steht {{er|sie|er/sie}} der Kundschaft als {{Ansprechpartner|Ansprechpartnerin|Ansprechpartner/in}} zur Verfügung, erfüllt deren Erwartungen aber nicht immer.", "grund": "Klingt neutral, gemeint ist «ungenügend» (Code durch Weglassen)." },
+    "kundenorientierung|ungenuegend|3": { "neu": "Als {{Ansprechpartner|Ansprechpartnerin|Ansprechpartner/in}} verfolgt {{er|sie|er/sie}} die Anliegen und Bedürfnisse der Kunden bzw. verschiedenen Anspruchsgruppen nicht immer mit der nötigen Verbindlichkeit.", "grund": "«meist mit der angezeigten Verbindlichkeit» ist ein Code." }
+  }
+}
