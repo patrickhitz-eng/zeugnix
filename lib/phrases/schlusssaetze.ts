@@ -24,8 +24,10 @@
  * Fassung; neu sind die Top-Fassungen (Foliensatz 30.10.2026) und die eigenen
  * Sätze für Wunsch des Arbeitgebers und Einvernehmen. Ton-Freigabe durch
  * Christoph steht für die neuen Sätze noch aus. Pensionierung: Standard ist
- * Christophs Satz (E-Mail 03.11.2026), wertschätzend, Top und der
- * Reorganisations-Kontext sind neu und von ihm mündlich freigegeben.
+ * Christophs Satz (E-Mail 03.11.2026) mit seinem vorangestellten Grund
+ * «verlässt uns heute aufgrund seiner Pensionierung» (E-Mail 04.11.2026);
+ * wertschätzend, Top und der Reorganisations-Kontext sind neu und von ihm
+ * mündlich freigegeben.
  *
  * Gender-Tokens {{maskulin|feminin|neutral}} werden von der Engine bzw. der
  * Vorschau aufgelöst (m → 1., f → 2., d → 3. Wert).
@@ -61,8 +63,12 @@ const SEINEN = "{{seinen|ihren|seinen/ihren}}";
 const SEINER = "{{seiner|ihrer|seiner/ihrer}}";
 const NAME = "{vorname} {nachname}";
 
-// Ein Schlusssatz besteht aus einem optionalen Kontextsatz (Reorganisation)
-// und dem Kern (Dank + Wünsche). Das Bedauern wird dazwischen bzw. danach
+// Pensionierung nennt den Austrittsgrund eindeutig (Christoph, E-Mail vom
+// 04.11.2026). Bei Reorganisation ersetzt REORG_PENSION diesen Satz.
+const PENSION = `${NAME} verlässt uns heute aufgrund ${SEINER} Pensionierung.`;
+
+// Ein Schlusssatz besteht aus einem optionalen Kontextsatz (Reorganisation,
+// Pensionierung) und dem Kern (Dank + Wünsche). Das Bedauern wird dazwischen bzw. danach
 // eingefügt, siehe BEDAUERN.
 interface Satz {
   kontext?: string;
@@ -115,12 +121,15 @@ const SCHLUSS: Record<Grund, Record<Wertschaetzung, Satz>> = {
   // Lebensqualität»; das doppelte «beste» ist zu «viel Lebensfreude» geglättet.
   pensionierung: {
     standard: {
+      kontext: PENSION,
       kern: `Wir danken ${NAME} für die langjährige Mitarbeit, das entgegengebrachte Engagement und die stets angenehme Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Lebensfreude.`,
     },
     wertschaetzender: {
+      kontext: PENSION,
       kern: `Wir danken ${NAME} für die langjährige wertvolle Mitarbeit, das grosse Engagement und die stets sehr gute Zusammenarbeit. Für den neuen Lebensabschnitt wünschen wir ${IHM} alles Gute, beste Gesundheit und viel Lebensfreude.`,
     },
     top: {
+      kontext: PENSION,
       kern: `Wir bedauern sehr, ${NAME} zu verabschieden, und danken ${IHM} herzlich für die langjährige ausgezeichnete Zusammenarbeit, die hervorragenden Leistungen und das grosse Engagement. Für den neuen Lebensabschnitt wünschen wir ${IHM} von Herzen alles Gute, beste Gesundheit und viel Lebensfreude.`,
     },
   },
