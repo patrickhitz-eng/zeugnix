@@ -23,12 +23,19 @@ const nextConfig = {
       {
         source: "/:path*",
         headers: [
-          // 2 Jahre, Subdomains inbegriffen. Kein `preload`: Preload ist
-          // praktisch irreversibel und würde beim Umzug auf Schweizer
-          // Infrastruktur jeden Rollback verunmöglichen.
+          // VORÜBERGEHEND 5 Minuten statt 2 Jahre und ohne Subdomains, für den
+          // Umzug zu nine (deploy/nine/cutover-reihenfolge.md, Schritt 0.3):
+          // Zwischen dem Umlegen der A-Records und dem neuen Zertifikat gibt es
+          // einige Minuten ohne gültiges Zertifikat. Mit dem Zweijahreswert
+          // zeigt jeder Browser, der zeugnio.ch kennt, dann eine Fehlerseite
+          // ohne «Trotzdem fortfahren»; jeder Besuch nach diesem Deploy
+          // ersetzt den alten Wert. Nach dem Umzug zurück auf
+          // "max-age=63072000; includeSubDomains" (Schritt 6.2).
+          // Kein `preload`: Preload ist praktisch irreversibel und würde
+          // jeden Rollback verunmöglichen.
           {
             key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains",
+            value: "max-age=300",
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
