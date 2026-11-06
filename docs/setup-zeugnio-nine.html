@@ -432,6 +432,16 @@ PostgreSQL-Datenbanken und -Benutzer verwaltet jetzt <code>pgadmin</code> (Zugan
 Superuser: Rollen, die er nicht selbst angelegt hat, kann er erst ändern, wenn nine ihm die
 ADMIN-Option gibt (angefragt am 30.10. für <code>nmd_zeugnio</code> und <code>nmd_albisrun</code>).
 Der Befehl unten bleibt als Verlauf stehen.</p>
+<p><span class="label">Stand 6.11.2026.</span> Die ADMIN-Option ist seit dem 3.11. erteilt.
+<code>CONNECT</code> auf <code>nmd_zeugnio</code> hat sich <code>pgadmin</code> am 6.11. selbst
+geholt, auf Hinweis von nine: Mit der ADMIN-Option gibt er sich die Mitgliedschaft in
+<code>nmd_zeugnio_rw</code> ein zweites Mal, diesmal mit <code>INHERIT</code>. Eine Rolle kann
+mehrere Mitgliedschaften in derselben Rolle haben, von verschiedenen Vergebern, und eine
+erbende genügt. Rückgängig, falls nötig:
+<code>revoke nmd_zeugnio_rw from pgadmin</code> als <code>pgadmin</code>; das entfernt nur diese
+Zeile, nicht die von nine. Das Passwort von <code>nmd_zeugnio</code> setzt jetzt
+<code>pgadmin</code> mit <code>\password</code> (Abschnitt 5), nicht mehr
+<code>nine-manage-databases</code>.</p>
 </div>
 
 <pre><code>sudo nine-manage-databases database create \
@@ -463,8 +473,45 @@ gehört ebenfalls hierher, lässt sich aber erst nach Abschnitt 5 ausführen –
 <h2 id="s4">5 · Bootstrap: Rollen, auth-Schema, extensions</h2>
 
 <div class="warn">
-<p><span class="label">Halt – dieser Abschnitt braucht zwei Rechte von nine.</span>
-Gemessen am 7.10.2026 auf advisori01:</p>
+<p><span class="label">Stand 6.11.2026: ohne Bestellung bei nine, dafür in zwei Teilen.</span>
+Seit dem Upgrade auf PostgreSQL 17 (30.10.) verwaltet <code>pgadmin</code> die Rollen. Er hat
+seit dem 3.11. die ADMIN-Option auf die <code>nmd_*</code>-Rollen und seit dem 6.11.
+<code>CONNECT</code> auf <code>nmd_zeugnio</code> (Abschnitt 4). Die zwei Bestellungen weiter
+unten sind damit überholt; sie bleiben als Verlauf stehen. Der Bootstrap läuft jetzt so:</p>
+<ol>
+<li><code>supabase/900_0_nine_rollen.sql</code> <strong>als <code>pgadmin</code></strong>: legt
+<code>anon</code>, <code>authenticated</code>, <code>service_role</code> und
+<code>authenticator</code> an und vergibt die Mitgliedschaften. Seit PostgreSQL 16 darf eine
+Rolle nur vergeben, wer die ADMIN-Option auf sie hat, und die bekommt, wer sie anlegt. Als
+<code>nmd_zeugnio</code> bräche das mit <code>permission denied to grant role</code> ab.</li>
+<li>Passwörter für <code>nmd_zeugnio</code> und <code>authenticator</code> setzen, ebenfalls
+als <code>pgadmin</code>.</li>
+<li><code>supabase/900_nine_bootstrap.sql</code> <strong>als <code>nmd_zeugnio</code></strong>:
+Schemas <code>auth</code> und <code>extensions</code>, Funktionen, Rechte. Als
+Anwendungsbenutzer, damit diese Objekte der Anwendung gehören und nicht dem
+Verwaltungskonto. Die Datei prüft zuerst, ob Teil 1 gelaufen ist.</li>
+</ol>
+<p>Gemessen am 6.11.2026 (Prüfabfrage im Journal):</p>
+<pre><code>rolname        | login | erbt_vorgabe | rollen_anlegen | einstellungen
+nmd_zeugnio    | t     | t            | f              | {role=nmd_zeugnio_rw}
+nmd_zeugnio_ro | f     | t            | f              |
+nmd_zeugnio_rw | f     | t            | f              |</code></pre>
+<p>Die Einstellung <code>role=nmd_zeugnio_rw</code> heisst: <code>nmd_zeugnio</code> wechselt
+beim Anmelden sofort in <code>nmd_zeugnio_rw</code>. In 900 bis 903 und in den Migrationen ist
+<code>current_user</code> darum <code>nmd_zeugnio_rw</code>, und alles, was dort entsteht,
+gehört dieser Rolle. <code>900_0</code> gibt die Mitgliedschaften deshalb an
+<code>nmd_zeugnio_rw</code>, nicht an den Anmeldebenutzer.</p>
+<p><span class="label">CONNECT für authenticator.</span> <code>PUBLIC</code> hat auf
+<code>nmd_zeugnio</code> kein <code>CONNECT</code> (Kästchen am Ende dieses Abschnitts), und
+direkt vergeben kann es nur nines Rolle <code>nmd</code>. <code>900_0</code> macht
+<code>authenticator</code> darum zum erbenden Mitglied von <code>nmd_zeugnio_ro</code> (erben ja,
+wechseln nein). Über denselben Weg hat <code>pgadmin</code> sein <code>CONNECT</code>.
+Nebenwirkung: <code>authenticator</code> erbt auch das <code>SELECT</code>, das nine der
+Leserolle auf neue Tabellen gibt. Das ist vertretbar: Die Zeilensicherheit gilt für diese
+Rolle, und <code>authenticator</code> darf ohnehin in <code>service_role</code> wechseln. Wer
+sein Passwort hat, kommt also so oder so an alles. Die ausführliche Begründung steht im Kopf
+von <code>900_0</code>.</p>
+<p><span class="label">Verlauf: die ursprüngliche Lage vom 7.10.2026.</span></p>
 <pre><code>rolname        | rolcanlogin | rolcreaterole | rolconfig
 nmd_zeugnio    | t           | f             | {role=nmd_zeugnio_rw}
 nmd_zeugnio_ro | f           | f             |
@@ -472,10 +519,10 @@ nmd_zeugnio_rw | f           | f             |</code></pre>
 <p><strong>Keine der drei Rollen darf Rollen anlegen</strong>, und
 <code>nmd_zeugnio</code> ist nur Mitglied von <code>nmd_zeugnio_rw</code> – das hilft nicht
 weiter, denn dort steht <code>rolcreaterole</code> ebenfalls auf <code>f</code>.
-<code>900_nine_bootstrap.sql</code> legt vier Rollen an
+<code>900_nine_bootstrap.sql</code> legte damals vier Rollen an
 (<code>anon</code>, <code>authenticated</code>, <code>service_role</code>,
-<code>authenticator</code>) und scheitert deshalb mit
-<code>permission denied to create role</code>.</p>
+<code>authenticator</code>) und wäre deshalb mit
+<code>permission denied to create role</code> gescheitert.</p>
 <p>Die Namen sind <strong>nicht verhandelbar</strong>, aus zwei nachprüfbaren Gründen.
 Erstens vergleicht die Funktion <code>public.enforce_certificate_immutability()</code>
 wörtlich <code>current_user = 'service_role'</code> – eine Funktion an einem Trigger auf
@@ -487,7 +534,7 @@ gibt – also bricht schon <code>scripts/migrate.mjs</code> bei 006 ab, lange vo
 Diese drei Dateien sind in der Produktion bereits gelaufen; sie umzuschreiben hiesse, die
 Gleichheit mit der Produktion aufzugeben, und die ist der Grund, das Schema aus dem
 Repository zu bauen statt aus einem Auszug.</p>
-<p>Zu bestellen sind darum zwei Dinge:</p>
+<p>Zu bestellen waren darum zwei Dinge (beide überholt seit dem 6.11.2026):</p>
 <ol>
 <li><code>ALTER ROLE nmd_zeugnio CREATEROLE;</code> – damit laufen 900 und 901 unverändert.
 Seit PostgreSQL 16 ist <code>CREATEROLE</code> eng gefasst: eine solche Rolle kann nur
@@ -511,18 +558,41 @@ Abschnitt 11).</p>
 Schema <code>extensions</code> können wir selbst anlegen.</p>
 </div>
 
-<pre><code>cd ~/zeugnio-setup
-psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/900_nine_bootstrap.sql
+<p><span class="label">Teil 1 und 2, im Konto <code>www-data</code>.</span> Dort liegt der
+Zugang von <code>pgadmin</code> in <code>~/.pg_credentials</code>. Die Datei kommt direkt aus
+dem öffentlichen Repository, weil <code>www-data</code> den Checkout von
+<code>www-zeugnio</code> nicht lesen kann.</p>
 
-# Passwort für die Rolle, mit der PostgREST sich verbindet.
-# -hex statt -base64: hex enthält keine Zeichen, die in einer Verbindungs-URI
-# kodiert werden müssten. 32 Byte sind in beiden Fällen 256 Bit.
-openssl rand -hex 32             # Wert in den Passwort-Manager, kommt in postgrest.conf
+<pre><code>cd ~
+curl -fsSLO https://raw.githubusercontent.com/patrickhitz-eng/zeugnix/main/supabase/900_0_nine_rollen.sql
+F=~/.pg_credentials
+PW=$(grep -iE 'pass' "$F" | head -n1 | sed -E 's/^[^:=]*[:=][[:space:]]*//; s/^["'\'']//; s/["'\''[:space:]]*$//')
+if [ -z "$PW" ]; then export PGPASSFILE="$F"; else export PGPASSWORD="$PW"; fi; unset PW
+psql -h localhost -U pgadmin -d nmd_zeugnio -w -X \
+     -v ON_ERROR_STOP=1 -v app=nmd_zeugnio -f 900_0_nine_rollen.sql
+
+# Zwei Passwörter erzeugen. -hex statt -base64: hex enthält keine Zeichen,
+# die in einer Verbindungs-URI kodiert werden müssten. 32 Byte = 256 Bit.
+openssl rand -hex 32             # für nmd_zeugnio: kommt in DATABASE_URL und ~/.pgpass
+openssl rand -hex 32             # für authenticator: kommt in postgrest.conf
 
 # Setzen, ohne das Passwort irgendwo im Klartext zu hinterlassen:
-psql -w -d nmd_zeugnio
-# dann in psql:  \password authenticator
-# danach:        \q</code></pre>
+psql -h localhost -U pgadmin -d nmd_zeugnio -w -X
+# dann in psql:  \password nmd_zeugnio
+#                \password authenticator
+# danach:        \q
+unset PGPASSWORD PGPASSFILE
+rm 900_0_nine_rollen.sql</code></pre>
+
+<p><span class="label">Teil 3, im Konto <code>www-zeugnio</code>.</span> Vorher das neue
+Passwort von <code>nmd_zeugnio</code> in <code>~/.pgpass</code> und in <code>DATABASE_URL</code>
+eintragen (Abschnitt 4). Das alte aus <code>nine-manage-databases</code> gilt seit dem Upgrade
+nicht mehr.</p>
+
+<pre><code>cd ~/zeugnio-setup
+git pull --ff-only
+psql -w -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -v ON_ERROR_STOP=1 \
+     -f supabase/900_nine_bootstrap.sql</code></pre>
 
 <p>Warum nicht <code>alter role authenticator with password '…'</code>? Drei Spuren: die
 Befehlszeile steht in <code>/proc/&lt;pid&gt;/cmdline</code> und in
@@ -531,9 +601,9 @@ dem Server <code>log_statement</code> mitschreibt, zusätzlich im PostgreSQL-Pro
 nine lesen kann. <code>\password</code> vermeidet alle drei: es fragt ohne Anzeige, rechnet
 den SCRAM-SHA-256-Verifier <strong>im Client</strong> aus und schickt nur diesen Hash. Das
 Klartextpasswort verlässt deinen Rechner nie. Dasselbe Werkzeug ist auch der Weg, ein
-Passwort später zu wechseln. Für die von nine angelegten Rollen (<code>nmd_*</code>) als
-<code>pgadmin</code>, verbunden mit <code>-d postgres</code>; das klappt erst mit der ADMIN-Option
-von nine (Abschnitt 4). Bis zum 30.10.2026 lief das über <code>nine-manage-databases user update
+Passwort später zu wechseln, für alle fünf Rollen als <code>pgadmin</code>: für die eigenen
+vier, weil er sie angelegt hat, für <code>nmd_zeugnio</code> über die ADMIN-Option von nine
+(seit 3.11.). Bis zum 30.10.2026 lief das über <code>nine-manage-databases user update
 &lt;name&gt; -p --database-type=postgresql</code>, damit nines Oberfläche nicht den alten Wert
 an.</p>
 
@@ -578,13 +648,15 @@ geblieben ist:</p>
 <code>PUBLIC</code> kein <code>CONNECT</code> hat, bekommt eine <strong>neu angelegte Rolle
 auch keines</strong> – sie kann nichts erben, wo nichts vergeben ist. Die Rolle
 <code>authenticator</code>, mit der sich PostgREST verbindet und die
-<code>900_nine_bootstrap.sql</code> anlegt, könnte sich also nicht anmelden. Und wir können
+<code>900_0_nine_rollen.sql</code> anlegt, könnte sich also nicht anmelden. Und wir können
 ihr das Recht nicht selbst geben: <code>nmd_zeugnio_rw</code> hält <code>CONNECT</code> als
 <code>Cc/nmd</code>, nicht als <code>Cc*/nmd</code> – das fehlende Sternchen heisst „ohne
 Weitergaberecht". Ein <code>grant connect … to authenticator</code> scheitert darum mit
 <code>permission denied for database</code>.</p>
-<p>Das ist einer der beiden Punkte, die nine erledigen muss. Der andere ist
-<code>CREATEROLE</code>, siehe Abschnitt 5.</p>
+<p><span class="label">Gelöst am 6.11.2026, ohne nine.</span> <code>authenticator</code> erbt
+<code>CONNECT</code> über eine Mitgliedschaft in <code>nmd_zeugnio_ro</code>, die
+<code>900_0_nine_rollen.sql</code> vergibt. Warum das vertretbar ist, steht oben in diesem
+Abschnitt.</p>
 </div>
 
 <h2 id="s5">6 · Schema: aus dem Repository, nicht aus der Produktion</h2>
@@ -664,6 +736,20 @@ psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/902_auth_bridge.sql</code>
 der Ersatz für <code>BYPASSRLS</code>, das Superuser-Rechte bräuchte: PostgreSQL wendet die
 Zeilensicherheit auf den Eigentümer einer Tabelle nicht an. Die Datei bricht selbst ab, falls
 irgendeine Tabelle <code>FORCE ROW LEVEL SECURITY</code> trägt.</p>
+
+<div class="warn">
+<p><span class="label">Offen seit 6.11.2026: 901 bricht auf advisori01 so ab.</span>
+Wer ohne Superuser-Rechte <code>ALTER … OWNER TO service_role</code> ausführt, braucht drei
+Dinge: Er muss Eigentümer sein, er muss in <code>service_role</code> wechseln dürfen, und
+<code>service_role</code> muss <code>CREATE</code> auf dem Schema haben. Die ersten zwei sind
+erfüllt. Das dritte nicht: <code>public</code> gehört <code>pg_database_owner</code>, also
+nines <code>nmd</code>, und <code>nmd_zeugnio_rw</code> hält <code>CREATE</code> ohne
+Weitergaberecht (<code>UC/pg_database_owner</code>, ohne Sternchen). Auch ein Umweg über eine
+Mitgliedschaft geht nicht: <code>service_role</code> müsste von <code>nmd_zeugnio_rw</code>
+erben, und das ist schon Mitglied von <code>service_role</code>. PostgreSQL lehnt solche Kreise
+ab. Entweder vergibt nine <code>CREATE ON SCHEMA public</code> an <code>service_role</code>,
+oder 901 ersetzt das Eigentum durch eine Regel pro Tabelle. Entscheid vor Schritt 2.3.</p>
+</div>
 
 <p><code>902</code> schliesst die Lücke zwischen den beiden Cutovers: solange Supabase anmeldet und
 die Daten schon hier liegen, kennt die eigene <code>auth.users</code> neue Benutzer nicht, und der

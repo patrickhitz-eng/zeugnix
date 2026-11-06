@@ -33,14 +33,24 @@ select rolname, rolcanlogin, rolinherit, rolsuper, rolbypassrls, rolcreaterole
 
 \echo
 \echo '=== 2  Mitgliedschaften ==='
-\echo '    Erwartet: authenticator ist Mitglied aller drei Rollen,'
-\echo '              der Datenbankbenutzer ist Mitglied von service_role.'
-select m.rolname as mitglied, g.rolname as in_rolle, a.admin_option
+\echo '    Erwartet (angelegt von 900_0_nine_rollen.sql):'
+\echo '      authenticator in anon, authenticated, service_role: erbt = f, wechseln = t'
+\echo '      authenticator in nmd_zeugnio_ro:                    erbt = t, wechseln = f  (nur für CONNECT)'
+\echo '      nmd_zeugnio_rw in service_role: erbt = t; in anon und authenticated: erbt = f'
+\echo '    pgadmin steht mit admin = t da, weil er die Rollen angelegt hat.'
+select m.rolname as mitglied, g.rolname as in_rolle, a.admin_option as admin,
+       a.inherit_option as erbt, a.set_option as wechseln
   from pg_auth_members a
   join pg_roles m on m.oid = a.member
   join pg_roles g on g.oid = a.roleid
  where g.rolname in ('anon', 'authenticated', 'service_role')
+    or m.rolname = 'authenticator'
  order by 1, 2;
+
+\echo
+\echo '=== 2a  Darf authenticator sich verbinden?  (MUSS t sein) ==='
+\echo '    Ohne CONNECT startet PostgREST, meldet aber bei jeder Anfrage einen Fehler.'
+select has_database_privilege('authenticator', current_database(), 'CONNECT') as authenticator_connect;
 
 \echo
 \echo '=== 3  FORCE ROW LEVEL SECURITY  (MUSS LEER SEIN) ==='
@@ -196,6 +206,7 @@ rollback;
 \echo
 \echo '=== Ende der Gegenprobe ==='
 \echo 'Zusammengefasst muss gelten:'
+\echo '  Abschnitt 2a t             (authenticator darf sich verbinden)'
 \echo '  Abschnitt 3  leer          (kein FORCE ROW LEVEL SECURITY)'
 \echo '  Abschnitt 4  leer          (alles gehört service_role)'
 \echo '  Abschnitt 6  leer          (anon schreibt nichts)'

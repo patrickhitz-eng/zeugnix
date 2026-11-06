@@ -133,6 +133,37 @@ können wir das nicht sauber. Nachfrage in SVC-117420 **verschickt am 6.11. um 0
 Antwort den Test aus dem Journal (6.11.) wiederholen: Anmeldung als `pgadmin` mit
 `-d nmd_zeugnio`.
 
+**Stand 6.11. nachmittags: 2.2 entsperrt.** Daniel Wilhelm (11:25): Mit der ADMIN-Option
+darf `pgadmin` sich die Mitgliedschaft selbst nochmals geben, diesmal mit `INHERIT`. Gemacht
+und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeldung als
+`pgadmin` in `nmd_zeugnio` ok (Journal 6.11.). Vor dem Einspielen von 900 noch zu klären:
+- **Wer 900 ausführt.** 900 ist für `nmd_zeugnio` mit `CREATEROLE` geschrieben (Runbook § 5),
+  diese Bestellung an nine ist überholt. Läuft 900 stattdessen als `pgadmin`, nimmt der
+  Block mit `current_user` den falschen Benutzer: `service_role`, `anon` und `authenticated`
+  gingen an `pgadmin` statt an `nmd_zeugnio`. Ablauf und Runbook § 5 neu festlegen.
+- **`CONNECT` für `authenticator`.** Weitergeben kann `pgadmin` das Recht weiterhin nicht.
+  Derselbe Weg geht aber: `authenticator` wird erbendes Mitglied von `nmd_zeugnio_ro`
+  (`INHERIT TRUE, SET FALSE`). Haken: Tabellen, die `nmd_zeugnio_rw` in `public` anlegt,
+  bekommen automatisch `SELECT` für `nmd_zeugnio_ro`. `authenticator` würde das mit erben
+  und hätte vor dem Rollenwechsel eigene Leserechte. Darum vorher prüfen, unter welcher
+  Rolle die Migrationen die Tabellen anlegen.
+
+**Stand 6.11. abends: 2.2 geplant und gebaut, wartet auf den Merge.** Die Prüfabfrage
+(Journal 6.11.) hat beide Punkte geklärt:
+- **Ablauf:** `900_0_nine_rollen.sql` (neu) als `pgadmin` legt die vier Rollen an und vergibt
+  die Mitgliedschaften. Dann setzt `pgadmin` die Passwörter für `nmd_zeugnio` und
+  `authenticator` mit `\password`. Danach läuft `900` als `nmd_zeugnio`, ohne den alten
+  Abschnitt 1. `nmd_zeugnio` wechselt beim Anmelden in `nmd_zeugnio_rw`
+  (`role=nmd_zeugnio_rw`). Darum gehen die Mitgliedschaften an `_rw`, nicht an den
+  Anmeldebenutzer.
+- **`CONNECT` für `authenticator`:** über `nmd_zeugnio_ro` (erben ja, wechseln nein). Das
+  geerbte `SELECT` ist vertretbar, weil `authenticator` ohnehin in `service_role` wechseln
+  darf. Begründung im Kopf von `900_0`.
+- **Neu und offen für 2.3:** `901` bricht so ab. Für `ALTER … OWNER TO service_role` braucht
+  `service_role` `CREATE` auf `public`, und das kann nur nines `nmd` vergeben (Runbook § 7).
+  Entweder fragen wir nine, oder 901 ersetzt das Eigentum durch eine Regel pro Tabelle.
+  Entscheid vor 2.3.
+
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
@@ -146,7 +177,7 @@ Antwort den Test aus dem Journal (6.11.) wiederholen: Anmeldung als `pgadmin` mi
 | # | Schritt | Runbook |
 |---|---|---|
 | 2.1 | In `www-zeugnio`: eigener SSH-Zugang, **Linger prüfen**, Kit nach `~/kit`, Ordner, nvm + Node 22, PM2 mit `pm2.service` aus dem Kit, `.env`, `backup.key`, `backup-s3.env`, `deploy.sh --check`. **Kein Deploy-Key**, solange das Repo öffentlich ist (HTTPS). Cron und logrotate erst nach dem ersten Deploy, **ausserhalb 00:00–04:00** | § 3 (korrigiert 28.10.) |
-| 2.2 | Datenbank: `nmd_zeugnio` existiert. Mit dem **admin-Benutzer** die Connect-Grants setzen und `900_nine_bootstrap.sql` einspielen — Rollen ohne Präfix, `authenticator` **NOINHERIT** | § 4, § 5 |
+| 2.2 | Datenbank: `nmd_zeugnio` existiert. Als `pgadmin`: `900_0_nine_rollen.sql` (Rollen ohne Präfix, `authenticator` **NOINHERIT**, `CONNECT` über `_ro`), dann `\password` für `nmd_zeugnio` und `authenticator`. Als `nmd_zeugnio`: `900_nine_bootstrap.sql` | § 4, § 5 |
 | 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Eigentum/Rechte), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
 | 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
