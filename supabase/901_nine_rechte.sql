@@ -1,29 +1,54 @@
 -- ============================================================================
--- zeugnio.ch – Eigentum und Rechte in der eigenen Datenbank (nine.ch)
+-- zeugnio.ch – Rechte und Zugriff für service_role in der eigenen Datenbank (nine.ch)
 -- ----------------------------------------------------------------------------
 -- Läuft NACH `node scripts/migrate.mjs`, also nachdem das Schema aus den
--- Migrationen im Repository entstanden ist – Eigentum kann man nur an Tabellen
--- übertragen, die es schon gibt. Siehe Kopf von 900_nine_bootstrap.sql.
+-- Migrationen im Repository entstanden ist. Siehe Kopf von 900_nine_bootstrap.sql.
 --
 -- WAS HIER PASSIERT UND WARUM
 --
 -- Bei Supabase umgeht die Rolle service_role die Zeilensicherheit über das
--- Rollenattribut BYPASSRLS. Das lässt sich hier nicht nachbauen: BYPASSRLS zu
--- setzen ist Superusern vorbehalten, und Superuser sind wir auf einem Managed
--- Server nicht. Der Ersatz ist das Eigentum an den Tabellen: PostgreSQL wendet
--- die Zeilensicherheit auf den Eigentümer einer Tabelle nicht an – ausser die
--- Tabelle ist ausdrücklich auf FORCE ROW LEVEL SECURITY gestellt.
+-- Rollenattribut BYPASSRLS. Das lässt sich hier nicht voraussetzen: BYPASSRLS
+-- vergeben darf nur ein Superuser oder eine Rolle, die es selbst hat.
+--
+-- DER ERSATZ: EINE REGEL PRO TABELLE
+--
+-- Jede Tabelle mit Zeilensicherheit bekommt eine Regel (Policy) namens
+-- service_role_alles, die für service_role alles erlaubt:
+-- `using (true) with check (true)`. PostgreSQL verknüpft mehrere zulässige
+-- Regeln mit ODER. Für service_role ist darum jede Zeile sichtbar und
+-- beschreibbar, für alle anderen Rollen bleibt alles, wie es ist. Dazu bekommt
+-- service_role SELECT, INSERT, UPDATE und DELETE auf die Tabellen. Die Regel
+-- gibt nur die Zeilen frei; ohne diese Rechte käme die Rolle gar nicht an die
+-- Tabelle heran.
+--
+-- Bis zum 6.11.2026 stand hier ein anderer Ersatz: service_role wurde
+-- Eigentümerin aller Tabellen, denn für die Eigentümerin gilt die
+-- Zeilensicherheit nicht. Das geht auf advisori01 nicht. Ohne Superuser
+-- verlangt `ALTER … OWNER TO`, dass die neue Eigentümerin CREATE auf dem
+-- Schema hat. CREATE auf public kann aber nur nines Rolle nmd vergeben, der die
+-- Datenbank gehört. Lokal nachgestellt am 6.11.2026: «permission denied for
+-- schema public».
+--
+-- Die Tabellen gehören darum weiter der Schreibrolle nmd_zeugnio_rw, die sie
+-- angelegt hat. Das entspricht Supabase, wo sie postgres gehören. Auch die
+-- SECURITY-DEFINER-Funktionen (handle_new_user, log_certificate_status_change,
+-- check_rate_limit, ensure_auth_user) laufen wie dort mit den Rechten der
+-- Eigentümerin der Tabellen. Für sie gilt die Zeilensicherheit nicht.
 --
 -- Daraus folgen zwei Dinge, die geprüft werden müssen und nicht geglaubt:
---   1. Keine Tabelle darf FORCE ROW LEVEL SECURITY tragen. Sonst greift der
---      Ersatz nicht, und die Anwendung liefert leere Ergebnisse statt Fehler.
---   2. Umgekehrt darf niemand ausser service_role Eigentümer bleiben, sonst
---      wirkt die Zeilensicherheit dort nicht, wo sie wirken soll.
+--   1. Jede Tabelle mit Zeilensicherheit braucht die Regel. Fehlt sie, sieht
+--      service_role dort nichts, und die Anwendung liefert leere Ergebnisse
+--      statt Fehler. Bringt eine neue Migration eine Tabelle, diese Datei
+--      danach nochmals laufen lassen.
+--   2. Keine Tabelle darf FORCE ROW LEVEL SECURITY tragen. Sonst gälte die
+--      Zeilensicherheit auch für die Eigentümerin, und die
+--      SECURITY-DEFINER-Funktionen fänden nichts mehr.
 -- Beides prüft 903_nine_verify.sql. Ohne diese Prüfung ist dieser Schritt nicht
 -- abgeschlossen, auch wenn er fehlerfrei durchläuft.
 --
 -- Ausführung als Datenbankbenutzer nmd_zeugnio:
---   psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/901_nine_ownership.sql
+--   psql -w -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -v ON_ERROR_STOP=1 \
+--        -f supabase/901_nine_rechte.sql
 --
 -- Idempotent.
 -- ============================================================================
@@ -31,7 +56,7 @@
 -- ----------------------------------------------------------------------------
 -- Tabellen, die NICHT in die Daten-API gehören
 -- ----------------------------------------------------------------------------
--- PostgREST liefert jede Tabelle aus, auf die die Rolle Rechte hat – die
+-- PostgREST liefert jede Tabelle aus, auf die die Rolle Rechte hat. Die
 -- Buchführung über die Migrationen gehört nicht dazu.
 --
 -- Diese Liste stand früher in einer temporären Tabelle. Das geht auf advisori01
@@ -44,17 +69,17 @@
 --
 -- ACHTUNG: Das Literal steht an ZWEI Stellen (Abschnitt 2 und Abschnitt 4).
 -- Kommt eine Tabelle hinzu, muss sie an beiden Stellen eingetragen werden,
--- sonst bekommt sie in Abschnitt 2 keine Rechte und wird in Abschnitt 4 nicht
+-- sonst bekommt sie in Abschnitt 2 Rechte und wird in Abschnitt 4 nicht
 -- verschlossen. 903_nine_verify.sql prüft das Ergebnis und würde die
 -- Abweichung melden.
 
 -- ----------------------------------------------------------------------------
--- 1) Eigentum an allen Objekten in public auf service_role
+-- 1) Regel für service_role auf jeder Tabelle mit Zeilensicherheit
 -- ----------------------------------------------------------------------------
--- Ein Hinweis für später: heute gibt es keine Views. Kommt einmal eine hinzu und
--- gehört sie service_role, dann liest sie die darunterliegenden Tabellen mit den
--- Rechten von service_role – also an der Zeilensicherheit vorbei, auch wenn die
--- Abfrage von einem angemeldeten Browser kommt. Eine solche View braucht
+-- Ein Hinweis für später: Heute gibt es keine Views. Kommt einmal eine hinzu,
+-- gehört sie wie die Tabellen der Schreibrolle. Sie liest die darunterliegenden
+-- Tabellen dann mit deren Rechten, also an der Zeilensicherheit vorbei, auch
+-- wenn die Abfrage von einem angemeldeten Browser kommt. Eine solche View braucht
 -- `with (security_invoker = true)`. 903_nine_verify.sql prüft genau das, damit es
 -- am Tag der ersten View auffällt und nicht Monate später.
 do $$
@@ -63,63 +88,37 @@ declare
   n int := 0;
 begin
   for r in
-    select c.relname, c.relkind
+    select c.relname
       from pg_class c
       join pg_namespace ns on ns.oid = c.relnamespace
      where ns.nspname = 'public'
-       and c.relkind in ('r', 'p', 'v', 'm', 'S')  -- Tabelle, partitioniert, View, MatView, Sequenz
-       and c.relowner <> 'service_role'::regrole
-     order by c.relkind, c.relname
+       and c.relkind in ('r', 'p')       -- Tabelle, partitionierte Tabelle
+       and c.relrowsecurity
+       and not exists (select 1 from pg_policy p
+                        where p.polrelid = c.oid and p.polname = 'service_role_alles')
+     order by c.relname
   loop
-    case r.relkind
-      when 'r', 'p' then execute format('alter table public.%I owner to service_role', r.relname);
-      when 'v'      then execute format('alter view public.%I owner to service_role', r.relname);
-      when 'm'      then execute format('alter materialized view public.%I owner to service_role', r.relname);
-      when 'S'      then execute format('alter sequence public.%I owner to service_role', r.relname);
-    end case;
+    execute format('create policy service_role_alles on public.%I as permissive for all '
+                   'to service_role using (true) with check (true)', r.relname);
     n := n + 1;
   end loop;
-  raise notice 'Eigentum übertragen: % Objekte', n;
-end
-$$;
-
--- Funktionen ebenfalls. Das betrifft insbesondere die SECURITY-DEFINER-Funktionen
--- (handle_new_user, revoke_certificate, check_rate_limit): sie laufen mit den
--- Rechten ihres Eigentümers. Gehören sie service_role, dürfen sie schreiben, was
--- sie schreiben müssen – und nur das, was ihr Rumpf vorsieht.
-do $$
-declare
-  r record;
-  n int := 0;
-begin
-  for r in
-    select p.oid, p.proname, pg_get_function_identity_arguments(p.oid) as args
-      from pg_proc p
-      join pg_namespace ns on ns.oid = p.pronamespace
-     where ns.nspname = 'public'
-       and p.proowner <> 'service_role'::regrole
-       and p.prokind in ('f', 'p')
-  loop
-    execute format('alter %s public.%I(%s) owner to service_role',
-                   case when (select prokind from pg_proc where oid = r.oid) = 'p'
-                        then 'procedure' else 'function' end,
-                   r.proname, r.args);
-    n := n + 1;
-  end loop;
-  raise notice 'Eigentum an Funktionen übertragen: % Objekte', n;
+  raise notice 'Regel service_role_alles neu angelegt auf % Tabellen', n;
 end
 $$;
 
 -- ----------------------------------------------------------------------------
--- 2) Rechte für authenticated und anon
+-- 2) Rechte für service_role, authenticated und anon
 -- ----------------------------------------------------------------------------
--- Absichtlich strenger als bei Supabase. Dort haben anon und authenticated ALL
--- auf allen Tabellen, und die Zeilensicherheit ist die einzige Grenze. Hier
--- bekommt anon nur SELECT: nach der Umstellung (Schritt C4) greift kein Browser
--- mehr schreibend auf die Datenbank zu, alle Schreibpfade laufen über
--- Server-Routen mit dem service_role-Schlüssel. Damit ist ein Schreibrecht für
--- anon nicht nur unnötig, sondern eine zweite Verteidigungslinie, die man
--- geschenkt bekommt.
+-- service_role bekommt die vier Datenrechte, aber nicht TRUNCATE, REFERENCES
+-- oder TRIGGER. Die Anwendung braucht nur lesen und schreiben.
+--
+-- anon und authenticated: absichtlich strenger als bei Supabase. Dort haben
+-- anon und authenticated ALL auf allen Tabellen, und die Zeilensicherheit ist
+-- die einzige Grenze. Hier bekommt anon nur SELECT: Nach der Umstellung
+-- (Schritt C4) greift kein Browser mehr schreibend auf die Datenbank zu, alle
+-- Schreibpfade laufen über Server-Routen mit dem service_role-Schlüssel. Damit
+-- ist ein Schreibrecht für anon nicht nur unnötig. Es wegzulassen ist eine
+-- zweite Verteidigungslinie, die man geschenkt bekommt.
 --
 -- Sollte später doch eine Route als anon schreiben müssen, wird das Recht
 -- einzeln vergeben – nicht diese Zeile aufgeweicht.
@@ -136,6 +135,7 @@ begin
        -- Liste siehe Kopf dieser Datei. Zweite Stelle: Abschnitt 4.
        and c.relname <> all (array['schema_migrations']::text[])
   loop
+    execute format('grant select, insert, update, delete on public.%I to service_role', r.relname);
     execute format('grant select, insert, update, delete on public.%I to authenticated', r.relname);
     execute format('grant select on public.%I to anon', r.relname);
   end loop;
@@ -158,8 +158,16 @@ grant execute on all functions in schema public to service_role;
 -- 3) Künftige Objekte
 -- ----------------------------------------------------------------------------
 -- Ohne das hier hätte eine später angelegte Tabelle keine Rechte für
--- authenticated – und die Anwendung meldete „permission denied for table",
--- lange nachdem die Migration als erfolgreich gemeldet wurde.
+-- authenticated und service_role, und die Anwendung meldete „permission denied
+-- for table", lange nachdem die Migration als erfolgreich gemeldet wurde.
+-- Vorgaberechte gelten für Objekte, die die ausführende Rolle anlegt. Das ist
+-- hier wie in den Migrationen die Schreibrolle.
+--
+-- Die Regel aus Abschnitt 1 lässt sich so NICHT vorgeben. Darum nach jeder
+-- Migration mit neuer Tabelle diese Datei nochmals laufen lassen; 903 meldet
+-- eine fehlende Regel.
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to service_role;
 alter default privileges in schema public
   grant select, insert, update, delete on tables to authenticated;
 alter default privileges in schema public
@@ -171,7 +179,8 @@ alter default privileges in schema public
 -- 4) Ausgenommene Tabellen wieder verschliessen
 -- ----------------------------------------------------------------------------
 -- Gürtel und Hosenträger: die Schleife oben überspringt sie schon, aber ein
--- REVOKE hier gilt auch dann, wenn die Rechte aus dem Auszug mitgekommen sind.
+-- REVOKE hier gilt auch dann, wenn Rechte über die Vorgaberechte aus Abschnitt 3
+-- dazugekommen sind.
 do $$
 declare
   r record;
@@ -179,7 +188,7 @@ begin
   -- Liste siehe Kopf dieser Datei. Erste Stelle: Abschnitt 2.
   for r in select unnest(array['schema_migrations']::text[]) as tablename loop
     if exists (select 1 from pg_tables where schemaname = 'public' and tablename = r.tablename) then
-      execute format('revoke all on public.%I from anon, authenticated', r.tablename);
+      execute format('revoke all on public.%I from anon, authenticated, service_role', r.tablename);
     end if;
   end loop;
 end
@@ -207,7 +216,7 @@ end
 $$;
 
 -- ----------------------------------------------------------------------------
--- 6) Sofortige Warnung, falls der Eigentümer-Ersatz nicht trägt
+-- 6) Sofortige Warnung, falls der Ersatz nicht trägt
 -- ----------------------------------------------------------------------------
 do $$
 declare
@@ -218,9 +227,9 @@ begin
    where ns.nspname = 'public' and c.relrowsecurity and c.relforcerowsecurity;
   if n > 0 then
     raise exception
-      'FORCE ROW LEVEL SECURITY ist auf % Tabelle(n) gesetzt. Damit greift der '
-      'Eigentümer-Ersatz für den service_role-Bypass nicht und die Anwendung '
-      'würde leere Ergebnisse liefern. Siehe 903_nine_verify.sql.', n;
+      'FORCE ROW LEVEL SECURITY ist auf % Tabelle(n) gesetzt. Damit gilt die '
+      'Zeilensicherheit auch für die Eigentümerin, und die SECURITY-DEFINER-'
+      'Funktionen fänden nichts mehr. Siehe 903_nine_verify.sql.', n;
   end if;
 end
 $$;

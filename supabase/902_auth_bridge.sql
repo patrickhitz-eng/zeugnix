@@ -1,7 +1,7 @@
 -- ============================================================================
 -- zeugnio.ch – Brücke zwischen Supabase-Anmeldung und eigener Datenbank
 -- ----------------------------------------------------------------------------
--- Läuft NACH 901_nine_ownership.sql. Siehe Kopf von 900_nine_bootstrap.sql.
+-- Läuft NACH 901_nine_rechte.sql. Siehe Kopf von 900_nine_bootstrap.sql.
 --
 -- DAS PROBLEM, DAS DIESE DATEI LÖST
 --
@@ -61,9 +61,9 @@ create trigger on_auth_user_created
 -- wie bisher.
 --
 -- SECURITY DEFINER, weil die Anwendung sonst Schreibrecht auf auth.users
--- bräuchte. Eigentümer ist service_role (durch 901), search_path ist fixiert –
--- ohne diese Fixierung könnte ein Aufrufer mit eigenem search_path die
--- verwendeten Tabellen unterschieben.
+-- bräuchte. Die Funktion gehört der Schreibrolle, der auch auth.users gehört.
+-- Der search_path ist fixiert – ohne diese Fixierung könnte ein Aufrufer mit
+-- eigenem search_path die verwendeten Tabellen unterschieben.
 --
 -- Gibt zurück, was tatsächlich passiert ist. Die Route protokolliert das, denn
 -- „angelegt" ist im Betrieb eine Information: nach Cutover B darf hier nichts

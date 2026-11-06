@@ -12,7 +12,7 @@
 > `docs/setup-zeugnio-nine.html` = die Befehle · `antwort-2026-10-13.email.md` = Entwürfe.
 >
 > Stand: 2026-11-06, abgeglichen mit dem Postfach `silvan.schueck@advisori.ch` (Outlook):
-> seit der Antwort vom 3.11. ist von nine nichts Neues gekommen, ausser einem Newsletter-Hinweis.
+> letzte Nachricht von nine ist Daniel Wilhelms Antwort vom 6.11. um 11:25 (SVC-117420, `INHERIT` selbst setzen); unsere Antwort ging um 19:50 raus.
 > Erstmalig am 16.10. rückwirkend aus allen drei Repos zusammengetragen.
 
 ---
@@ -64,6 +64,10 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | **2026-11-03 11:32** | SVC-117420 | **Antwort Daniel Wilhelm: A9 erteilt** | zeugnio + Albis Run | `pgadmin` hat jetzt die ADMIN-Option auf `nmd_zeugnio`, `nmd_albisrun` und deren `_ro`/`_rw`-Rollen. Die Rollen können ihr Passwort auch selbst ändern. **Nachtdump:** erfasst alle Datenbanken, solange dem Benutzer `postgres` der Zugriff nicht verwehrt wird. `CONNECT` ist in der Antwort nicht erwähnt, beim ersten Login mit `pgadmin` prüfen. Status «Waiting for customer»: nach der Prüfung bestätigen und schliessen lassen |
 | **2026-11-06** | *eigene Prüfung* | `pgadmin` nach A9 getestet | zeugnio + Albis Run | **ADMIN-Option in Ordnung:** `admin_option = t` auf `nmd_zeugnio`, `nmd_albisrun` und allen vier `_ro`/`_rw`-Rollen. **`CONNECT` fehlt weiterhin:** `permission denied for database "nmd_zeugnio"` bzw. `"nmd_albisrun"`, «User does not have CONNECT privilege». **Ursache:** nine hat die sechs Mitgliedschaften mit `INHERIT FALSE` und `SET FALSE` angelegt (`erbt = f`, `wechseln = f`). Das ist nicht der Standard, denn `pgadmin` selbst steht auf `rolinherit = t`, war also eine bewusste Wahl. `pgadmin` darf die Rollen verwalten, aber weder deren Rechte nutzen noch in sie wechseln. **Eigentümer** beider Datenbanken ist nines Rolle `nmd`; `CONNECT` haben nur `_ro` (`c`) und `_rw` (`Cc`), **ohne Weitergaberecht**. `pgadmin`: kein Superuser, `CREATEROLE` und `CREATEDB`. 2.2 bleibt damit blockiert |
 | **2026-11-06 08:44** | SVC-117420 | **Nachfrage `CONNECT` verschickt** | zeugnio | Bewusst **ohne SQL-Anweisungen**, nur Befund und Begründung: ADMIN-Option funktioniert; `pgadmin` scheitert an «User does not have CONNECT privilege», weil die Mitgliedschaften auf `INHERIT`/`SET` = `FALSE` stehen; wir brauchen `CONNECT`, weil `pgadmin` in `nmd_zeugnio` das Grundgerüst einrichtet (900) und die Rolle der Datenschnittstelle (`authenticator`) ebenfalls `CONNECT` braucht, das wir nicht selbst vergeben können. Antwort offen. **Erwartete Lösung**, falls nine zurückfragt: `GRANT nmd_zeugnio_rw TO pgadmin WITH INHERIT TRUE, SET TRUE` und `GRANT CONNECT ON DATABASE nmd_zeugnio TO nmd_zeugnio_rw WITH GRANT OPTION` |
+| **2026-11-06 11:25** | SVC-117420 | **Antwort Daniel Wilhelm: `INHERIT` selbst setzen** | zeugnio + Albis Run | Mit der ADMIN-Option darf `pgadmin` sich die Mitgliedschaft in den `nmd_*`-Rollen selbst nochmals geben, diesmal mit `INHERIT`. Dann erbt er auch deren `CONNECT`. Status «Waiting for customer» |
+| 2026-11-06 | *eigene Prüfung* | `CONNECT` für `pgadmin` selbst freigeschaltet | zeugnio | Als `pgadmin`, verbunden mit `postgres`: `grant nmd_zeugnio_rw to pgadmin with inherit true` → `GRANT ROLE`. Seither **zwei Einträge**: nines (vergeben von `postgres`: admin t, erbt f, wechseln f) und unserer (vergeben von `pgadmin`: admin f, erbt t, wechseln t; `SET` ist seit PG 16 die Vorgabe). PostgreSQL reicht ein erbender Eintrag. **Anmeldung als `pgadmin` in `nmd_zeugnio`: ok.** Rückgängig: `revoke nmd_zeugnio_rw from pgadmin` als `pgadmin`, entfernt nur unseren Eintrag. **Vorgaberechte in `nmd_zeugnio`:** Tabellen, die `nmd_zeugnio_rw` in `public` anlegt, bekommen automatisch `SELECT` für `nmd_zeugnio_ro` (`{nmd_zeugnio_ro=r/nmd_zeugnio_rw}`); wichtig für `authenticator`, siehe 2.2 in `cutover-reihenfolge.md`. `nmd_albisrun` nicht angefasst |
+| **2026-11-06 19:50** | SVC-117420 | **Antwort an Daniel Wilhelm verschickt** | zeugnio | Hinweis hat funktioniert, `pgadmin` verbindet sich. Ticket kann von unserer Seite geschlossen werden |
+| 2026-11-06 | *eigene Prüfung* | Prüfabfrage für 2.2 (nur lesend, als `pgadmin`) | zeugnio | **`nmd_zeugnio`:** login t, erbt t, `CREATEROLE` f, Einstellung `role=nmd_zeugnio_rw` (ebenso `nmd_albisrun` → `_rw`). Einzige Mitgliedschaft: in `_rw` (von `postgres`, erbt t, wechseln t). **Schema `public`:** Eigentümer `pg_database_owner` (= nines `nmd`), Rechte `{pg_database_owner=UC, =U, nmd_zeugnio_ro=U, nmd_zeugnio_rw=UC}`, also `CREATE` für `_rw` ohne Weitergaberecht. `CREATE` auf Datenbank und `public`: t. **Datenbank leer**, `anon`/`authenticated`/`service_role`/`authenticator` frei. `uuid-ossp` 1.1 und `pgcrypto` 1.3 trusted, nicht installiert. `createrole_self_grant` leer. **Folgen:** 900 bis 903 laufen als `_rw` (current_user); `authenticator` bekommt `CONNECT` über `_ro`; 901 (`ALTER … OWNER TO service_role`) scheitert ohne `CREATE` für `service_role` auf `public`. **Entschieden am 6.11.:** Regel pro Tabelle statt Eigentum, kein Ticket (`901_nine_rechte.sql`, siehe 2.2 in `cutover-reihenfolge.md`) |
 
 ---
 
@@ -100,7 +104,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 | # | Bitte | Für | Stand |
 |---|---|---|---|
 | A1 | ~~PG 16 → 17 upgraden + admin-Benutzer~~ | zeugnio | **erledigt am 30.10.** (`pgadmin`) |
-| A9 | ~~ADMIN-Option und `CONNECT` für `pgadmin`~~ auf `nmd_zeugnio` und `nmd_albisrun` | zeugnio + Albis Run | **halb erteilt:** ADMIN-Option am 3.11. ✓; **`CONNECT` fehlt** (geprüft 6.11.), Nachfrage in SVC-117420 **verschickt am 6.11. um 08:44**, Antwort offen |
+| A9 | ~~ADMIN-Option und `CONNECT` für `pgadmin`~~ auf `nmd_zeugnio` und `nmd_albisrun` | zeugnio + Albis Run | **erledigt am 6.11.:** ADMIN-Option von nine (3.11.); `CONNECT` selbst über eine erbende Mitgliedschaft in `nmd_zeugnio_rw` (Hinweis Daniel Wilhelm, 6.11. 11:25). `nmd_albisrun` bei Bedarf genauso. Bestätigung an nine am 6.11. um 19:50 verschickt |
 | A2 | ~~vhost `zeugnio.ch` + App-Benutzer `www-zeugnio`~~ | zeugnio | **Selbst erledigt am 28.10.** (`cutover-reihenfolge.md` 1.2), noch ohne Zertifikat |
 | A3 | ~~vhost `benchmark.ag` + App-Benutzer `www-benchmark`~~ | Benchmark | `www-benchmark` besteht (Kit `MIGRATION.md`) |
 | A4 | ~~Als welche Rolle läuft der Nachtdump?~~ | zeugnio | **beantwortet 29.10.:** als Superuser |
@@ -122,7 +126,7 @@ Produkte, nine Unterauftragsbearbeiter. zeugnix/Patrick braucht einen Vertrag mi
 
 Linux-Benutzer und vhosts anlegen (`nine-manage-vhosts`) · MySQL-Datenbanken und -Benutzer
 anlegen (`nine-manage-databases`) · PostgreSQL-Datenbanken, Rollen und Rechte mit `pgadmin`
-(für die `nmd_*`-Rollen erst nach A9) · Ports ·
+(für die `nmd_*`-Rollen über die ADMIN-Option; `CONNECT` über eine erbende Mitgliedschaft in `_rw`, seit 6.11.) · Ports ·
 Prozesse, pm2, systemd-User-Units · Cron · Deployment · Chromium in den User-Space ·
 Mailanbieter (mailomat.swiss) · DNS — beides geprüft am 16.10., siehe „Mailweg und DNS".
 

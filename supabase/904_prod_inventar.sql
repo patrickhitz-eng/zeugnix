@@ -50,10 +50,10 @@ with tabellen as (
 sicherheit as (
   -- Zeilensicherheit pro Tabelle. `relrowsecurity` = eingeschaltet,
   -- `relforcerowsecurity` = gilt auch für den Eigentümer der Tabelle. Das
-  -- zweite Flag ist für den Umzug entscheidend: auf dem eigenen Server ersetzt
-  -- das Eigentum an der Tabelle das Supabase-Attribut BYPASSRLS, und FORCE
-  -- würde diesen Ersatz aushebeln – lautlos, mit leeren Ergebnissen statt
-  -- Fehlern. Siehe 901_nine_ownership.sql.
+  -- zweite Flag ist für den Umzug entscheidend: Auf dem eigenen Server laufen die
+  -- SECURITY-DEFINER-Funktionen als Eigentümerin der Tabellen, und FORCE würde
+  -- auch für sie die Zeilensicherheit einschalten – lautlos, mit leeren
+  -- Ergebnissen statt Fehlern. Siehe 901_nine_rechte.sql.
   select 'B Zeilensicherheit'::text,
          c.relname::text,
          ('rls=' || c.relrowsecurity || '  force=' || c.relforcerowsecurity

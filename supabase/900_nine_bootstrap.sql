@@ -1,12 +1,14 @@
 -- ============================================================================
 -- zeugnio.ch – Bootstrap der eigenen Datenbank auf advisori01 (nine.ch)
 -- ----------------------------------------------------------------------------
--- Stellt das her, was Supabase bisher mitgebracht hat: die vier Rollen, das
--- Schema `auth` mit auth.uid()/auth.role()/auth.jwt() und das Schema
--- `extensions` mit uuid-ossp und pgcrypto.
+-- Stellt das her, was Supabase bisher mitgebracht hat: das Schema `auth` mit
+-- auth.uid()/auth.role()/auth.jwt() und das Schema `extensions` mit uuid-ossp
+-- und pgcrypto. Die vier Rollen legt seit dem 6.11.2026 900_0_nine_rollen.sql
+-- an, weil das auf advisori01 nur pgadmin darf.
 --
 -- REIHENFOLGE – die Dateien 900 bis 903 laufen einmalig und in dieser Folge:
 --
+--   900_0_nine_rollen.sql    als pgadmin: Rollen und Mitgliedschaften
 --   900_nine_bootstrap.sql   VOR dem Schema (diese Datei)
 --   → dann `node scripts/migrate.mjs`
 --     Das Schema entsteht aus den Migrationen im Repository (supabase/0*.sql),
@@ -18,7 +20,7 @@
 --     Kein `--baseline`: die Migrationen laufen hier wirklich. `--baseline`
 --     würde sie nur als erledigt vermerken, ohne sie auszuführen – das war die
 --     Reihenfolge, als das Schema noch aus dem Auszug kam.
---   901_nine_ownership.sql   NACH dem Schema: Eigentum und Rechte
+--   901_nine_rechte.sql      NACH dem Schema: Rechte und Regel für service_role
 --   902_auth_bridge.sql      NACH 901: Trigger und ensure_auth_user
 --   903_nine_verify.sql      nur SELECTs – prüft, ob alles davon getragen hat
 --
@@ -26,80 +28,40 @@
 -- (alles ab 900 ist davon ausgenommen), weil sie mehr Rechte brauchen als der
 -- Anwendungsbenutzer im Betrieb hat.
 --
--- Ausführung als Datenbankbenutzer nmd_zeugnio:
+-- Ausführung als Datenbankbenutzer nmd_zeugnio, nicht als pgadmin. Sonst
+-- gehörten die Schemas auth und extensions dem Verwaltungskonto:
 --   psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/900_nine_bootstrap.sql
 --
 -- Idempotent: mehrfaches Ausführen ändert nichts.
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- 1) Die vier Rollen
+-- 1) Die vier Rollen: angelegt von 900_0_nine_rollen.sql
 -- ----------------------------------------------------------------------------
--- Die Namen sind NICHT frei wählbar, und zwar aus zwei Gründen.
+-- Bis zum 6.11.2026 stand hier das Anlegen der Rollen. Das darf auf advisori01
+-- nur pgadmin; es steht darum jetzt in 900_0_nine_rollen.sql. Dort steht auch,
+-- warum die Namen nicht frei wählbar sind und warum authenticator NOINHERIT ist.
 --
--- Erstens vergleicht `public.enforce_certificate_immutability()` wörtlich
--- `current_user = 'service_role'`. Das ist EINE Funktion an EINEM Trigger auf
--- certificates (017:87); sie wird in den Migrationen fünfmal neu definiert
--- (017:40, 021:39, 024:51, 025:51, 029:114), gültig ist die Fassung aus 029.
--- Ein Präfix wie nmd_service_role würde diesen Vergleich stillschweigend
--- scheitern lassen – die Funktion würde dann jede Änderung an einem
--- finalisierten Zeugnis abweisen, auch die erlaubten, oder umgekehrt
--- durchlassen, je nach Zweig.
---
--- Zweitens nennen drei Migrationen die Rollen beim Namen, und REVOKE scheitert
--- an einer Rolle, die es nicht gibt:
---   006:31,32   revoke execute on handle_new_user() from anon, authenticated
---   021:168,169 revoke ... from anon;  grant ... to authenticated
---   023:77,78   revoke ... from anon, authenticated
--- Diese Dateien sind in der Produktion bereits gelaufen. Sie umzuschreiben
--- hiesse, die Gleichheit mit der Produktion aufzugeben – und die ist der ganze
--- Grund, das Schema aus dem Repository zu bauen statt aus einem Auszug.
---
--- NOINHERIT bei authenticator ist keine Kosmetik. PostgREST verbindet sich als
--- authenticator und wechselt pro Anfrage per SET ROLE. Alles, was VOR diesem
--- Wechsel läuft, läuft mit den Rechten der Rolle selbst – und wenn sie ihre
--- Mitgliedschaften erbt, gehören dazu die von service_role. Die Zeilensicherheit
--- wäre dann für einen Teil jeder Anfrage ausgeschaltet.
+-- Diese Prüfung bricht ab, bevor etwas angelegt wird, falls 900_0 fehlt.
+-- current_user ist hier die Schreibrolle nmd_zeugnio_rw (Rolleneinstellung von
+-- nine, siehe Kopf von 900_0).
 do $$
+declare
+  fehlend text;
 begin
-  if not exists (select 1 from pg_roles where rolname = 'anon') then
-    create role anon nologin noinherit;
+  select string_agg(n, ', ') into fehlend
+    from unnest(array['anon', 'authenticated', 'service_role', 'authenticator']) as n
+   where not exists (select 1 from pg_roles where rolname = n);
+  if fehlend is not null then
+    raise exception 'Rollen fehlen: %. Zuerst 900_0_nine_rollen.sql als pgadmin ausführen.', fehlend;
   end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
-    create role authenticated nologin noinherit;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'service_role') then
-    create role service_role nologin noinherit;
-  end if;
-  if not exists (select 1 from pg_roles where rolname = 'authenticator') then
-    -- Passwort danach setzen und in postgrest.conf eintragen:
-    --   alter role authenticator with password '...';
-    create role authenticator login noinherit;
-  end if;
-end
-$$;
 
--- authenticator darf in die drei Rollen wechseln, erbt sie aber nicht (NOINHERIT).
-grant anon to authenticator;
-grant authenticated to authenticator;
-grant service_role to authenticator;
-
--- Der Anwendungsbenutzer wird Mitglied von service_role. Zwei Gründe:
---   1. Nur so darf er das Eigentum an den Tabellen auf service_role übertragen (901).
---   2. Die nächtliche Sicherung von nine läuft als Datenbankbenutzer. Gehören die
---      Tabellen service_role und wäre er nicht Mitglied, fehlten sie im Auszug –
---      lautlos. Die Gegenprobe steht in 903 und im Runbook: Grösse des Auszugs
---      am Morgen nach der Umstellung vergleichen.
-do $$
-begin
-  execute format('grant service_role to %I', current_user);
-  -- Zusätzlich anon und authenticated, und zwar nur zu einem Zweck: damit die
-  -- Gegenprobe in 903 `set local role authenticated` ausführen kann und damit
-  -- beweisbar wird, dass die Zeilensicherheit greift – ohne dafür von Hand ein
-  -- JWT ausstellen zu müssen. Ein Rechtezuwachs ist das nicht: über
-  -- service_role hat dieser Benutzer ohnehin mehr.
-  execute format('grant anon to %I', current_user);
-  execute format('grant authenticated to %I', current_user);
+  if not (pg_has_role(current_user, 'service_role', 'SET')
+          and pg_has_role(current_user, 'authenticated', 'SET')
+          and pg_has_role(current_user, 'anon', 'SET')) then
+    raise exception '% fehlt eine Mitgliedschaft (service_role, anon oder authenticated). '
+                    '900_0_nine_rollen.sql mit -v app=… nochmals als pgadmin ausführen.', current_user;
+  end if;
 end
 $$;
 
@@ -256,7 +218,10 @@ $$;
 -- Die Zeilensicherheitsregeln rufen auth.uid() mit den Rechten des Aufrufers
 -- auf. Ohne EXECUTE für anon und authenticated bricht jede Abfrage auf einer
 -- Tabelle mit Zeilensicherheit ab – mit „permission denied for function uid".
-grant usage on schema public     to anon, authenticated, service_role;
+-- USAGE auf public fehlt hier mit Absicht. Auf advisori01 hat PUBLIC es schon
+-- (=U im Rechteeintrag des Schemas), die drei Rollen haben es also. Selbst
+-- vergeben könnte die Schreibrolle es nicht: Sie hält das Recht ohne
+-- Weitergaberecht, und GRANT gäbe nur die Warnung «no privileges were granted».
 grant usage on schema auth       to anon, authenticated, service_role;
 grant usage on schema extensions to anon, authenticated, service_role;
 
@@ -275,5 +240,5 @@ grant select, insert, update on auth.users to service_role;
 
 -- ----------------------------------------------------------------------------
 -- Fertig. Nächster Schritt: `node scripts/migrate.mjs` – das legt das Schema aus
--- den Migrationen im Repository an. Danach 901_nine_ownership.sql.
+-- den Migrationen im Repository an. Danach 901_nine_rechte.sql.
 -- ----------------------------------------------------------------------------
