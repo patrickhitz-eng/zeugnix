@@ -19,9 +19,18 @@
 # einchecken. Dann laeuft jede spaetere Installation in einem Schritt und ist nachvollziehbar.
 set -euo pipefail
 
-VERSION="${POSTGREST_VERSION:-v13.0.7}"
-# Nach der ersten bestaetigten Installation hier eintragen (siehe oben).
-PINNED_SHA256="${PINNED_SHA256:-}"
+VERSION="${POSTGREST_VERSION:-v16.5}"
+# Pruefsumme von postgrest-v16.5-linux-static-x86-64.tar.xz. Gelesen am 7.11.2026 auf Silvans
+# Rechner aus der Release-Angabe von GitHub (Feld "digest" des Archivs), also auf einem
+# anderen Weg als der Download auf dem Server. Stimmt das Archiv auf dem Server nicht damit
+# ueberein, installiert dieses Skript nichts. Bei einem Versionswechsel beides zusammen
+# aendern und die neue Summe wieder auf der Release-Seite vergleichen.
+#
+# v16 statt v13 (Entscheid 7.11.2026): v13 bekam seit Oktober 2025 keine Updates mehr.
+# Fuer v16 waren in postgrest.conf zwei Stellen anzupassen, siehe dort.
+PINNED_SHA256="${PINNED_SHA256:-5099e7ada38f9f6846cd87c14c5f158b7c165f1e9959665ad412e61f4dceba95}"
+# Eine abweichende Version ohne passende Summe faellt auf den Zwei-Schritt-Ablauf oben zurueck.
+if [ "$VERSION" != "v16.5" ] && [ -z "${POSTGREST_SHA256:-}" ]; then PINNED_SHA256=""; fi
 
 ARCHIVE="postgrest-${VERSION}-linux-static-x86-64.tar.xz"
 URL="https://github.com/PostgREST/postgrest/releases/download/${VERSION}/${ARCHIVE}"
@@ -89,17 +98,16 @@ log "Installiert"
 cat <<NEXT
 
 Weiter:
-  1. Konfiguration anlegen (Vorlage: deploy/nine/postgrest.conf.example):
-       cp deploy/nine/postgrest.conf.example ~/zeugnio/shared/postgrest.conf
-       chmod 600 ~/zeugnio/shared/postgrest.conf
-     und darin db-uri und jwt-secret ausfuellen.
+  1. Konfiguration anlegen (schreibt ~/zeugnio/shared/postgrest.conf mit Rechten 600):
+       read -rsp "Passwort authenticator: " AUTHENTICATOR_PW; echo; export AUTHENTICATOR_PW
+       node deploy/nine/postgrest-conf.mjs; unset AUTHENTICATOR_PW
   2. Dienst einrichten:
        mkdir -p ~/.config/systemd/user
        cp deploy/nine/postgrest.service ~/.config/systemd/user/postgrest.service
        systemctl --user daemon-reload
        systemctl --user enable --now postgrest
-  3. Erreichbarkeit pruefen (darf nur lokal antworten):
-       curl -sS http://127.0.0.1:3012/ready
+  3. Pruefen, mit echten Token und gegen die Zeilensicherheit:
+       node deploy/nine/postgrest-probe.mjs
      Und die Gegenprobe, die wichtiger ist als die Probe selbst - von aussen darf NICHTS
      antworten:
        curl -sS --max-time 5 http://5.148.171.221:3011/ || echo "gut: von aussen tot"

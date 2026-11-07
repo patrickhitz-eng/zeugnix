@@ -209,7 +209,7 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 | 2.1 | In `www-zeugnio`: eigener SSH-Zugang, **Linger prüfen**, Kit nach `~/kit`, Ordner, nvm + Node 22, PM2 mit `pm2.service` aus dem Kit, `.env`, `backup.key`, `backup-s3.env`, `deploy.sh --check`. **Kein Deploy-Key**, solange das Repo öffentlich ist (HTTPS). Cron und logrotate erst nach dem ersten Deploy, **ausserhalb 00:00–04:00** | § 3 (korrigiert 28.10.) |
 | 2.2 | Datenbank: `nmd_zeugnio` existiert. Als `pgadmin`: `900_0_nine_rollen.sql` (Rollen ohne Präfix, `authenticator` **NOINHERIT**, `CONNECT` über `_ro`), dann `\password` für `nmd_zeugnio` und `authenticator`. Als `nmd_zeugnio`: `900_nine_bootstrap.sql` | § 4, § 5 |
 | 2.3 | Schema **aus dem Repository**: `migrate.mjs` (alle `0xx` ausser `007`), dann `901` (Rechte, Regel für `service_role`), `902` (Auth-Brücke), `903` (Gegenprobe). Der Abgleich mit dem Prod-Schema (`pg_dump` 17, nur vergleichen, nie einspielen) ist Pflicht vor Cutover A und braucht das Supabase-Datenbankpasswort. Das Rückfallfenster des Upgrades ist seit 30.10. zu | § 6–§ 8 |
-| 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
+| 2.4 | PostgREST **v16.5**: `install-postgrest.sh` mit eingetragener Prüfsumme, `postgrest.conf` über `postgrest-conf.mjs` (600, Geheimnis gleich wie `DATA_API_JWT_SECRET`), **systemd-User-Unit** (bewusst nicht PM2), Probe mit `postgrest-probe.mjs`, Gegenprobe von aussen | § 9 |
 | 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
 
 **Stand 29.10.: 2.1 erledigt.** `~/kit/deploy.sh zeugnio --check` mit Kit e88fd08:

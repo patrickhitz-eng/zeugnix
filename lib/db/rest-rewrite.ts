@@ -78,8 +78,9 @@ export interface DataApiIdentity {
 export interface DataApiFetchOptions {
   /**
    * Feste Rolle — für den Service-Client. Die Anwendung hat dort keine Benutzeridentität
-   * und braucht auch keine: `service_role` besitzt die Tabellen und umgeht damit die
-   * Zeilensicherheit.
+   * und braucht auch keine: `service_role` hat auf jeder Tabelle mit Zeilensicherheit
+   * die Regel `service_role_alles` (supabase/901_nine_rechte.sql) und sieht damit alle
+   * Zeilen.
    */
   role?: DataApiRole;
   /**
