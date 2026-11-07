@@ -78,6 +78,15 @@ conf = conf
   .replace(uriLine, `db-uri = "postgres://authenticator:${encodeURIComponent(pw)}@`)
   .replace(secretConfLine, `jwt-secret = "${secret}"`);
 if (/PASSWORT|<eigenes Geheimnis/.test(conf)) fail("In der Konfiguration steht noch ein Platzhalter.");
+// Ein Dollarzeichen leitet in dieser Datei eine Umgebungsvariable ein, $(NAME). Ein einzelnes
+// ist ein Lesefehler, und PostgREST beendet sich beim Start sofort. Gemeldet wird nur die
+// Zeilennummer, nie der Inhalt: Die Zeile koennte ein Geheimnis enthalten.
+conf.split("\n").forEach((zeile, i) => {
+  if (zeile.trimStart().startsWith("#")) return;
+  if (/\$(?!\()/.test(zeile.replace(/\$\$/g, ""))) {
+    fail(`Zeile ${i + 1} der Konfiguration enthaelt ein einzelnes $. In dieser Datei als $$ schreiben.`);
+  }
+});
 
 writeFileSync(`${outFile}.neu`, conf, { mode: 0o600 });
 chmodSync(`${outFile}.neu`, 0o600);
@@ -87,4 +96,8 @@ const uri = new URL(conf.match(/^db-uri = "(.*)"$/m)[1]);
 console.log(`postgrest.conf geschrieben: ${outFile} (Rechte 600)`);
 console.log(`  db-uri:     ${uri.username}@${uri.hostname}:${uri.port}${uri.pathname}, Passwort ${pw.length} Zeichen`);
 console.log(`  jwt-secret: ${secret.length} Zeichen, ${herkunft}`);
-console.log(`  DATA_API_URL in der .env: ${dataApiUrl === "" ? "FEHLT" : dataApiUrl}`);
+// DATA_API_URL bleibt bis zum Cutover A (Schritt 5.5) leer: Solange sie leer ist, laufen alle
+// Daten weiter ueber Supabase. Gesetzt, wuerde die Anwendung schon die neue Datenbank lesen.
+console.log(
+  `  DATA_API_URL in der .env: ${dataApiUrl === "" ? "leer, richtig bis Cutover A (Schritt 5.5)" : `${dataApiUrl} (Daten laufen schon ueber PostgREST)`}`,
+);

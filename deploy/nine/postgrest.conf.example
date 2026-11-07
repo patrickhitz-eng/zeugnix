@@ -46,10 +46,16 @@ jwt-secret = "<eigenes Geheimnis, openssl rand -base64 48, gleich wie DATA_API_J
 jwt-secret-is-base64 = false
 
 ## Die Rolle steht im Anspruch role auf oberster Ebene - so stellt die Anwendung sie aus,
-## und so liest sie auch unsere Funktion auth.role(). Seit v16 ist das ein JSON-Pfad nach
-## RFC 9535 und beginnt mit $ (bis v14 hiess es ".role"). Das ist zugleich die Vorgabe;
-## die Zeile steht trotzdem da, damit niemand raten muss.
-jwt-role-claim-key = "$.role"
+## und so liest sie auch unsere Funktion auth.role(). PostgREST liest sie dort ohne weitere
+## Angabe: Die Vorgabe von jwt-role-claim-key ist seit v16 der JSON-Pfad zu genau diesem
+## Anspruch (bis v14 hiess sie ".role").
+##
+## Darum steht die Zeile hier bewusst NICHT. In dieser Datei leitet ein Dollarzeichen eine
+## Umgebungsvariable ein, $(NAME). Ein einzelnes Dollarzeichen in einem Wert ist ein
+## Lesefehler, und PostgREST beendet sich sofort mit Status 1, ohne einen Port zu oeffnen
+## (so geschehen am 7.11.2026). Wer den Schluessel doch setzen muss, schreibt das Zeichen
+## doppelt. postgrest-conf.mjs bricht ab, wenn ein Wert ein einzelnes Dollarzeichen enthaelt.
+## Ob die Rolle ankommt, prueft postgrest-probe.mjs ("service_role laeuft als service_role").
 
 ## Die Anwendung setzt aud = authenticated. Prueft PostgREST das mit, werden Token mit
 ## gueltiger Signatur aber falschem Zweck abgewiesen.
