@@ -184,6 +184,16 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
   prüft das Recht jetzt.
 - **Als Nächstes 2.3:** `migrate.mjs`, `901_nine_rechte.sql`, `902`, `903`.
 
+**Stand 7.11.: 2.3 erledigt** (Journal 7.11.).
+- `migrate.mjs`: 31 Migrationen, `001` bis `032` ohne `007`, alle ok.
+- `901` hat die Regel `service_role_alles` auf 17 Tabellen angelegt. `902` hat Trigger und `ensure_auth_user` angelegt.
+- `903` ist in allen Abschnitten grün. Alle 18 Objekte in `public` gehören `nmd_zeugnio_rw`. `authenticated` sieht mit fremder ID nichts. `phrase_blocks` hat 1329 Zeilen.
+- **Offen vor Cutover A:**
+  - Der Abgleich mit dem Prod-Schema (Runbook § 6, braucht das Supabase-Datenbankpasswort).
+  - Der Vergleich der Zeilenzahl von `phrase_blocks` mit der Produktion.
+  - Die Probe in 13c mit echten Daten. Mit 0 Zeugnissen beweist sie noch wenig; lokal ist sie mit Daten grün.
+- **Als Nächstes 2.4:** PostgREST mit `authenticator`. Das Passwort steht in Silvans Ablage.
+
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
@@ -198,7 +208,7 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 |---|---|---|
 | 2.1 | In `www-zeugnio`: eigener SSH-Zugang, **Linger prüfen**, Kit nach `~/kit`, Ordner, nvm + Node 22, PM2 mit `pm2.service` aus dem Kit, `.env`, `backup.key`, `backup-s3.env`, `deploy.sh --check`. **Kein Deploy-Key**, solange das Repo öffentlich ist (HTTPS). Cron und logrotate erst nach dem ersten Deploy, **ausserhalb 00:00–04:00** | § 3 (korrigiert 28.10.) |
 | 2.2 | Datenbank: `nmd_zeugnio` existiert. Als `pgadmin`: `900_0_nine_rollen.sql` (Rollen ohne Präfix, `authenticator` **NOINHERIT**, `CONNECT` über `_ro`), dann `\password` für `nmd_zeugnio` und `authenticator`. Als `nmd_zeugnio`: `900_nine_bootstrap.sql` | § 4, § 5 |
-| 2.3 | **Im Rückfallfenster des Upgrades:** Prod-Schema mit `pg_dump` **17** ziehen, Diff gegen `001–025` als Pflicht-Gate, einspielen, `901` (Rechte, Regel für `service_role`), `902` (Auth-Brücke), `903` (Gegenprobe) | § 6–§ 8 |
+| 2.3 | Schema **aus dem Repository**: `migrate.mjs` (alle `0xx` ausser `007`), dann `901` (Rechte, Regel für `service_role`), `902` (Auth-Brücke), `903` (Gegenprobe). Der Abgleich mit dem Prod-Schema (`pg_dump` 17, nur vergleichen, nie einspielen) ist Pflicht vor Cutover A und braucht das Supabase-Datenbankpasswort. Das Rückfallfenster des Upgrades ist seit 30.10. zu | § 6–§ 8 |
 | 2.4 | PostgREST: Binary mit eingetragener Prüfsumme, `shared/postgrest.conf` chmod 600, **systemd-User-Unit** (bewusst nicht PM2) | § 9 |
 | 2.5 | Erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` | § 10 |
 
