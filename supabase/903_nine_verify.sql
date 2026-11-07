@@ -149,6 +149,13 @@ select e.extname, n.nspname as schema, e.extversion
  order by 1;
 select current_setting('search_path') as search_path_der_sitzung;
 
+\echo '    Dürfen die drei Rollen die Funktionen der Erweiterungen ausführen? (MUSS t sein)'
+\echo '    Sonst scheitert jeder INSERT, dessen Spaltenvorgabe uuid_generate_v4() ist.'
+select has_function_privilege('anon',          'extensions.uuid_generate_v4()', 'EXECUTE') as anon,
+       has_function_privilege('authenticated', 'extensions.uuid_generate_v4()', 'EXECUTE') as authenticated,
+       has_function_privilege('service_role',  'extensions.uuid_generate_v4()', 'EXECUTE') as service_role,
+       has_function_privilege('service_role',  'extensions.gen_random_bytes(integer)', 'EXECUTE') as service_role_pgcrypto;
+
 \echo
 \echo '=== 9  Rechte auf den heiklen Funktionen ==='
 \echo '    handle_new_user: anon und authenticated MÜSSEN false sein (Migration 006).'
@@ -241,6 +248,7 @@ rollback;
 \echo '  Abschnitt 4b eine Zeile    (alles gehört der Schreibrolle)'
 \echo '  Abschnitt 6  leer          (anon schreibt nichts)'
 \echo '  Abschnitt 7  leer          (keine View umgeht die Zeilensicherheit)'
+\echo '  Abschnitt 8  t             (alle drei Rollen dürfen die Erweiterungen ausführen)'
 \echo '  Abschnitt 9  anon und authenticated auf handle_new_user = false'
 \echo '  Abschnitt 10 zeigt on_auth_user_created'
 \echo '  Abschnitt 11 gleiche Prüfsummen wie bei Supabase'

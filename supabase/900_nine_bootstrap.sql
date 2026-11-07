@@ -231,7 +231,13 @@ grant execute on function auth.email() to anon, authenticated, service_role;
 grant execute on function auth.jwt()   to anon, authenticated, service_role;
 grant execute on function public.debug_whoami() to anon, authenticated, service_role;
 
-grant execute on all functions in schema extensions to anon, authenticated, service_role;
+-- Kein GRANT auf die Funktionen in `extensions`. uuid-ossp und pgcrypto sind
+-- «trusted»: Legt ein Nicht-Superuser sie an, läuft ihr Installationsskript als
+-- Superuser des Servers, und die Funktionen gehören ihm, nicht der Schreibrolle.
+-- Ein GRANT gäbe darum nur Dutzende Warnungen «no privileges were granted»
+-- (so geschehen am 7.11.2026 auf advisori01). Nötig ist es auch nicht: Neue
+-- Funktionen sind in PostgreSQL für PUBLIC ausführbar, und die beiden
+-- Erweiterungen nehmen das nicht zurück. 903 prüft es in Abschnitt 8.
 
 -- auth.users ist keine Tabelle der Daten-API. Nur service_role darf hinein, und
 -- auch das nur über die Funktion in 902.
