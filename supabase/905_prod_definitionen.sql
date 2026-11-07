@@ -99,7 +99,7 @@ bedingungen as (
 ),
 rechte as (
   -- Welche der drei Supabase-Rollen auf welcher Tabelle was darf. Das ist der
-  -- Soll-Wert, den 901_nine_ownership.sql auf dem eigenen Server herstellen
+  -- Soll-Wert, den 901_nine_rechte.sql auf dem eigenen Server herstellen
   -- muss. 901 ist dabei absichtlich strenger: anon bekommt dort nur SELECT.
   select 'L Recht'::text,
          (c.relname::text || ' / ' || r.rolname::text),
