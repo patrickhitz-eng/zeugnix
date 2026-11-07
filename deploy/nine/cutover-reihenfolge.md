@@ -170,6 +170,20 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
   `anon` schreibt nicht. Dabei kam ein alter Fehler in 903 ans Licht: Die Rechteabfrage über den
   Tabellennamen brach an `auth.users` ab. Sie läuft jetzt über die Objektkennung.
 
+**Stand 7.11.: 2.2 erledigt** (PR #51 gemergt, auf advisori01 ausgeführt, Journal 7.11.).
+- `900_0` als `pgadmin`: Die vier Rollen und sieben Mitgliedschaften entsprechen den
+  Erwartungen, `authenticator` hat `CONNECT`.
+- Die Passwörter von `nmd_zeugnio` und `authenticator` sind neu gesetzt (`\password`).
+  Eingetragen sind sie in `~/.pgpass` und `DATABASE_URL` von `www-zeugnio`. Die Anmeldung als
+  `authenticator` funktioniert. Den Wert für `postgrest.conf` braucht erst 2.4.
+- `900` als `nmd_zeugnio` ist ohne Fehler durchgelaufen. `auth` und `extensions` gehören
+  `nmd_zeugnio_rw`, und `auth.uid()` liest den gestellten Anspruch.
+- Zwei Meldungen waren erwartet oder harmlos: der Hinweis zum `search_path` (die Datenbank
+  gehört `nmd`) und Warnungen beim `GRANT` auf die Funktionen der Erweiterungen. Diese gehören
+  dem Superuser, und `PUBLIC` darf sie ohnehin ausführen. Die Zeile ist aus 900 entfernt, 903
+  prüft das Recht jetzt.
+- **Als Nächstes 2.3:** `migrate.mjs`, `901_nine_rechte.sql`, `902`, `903`.
+
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
