@@ -802,42 +802,79 @@ eine Zahl über 0 eine wirkungslose Regel</td></tr>
 
 <h2 id="s8">9 · Daten-API: PostgREST</h2>
 
+<p><span class="label">Version v16.5</span> (Entscheid 7.11.2026). Geplant war v13.0.7, doch die
+bekommt seit Oktober 2025 keine Updates mehr. Für v16 waren in der Vorlage zwei Stellen
+anzupassen: <code>jwt-role-claim-key</code> heisst jetzt <code>"$.role"</code> (JSON-Pfad), und
+den Schalter <code>db-use-legacy-gucs</code> gibt es nicht mehr. Die Ansprüche kommen immer als
+JSON unter <code>request.jwt.claims</code> an, genau so, wie <code>auth.uid()</code> sie liest.</p>
+
+<p>Alles im Konto <code>www-zeugnio</code>, im Checkout:</p>
+
 <pre><code>cd ~/zeugnio-setup
-./deploy/nine/install-postgrest.sh                 # zeigt nur die Prüfsumme, installiert nicht</code></pre>
+git pull --ff-only
+ss -ltn | grep -E ':(3011|3012)\b' || echo "3011 und 3012 frei"
+bash deploy/nine/install-postgrest.sh</code></pre>
 
-<p>Die ausgegebene Prüfsumme mit der Angabe auf der Release-Seite von PostgREST vergleichen — von
-Hand, von einem Menschen. Die Prüfsumme aus derselben Quelle zu laden wie das Archiv wäre keine
-Prüfung, sondern nur ein zweiter Download. Dann:</p>
+<p>Das Skript lädt das Archiv von GitHub und installiert nur, wenn seine Prüfsumme mit der im Skript
+eingetragenen übereinstimmt. Diese Summe stammt aus der Release-Angabe von GitHub, gelesen auf einem
+anderen Rechner als dem Server. Wer ganz sicher gehen will, vergleicht sie zusätzlich von Hand mit der
+Release-Seite von v16.5.</p>
 
-<pre><code>POSTGREST_SHA256=DIE_GEPRUEFTE_SUMME ./deploy/nine/install-postgrest.sh
+<pre><code># Konfiguration schreiben: setzt Passwort und Geheimnis ein, ohne sie anzuzeigen
+read -rsp "Passwort authenticator: " AUTHENTICATOR_PW; echo; export AUTHENTICATOR_PW
+node deploy/nine/postgrest-conf.mjs; unset AUTHENTICATOR_PW
 
-cp deploy/nine/postgrest.conf.example ~/zeugnio/shared/postgrest.conf
-chmod 600 ~/zeugnio/shared/postgrest.conf
-nano ~/zeugnio/shared/postgrest.conf    # db-uri und jwt-secret ausfüllen
-
+# Dienst einrichten und starten
+mkdir -p ~/.config/systemd/user
 cp deploy/nine/postgrest.service ~/.config/systemd/user/postgrest.service
 systemctl --user daemon-reload
 systemctl --user enable --now postgrest
-systemctl --user status postgrest</code></pre>
+sleep 3
+systemctl --user --no-pager status postgrest</code></pre>
 
-<h3>Drei Prüfungen, bevor die Anwendung sie benutzt</h3>
+<p><code>postgrest-conf.mjs</code> übernimmt das JWT-Geheimnis aus <code>DATA_API_JWT_SECRET</code>
+in der <code>.env</code>. Fehlt es dort, erzeugt das Skript eines und trägt es in beide Dateien ein.
+Weichen die zwei Werte voneinander ab, antwortet die Daten-API auf jede Anfrage der Anwendung mit 401.
+Eine bestehende <code>postgrest.conf</code> ersetzt das Skript nur mit <code>--force</code>.</p>
 
-<pre><code># 1. lebt und ist bereit
-curl -sS http://127.0.0.1:3012/live
-curl -sS http://127.0.0.1:3012/ready
+<h3>Prüfen, bevor die Anwendung sie benutzt</h3>
 
-# 2. Gegenprobe, die wichtiger ist als die Probe: von aussen darf NICHTS antworten
-curl -sS --max-time 5 http://5.148.171.221:3011/ || echo "gut: von aussen tot"
+<pre><code>node deploy/nine/postgrest-probe.mjs</code></pre>
 
-# 3. mit dem anon-Schlüssel: eine Tabelle mit Zeilensicherheit muss LEER antworten,
-#    nicht mit einem Fehler
-curl -sS -H "Authorization: Bearer DER_ANON_SCHLUESSEL" \
-  "http://127.0.0.1:3011/certificates?select=id&limit=1"</code></pre>
+<p>Die Probe stellt Token aus wie die Anwendung (<code>lib/db/rest-rewrite.ts</code>) und prüft
+zwölf Punkte, unter anderem:</p>
+<ul>
+<li>Ohne Token sieht man keine Satzbausteine. <code>authenticated</code> und
+<code>service_role</code> sehen alle.</li>
+<li><code>auth.uid()</code> bekommt die Benutzer-ID aus dem Token. Das ist die wichtigste Prüfung:
+Liefert die Funktion NULL, wirkt keine Regel der Zeilensicherheit, und nirgends erscheint ein
+Fehler.</li>
+<li>Fremde Profile bleiben unsichtbar, <code>anon</code> darf nicht schreiben.</li>
+<li>Ein falsches Geheimnis und ein falscher Zweck (<code>aud</code>) werden abgewiesen.</li>
+</ul>
+<p>Die Probe gibt kein Token und kein Geheimnis aus und ändert nichts an der Datenbank.</p>
+
+<p>Dazu die Gegenprobe, die wichtiger ist als die Probe: Von aussen darf <strong>nichts</strong>
+antworten. Im PowerShell-Fenster auf dem eigenen Rechner:</p>
+
+<pre><code>curl.exe -sS --max-time 5 http://5.148.171.221:3011/</code></pre>
+
+<p>Erwartet ist ein Fehler, etwa eine Zeitüberschreitung oder «Connection refused». PostgREST hört nur auf
+<code>127.0.0.1</code>, und nines Firewall lässt ohnehin nur 22, 80 und 443 durch.</p>
 
 <div class="note">
-<p>Antwortet Prüfung 3 mit <code>[]</code>, arbeitet die Kette wie gedacht. Antwortet sie mit einer
-Zeile, greift die Zeilensicherheit nicht — dann zurück zu Abschnitt 8. Antwortet sie mit 401, ist
-der Schlüssel kein JWT (siehe Abschnitt 1, vierte Angabe).</p>
+<p><span class="label">Wenn der Dienst nicht startet.</span>
+<code>systemctl --user --no-pager status postgrest</code> zeigt die letzten Meldungen. Häufigste
+Ursachen:</p>
+<ul>
+<li>Ein falsches Passwort für <code>authenticator</code> zeigt sich als «password authentication
+failed». Abhilfe: <code>postgrest-conf.mjs --force</code> mit dem richtigen Passwort, dann
+<code>systemctl --user restart postgrest</code>.</li>
+<li>Fehlendes <code>CONNECT</code> zeigt sich als «permission denied for database». Dann zurück
+zu Abschnitt 5 und Abschnitt 2a von 903.</li>
+</ul>
+<p>Nach einer Migration den Schema-Cache neu lesen, ohne Unterbrechung:
+<code>systemctl --user reload postgrest</code>.</p>
 </div>
 
 <h2 id="s9">10 · Erstes Deployment auf der Testadresse</h2>

@@ -4,6 +4,10 @@
 ## die Datei enthaelt das Datenbankpasswort UND das JWT-Geheimnis. Sie liegt bewusst nicht
 ## im Repository und nicht im Release-Ordner - ein Deployment darf sie nicht anfassen.
 ##
+## Geschrieben fuer PostgREST v16.5. Anlegen nicht von Hand, sondern mit
+##   node deploy/nine/postgrest-conf.mjs
+## Das Skript setzt Passwort und Geheimnis ein, ohne sie anzuzeigen (Runbook Abschnitt 9).
+##
 ## Gestartet wird sie ueber den systemd-Benutzerdienst deploy/nine/postgrest.service,
 ## absichtlich NICHT ueber PM2: PM2 wird beim Deployment neu gestartet, und die Daten-API
 ## soll davon nichts merken.
@@ -42,18 +46,21 @@ jwt-secret = "<eigenes Geheimnis, openssl rand -base64 48, gleich wie DATA_API_J
 jwt-secret-is-base64 = false
 
 ## Die Rolle steht im Anspruch role auf oberster Ebene - so stellt die Anwendung sie aus,
-## und so liest sie auch unsere Funktion auth.role().
-jwt-role-claim-key = ".role"
+## und so liest sie auch unsere Funktion auth.role(). Seit v16 ist das ein JSON-Pfad nach
+## RFC 9535 und beginnt mit $ (bis v14 hiess es ".role"). Das ist zugleich die Vorgabe;
+## die Zeile steht trotzdem da, damit niemand raten muss.
+jwt-role-claim-key = "$.role"
 
 ## Die Anwendung setzt aud = authenticated. Prueft PostgREST das mit, werden Token mit
 ## gueltiger Signatur aber falschem Zweck abgewiesen.
 jwt-aud = "authenticated"
 
-## Anspruechte als JSON unter request.jwt.claims bereitstellen - genau das lesen unsere
-## eigenen Funktionen auth.uid(), auth.role() und auth.jwt(). Mit den alten GUCs (true)
-## gaebe es stattdessen request.jwt.claim.<name>, und auth.uid() liefert NULL: jede
-## Zeilensicherheitsregel waere dann leise wirkungslos, ohne eine einzige Fehlermeldung.
-db-use-legacy-gucs = false
+## PostgREST stellt die Ansprueche als JSON unter request.jwt.claims bereit - genau das lesen
+## unsere Funktionen auth.uid(), auth.role() und auth.jwt(). Frueher liess sich das mit
+## db-use-legacy-gucs auf Einzelwerte umstellen; v16.5 kennt diesen Schalter nicht mehr.
+## Ob die Ansprueche ankommen, prueft deploy/nine/postgrest-probe.mjs ueber
+## /rpc/debug_whoami: liefert auth.uid() dort NULL, waere jede Zeilensicherheitsregel leise
+## wirkungslos, ohne eine einzige Fehlermeldung.
 
 ## --- Netz ------------------------------------------------------------------------------
 ## Nur 127.0.0.1. Die Daten-API ist von aussen nicht erreichbar; die Anwendung auf Port
