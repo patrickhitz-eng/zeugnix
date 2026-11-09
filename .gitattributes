@@ -13,3 +13,6 @@
 deploy/nine/*.conf text eol=lf
 deploy/nine/*.example text eol=lf
 deploy/nine/*.mjs text eol=lf
+
+# Hooks des advisori01-Kits laufen auf dem Server (bash und psql).
+deploy/nine/hooks/* text eol=lf

@@ -195,7 +195,7 @@ DKIM". Der zweite Weg ist mit dieser Messung **vom Tisch**.
    unter der Haube über Amazon SES versendet — also auch der heutige Weg nicht schweizerisch.
 3. **Die A-Records von `zeugnio.ch` zeigen auf Vercel, nicht auf `advisori01`.** Let's
    Encrypt kann darum heute kein Zertifikat ausstellen. Der vhost (A2) wird zuerst **ohne**
-   Zertifikat angelegt und über nines Testadresse `zeugnio.advisori01.nine.ch` geprüft;
+   Zertifikat angelegt und über nines Testadresse `zeugnio.ch.advisori01.nine.ch` geprüft (korrigiert am 9.11.: die kürzere Form `zeugnio.advisori01.nine.ch` landet auf nines Standardseite);
    die Umschaltung der A-Records ist ein eigener Schritt mit eigener Reihenfolge.
 
 Zwei Nebenbefunde, beide nicht dringend:
