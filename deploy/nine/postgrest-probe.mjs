@@ -70,13 +70,15 @@ const checks = [
     const r = await call(`${api}/phrase_blocks?select=id&limit=1`, { auth: asAnon, count: true });
     return [r.status === 200 && r.total === 0, `HTTP ${r.status}, ${r.total ?? "?"} Zeilen`];
   }],
+  // Mit limit=1 und count=exact antwortet PostgREST mit 206 (Partial Content), sobald es mehr
+  // als eine Zeile gibt: "1 von 1329". Das ist die richtige Antwort, kein Fehler.
   ["authenticated sieht die Satzbausteine", async () => {
     const r = await call(`${api}/phrase_blocks?select=id&limit=1`, { auth: asAuth, count: true });
-    return [r.status === 200 && r.total > 0, `HTTP ${r.status}, ${r.total ?? "?"} Zeilen`];
+    return [[200, 206].includes(r.status) && r.total > 0, `HTTP ${r.status}, ${r.total ?? "?"} Zeilen`];
   }],
   ["service_role sieht die Satzbausteine", async () => {
     const r = await call(`${api}/phrase_blocks?select=id&limit=1`, { auth: asService, count: true });
-    return [r.status === 200 && r.total > 0, `HTTP ${r.status}, ${r.total ?? "?"} Zeilen`];
+    return [[200, 206].includes(r.status) && r.total > 0, `HTTP ${r.status}, ${r.total ?? "?"} Zeilen`];
   }],
   ["auth.uid() bekommt die ID aus dem Token", async () => {
     const r = await call(`${api}/rpc/debug_whoami`, { auth: asAuth, method: "POST", body: {} });

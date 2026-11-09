@@ -804,9 +804,20 @@ eine Zahl über 0 eine wirkungslose Regel</td></tr>
 
 <p><span class="label">Version v16.5</span> (Entscheid 7.11.2026). Geplant war v13.0.7, doch die
 bekommt seit Oktober 2025 keine Updates mehr. Für v16 waren in der Vorlage zwei Stellen
-anzupassen: <code>jwt-role-claim-key</code> heisst jetzt <code>"$.role"</code> (JSON-Pfad), und
-den Schalter <code>db-use-legacy-gucs</code> gibt es nicht mehr. Die Ansprüche kommen immer als
-JSON unter <code>request.jwt.claims</code> an, genau so, wie <code>auth.uid()</code> sie liest.</p>
+anzupassen. <code>jwt-role-claim-key</code> ist jetzt ein JSON-Pfad, und dessen Vorgabe trifft genau
+unseren Anspruch <code>role</code>. Darum fehlt die Zeile in der Vorlage. Zudem gibt es den Schalter
+<code>db-use-legacy-gucs</code> nicht mehr. Die Ansprüche kommen immer als JSON unter
+<code>request.jwt.claims</code> an, genau so, wie <code>auth.uid()</code> sie liest.</p>
+
+<div class="warn">
+<p><span class="label">Dollarzeichen in <code>postgrest.conf</code>.</span> In dieser Datei leitet
+<code>$</code> eine Umgebungsvariable ein, <code>$(NAME)</code>. Ein einzelnes Dollarzeichen in einem
+Wert kann PostgREST nicht lesen und beendet sich beim Start sofort mit Status 1, noch bevor es einen
+Port öffnet. Die Probe meldet dann bei jeder Prüfung <code>ECONNREFUSED</code>. Genau das ist am
+7.11.2026 passiert, mit <code>jwt-role-claim-key = "$.role"</code>. Wer ein Dollarzeichen als
+Zeichen meint, schreibt es doppelt: <code>$$</code>. <code>postgrest-conf.mjs</code> prüft das seither
+vor dem Schreiben.</p>
+</div>
 
 <p>Alles im Konto <code>www-zeugnio</code>, im Checkout:</p>
 
