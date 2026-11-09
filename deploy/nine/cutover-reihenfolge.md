@@ -194,6 +194,14 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
   - Die Probe in 13c mit echten Daten. Mit 0 Zeugnissen beweist sie noch wenig; lokal ist sie mit Daten grün.
 - **Als Nächstes 2.4:** PostgREST mit `authenticator`. Das Passwort steht in Silvans Ablage.
 
+**Stand 9.11.: 2.4 erledigt** (Journal 7.11. und 9.11., PR #54 und #55).
+- PostgREST 16.5 läuft als systemd-Benutzerdienst auf `127.0.0.1:3011`, der Admin-Port auf `3012`. Von aussen sind beide nicht erreichbar.
+- `postgrest-probe.mjs`: 12 von 12 grün. `anon` sieht keine Satzbausteine, `authenticated` und `service_role` sehen alle 1329. `auth.uid()` bekommt die ID aus dem Token. Falsches Geheimnis und falscher Zweck (`aud`) werden abgewiesen.
+- Der erste Start scheiterte am 7.11.: Ein einzelnes `$` in `postgrest.conf` ist ein Lesefehler. Die Vorlage hat die Zeile seit PR #55 nicht mehr, und `postgrest-conf.mjs` prüft das.
+- `DATA_API_URL` bleibt bis Schritt 5.5 leer. Bis dahin laufen alle Daten weiter über Supabase.
+- **Offen vor Cutover A:** unverändert die drei Punkte aus 2.3.
+- **Als Nächstes 2.5:** erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` (§ 10).
+
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
