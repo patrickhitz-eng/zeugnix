@@ -3,11 +3,13 @@
 // Betrieb. Gibt nie Werte aus, nur Befunde.
 //
 // Von Hand auf dem Server:  node --env-file=.env scripts/check-env.mjs
-// Im Deployment:            läuft automatisch in deploy/nine/deploy.sh, vor dem Build.
+// Im Deployment:            läuft automatisch als Hook des advisori01-Kits, vor npm ci
+//                           (deploy/nine/hooks/pre-install.sh), und bei `--check`.
 //
 // Die Prüfungen hier sind nicht allgemein gehalten, sondern jede einzelne steht für einen
 // Fehler, der in diesem Projekt schon einmal Geld oder Vertrauen gekostet hätte.
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
+import path from "node:path";
 
 const errors = [];
 const warnings = [];
@@ -128,17 +130,16 @@ for (const [name, value, expected] of [
   if (!value) continue;
   const role = jwtRole(value);
   if (role === null) {
-    // Neues Schlüsselformat (sb_publishable_… / sb_secret_…): gegen Supabase funktioniert
-    // es, gegen die eigene Daten-API nicht – PostgREST braucht ein JWT als Bearer-Token.
-    if (dataApi) {
+    // Neues Schlüsselformat (sb_publishable_… / sb_secret_…). Für die eigene Daten-API spielt
+    // das keine Rolle: lib/db/rest-rewrite.ts stellt dort eigene Token mit
+    // DATA_API_JWT_SECRET aus und schickt den Supabase-Schlüssel gar nicht mit. Prüfbar
+    // bleibt die Verwechslung - am Präfix, das kein Geheimnis ist.
+    const wrongPrefix = expected === "anon" ? "sb_secret_" : "sb_publishable_";
+    if (value.startsWith(wrongPrefix)) {
       errors.push(
-        `${name} ist kein JWT. Die eigene Daten-API prüft Bearer-Token und kann mit dem ` +
-          "neuen Supabase-Schlüsselformat nichts anfangen. Im Dashboard unter API Keys " +
-          "die JWT-basierten Schlüssel verwenden (Legacy/JWT), sonst antwortet die " +
-          "Daten-API auf jede Anfrage mit 401.",
+        `${name} beginnt mit ${wrongPrefix}. Die Schlüssel sind vertauscht – das ist ` +
+          "entweder ein Datenleck oder eine App ohne Rechte.",
       );
-    } else {
-      warnings.push(`${name} ist kein JWT – vor dem Cutover prüfen, siehe DATA_API_URL.`);
     }
   } else if (role !== expected) {
     errors.push(
@@ -281,18 +282,57 @@ if (!nonEmpty("RESEND_API_KEY")) {
 }
 
 // --- Sicherung ins zweite Rechenzentrum --------------------------------------------------
-const s3 = ["S3_ENDPOINT", "S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"];
-const s3Set = s3.filter((name) => nonEmpty(name));
+// Der Zugang steht seit dem advisori01-Kit in shared/backup-s3.env, neben der .env und
+// bewusst nicht darin: die .env liest auch `next start`, die Schlüssel lägen sonst in der
+// Umgebung jedes Next-Prozesses. Die Datei wird über die echte Lage der .env gefunden (im
+// Release-Ordner ist .env eine Verknüpfung nach shared/). Gelesen wird nur, ob ein Wert
+// gesetzt ist, nie der Wert selbst.
+//
+// Gezählt werden nur Bucket und Zugangsdaten. S3_ENDPOINT füllt die Vorlage des Kits schon
+// vor; mitgezählt stünde eine frisch kopierte Vorlage sonst als «1 von 4, halb gesetzt» da.
+const s3Access = ["S3_BUCKET", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY"];
+
+function readS3File() {
+  let file;
+  try {
+    file = path.join(path.dirname(realpathSync(".env")), "backup-s3.env");
+  } catch {
+    return null; // keine .env im Arbeitsordner, z. B. lokal mit .env.local
+  }
+  if (!existsSync(file)) return null;
+  const set = new Map();
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    const m = line.match(/^\s*(S3_[A-Z0-9_]+)\s*=\s*(.*)$/);
+    if (!m) continue;
+    const value = m[2].trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+    set.set(m[1], value !== "");
+  }
+  return set;
+}
+
 if (!onVercel) {
-  if (s3Set.length === 0) {
+  const inEnv = ["S3_ENDPOINT", ...s3Access].filter((name) => nonEmpty(name));
+  if (inEnv.length > 0) {
     warnings.push(
-      "Kein Object Storage konfiguriert: die Sicherung bleibt auf derselben Maschine wie " +
-        "die Datenbank. Das ist im Ernstfall keine Sicherung.",
+      `${inEnv.join(", ")} steht in der .env. Der Zugang gehört nach shared/backup-s3.env ` +
+        "(advisori01-Kit): die .env liest auch `next start`, die Schlüssel lägen sonst in " +
+        "jedem Next-Prozess.",
     );
-  } else if (s3Set.length !== s3.length) {
+  }
+  const fromFile = readS3File();
+  const isSet = (name) => Boolean(nonEmpty(name)) || fromFile?.get(name) === true;
+  const accessSet = s3Access.filter(isSet);
+  if (accessSet.length === 0) {
+    warnings.push(
+      "Kein Object Storage konfiguriert (shared/backup-s3.env): die Sicherung bleibt auf " +
+        "derselben Maschine wie die Datenbank. Das ist im Ernstfall keine Sicherung.",
+    );
+  } else if (accessSet.length !== s3Access.length || !isSet("S3_ENDPOINT")) {
     errors.push(
-      `Object Storage nur teilweise konfiguriert (${s3Set.length} von ${s3.length} Werten). ` +
-        "Halb gesetzt heisst: die Sicherung scheitert jede Nacht, und niemand merkt es.",
+      `Object Storage nur teilweise konfiguriert (${accessSet.length} von ${s3Access.length} ` +
+        "Zugangswerten" +
+        (isSet("S3_ENDPOINT") ? "" : ", S3_ENDPOINT fehlt") +
+        "). Halb gesetzt heisst: die Sicherung scheitert jede Stunde, und niemand merkt es.",
     );
   }
 }
