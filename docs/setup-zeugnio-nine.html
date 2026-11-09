@@ -890,26 +890,87 @@ zu Abschnitt 5 und Abschnitt 2a von 903.</li>
 
 <h2 id="s9">10 · Erstes Deployment auf der Testadresse</h2>
 
-<pre><code># Der vhost zeugnio.ch mit App-Benutzer www-zeugnio besteht seit
-# cutover-reihenfolge.md 1.2. Die Testadresse zeugnio.ch.advisori01.nine.ch
-# legt nine dabei selbst als Alias an; ein eigener vhost dafür ist nicht nötig.
+<p>Das Deployment läuft über das Kit aus 3.2, mit <code>~/kit/deploy.sh zeugnio</code>. Das alte
+Skript <code>deploy/nine/deploy.sh</code> ist damit abgelöst; es wird nach dem ersten erfolgreichen
+Kit-Deployment gelöscht (Kit, <code>MIGRATION.md</code>). Was nur zeugnio betrifft, steuert die App
+selbst bei, als Hooks unter <code>deploy/nine/hooks/</code>:</p>
 
-# Upload-Grenze und Antwortzeit. Gemessen am 7.10.2026: nginx.conf:42 setzt global
-# client_max_body_size 64m, proxy_read_timeout ist nicht gesetzt (Vorgabe 60s).
-# Beides reicht bereits. Die zwei Zeilen ENGEN also ein, statt zu reparieren:
-# 4m genuegt fuer das 2-MB-Logo, und ein global geaenderter Wert kann uns
-# danach nicht mehr ueberraschen.
-#   client_max_body_size 4m;
-#   proxy_read_timeout   60s;</code></pre>
+<table>
+<tr><th>Hook</th><th>Was er tut</th></tr>
+<tr><td><code>pre-install.sh</code></td><td>prüft die <code>.env</code> mit <code>scripts/check-env.mjs</code>, bevor Minuten in den Build gehen</td></tr>
+<tr><td><code>migrate-pending.sh</code></td><td>zählt die offenen Migrationen. Bei 0 gibt es weder Auszug noch Migration</td></tr>
+<tr><td><code>migrate.sh</code></td><td>spielt sie mit <code>scripts/migrate.mjs</code> ein, erst nach einem Auszug</td></tr>
+<tr><td><code>post-migrate.sh</code></td><td>lässt PostgREST das Schema neu einlesen</td></tr>
+<tr><td><code>check.sh</code></td><td>bei <code>--check</code>: <code>.env</code>, PostgREST aktiv und bereit</td></tr>
+<tr><td><code>backup-journal.sql</code></td><td>Liste der ausgestellten Zeugnisse, bei jeder Sicherung</td></tr>
+<tr><td><code>restore-check.sql</code></td><td>im Restore-Test: die Spalten der Echtheitsprüfung sind da</td></tr>
+</table>
 
-<pre><code>cp ~/zeugnio-setup/deploy/nine/deploy.sh ~/deploy-zeugnio.sh   # nur für den ersten Lauf
-chmod +x ~/deploy-zeugnio.sh
-~/deploy-zeugnio.sh --check      # prüft Rechte, Dienste, Zugriff — ändert nichts
-~/deploy-zeugnio.sh main</code></pre>
+<p><span class="label">Was ein Deployment macht.</span> Das Kit klont den Branch in einen neuen
+Ordner unter <code>releases/</code> und verknüpft die <code>.env</code> aus <code>shared/</code>.
+Danach installiert es die Pakete und baut. Der Build läuft unter einer serverweiten Sperre und mit
+einem Speicherdeckel von 3 GB, damit ein Build nie PostgreSQL verdrängt. Dann kommen die
+Migrationen. Erst danach zeigt <code>current</code> auf die neue Version, und pm2 startet sie. Das
+Kit wartet bis zu 60 Sekunden, bis <code>/api/health</code> mit 200 antwortet. Bleibt die Antwort
+aus, schaltet es auf die vorherige Version zurück. Scheitert etwas vor dem Umschalten, bleibt alles,
+wie es war.</p>
 
-<p>Ab dem zweiten Mal läuft das Deployment aus dem Release-Ordner selbst:</p>
+<div class="warn">
+<p><span class="label">Die Testadresse spricht vorerst nur HTTP</span> (gemessen am 9.11.2026).
+<code>http://zeugnio.ch.advisori01.nine.ch</code> führt auf den vhost <code>zeugnio.ch</code>. Über
+HTTPS liefert nginx nur sein selbstsigniertes Zertifikat (<code>CN=advisori01.nine.ch</code>) und
+nines Standardseite, weil der vhost noch kein Zertifikat hat. Die kürzere Form
+<code>zeugnio.advisori01.nine.ch</code> landet immer auf der Standardseite.</p>
+<p>Für diesen Schritt genügt HTTP, denn geprüft wird mit <code>curl</code>. Im Browser sieht die
+Seite dagegen kaputt aus: Die Content-Security-Policy enthält <code>upgrade-insecure-requests</code>,
+der Browser lädt Skripte und Stile darum über HTTPS nach und scheitert am Zertifikat. Die Vollprobe
+(§ 11) braucht deshalb ein gültiges Zertifikat auf der Testadresse
+(<code>cutover-reihenfolge.md</code> 1.3).</p>
+</div>
 
-<pre><code>~/zeugnio/current/deploy/nine/deploy.sh main</code></pre>
+<div class="warn">
+<p><span class="label">Die Daten liegen weiter bei Supabase.</span> <code>DATA_API_URL</code> bleibt
+bis Cutover A leer. Die App auf der Testadresse liest und schreibt also dieselbe Datenbank wie
+zeugnio.ch auf Vercel. <code>/api/health</code> liest dort eine einzige Zeile, und das zeigt
+<code>"datenquelle":"supabase"</code> an.</p>
+</div>
+
+<p>Als <code>www-zeugnio</code>, direkt per SSH angemeldet. Zuerst die Gegenprobe ohne Änderung; sie
+muss mit «Alles bereit.» enden:</p>
+
+<pre><code>~/kit/deploy.sh zeugnio --check</code></pre>
+
+<p>Dann das Deployment. Installation und Build dauern einige Minuten. Bricht die SSH-Verbindung
+dabei ab, endet auch das Deployment; das Kit räumt den halben Ordner weg, und der Befehl lässt sich
+einfach wiederholen.</p>
+
+<pre><code>~/kit/deploy.sh zeugnio main</code></pre>
+
+<p>Gegenprobe auf dem Server. Erwartet wird überall <code>"ok"</code> und
+<code>"datenquelle":"supabase"</code>:</p>
+
+<pre><code>curl -s http://127.0.0.1:3010/api/health; echo
+pm2 ls
+~/kit/deploy.sh zeugnio --check</code></pre>
+
+<p>Gegenprobe von aussen (PowerShell auf dem eigenen Rechner): dieselbe Antwort über nginx, und der
+Port 3010 selbst ist nicht erreichbar.</p>
+
+<pre><code>curl.exe -sS http://zeugnio.ch.advisori01.nine.ch/api/health
+curl.exe -sS --max-time 5 http://5.148.171.221:3010/api/health</code></pre>
+
+<p>Ab dem zweiten Mal genau gleich: <code>~/kit/deploy.sh zeugnio main</code>.</p>
+
+<p><span class="label">Noch nicht: Cron und Log-Rotation.</span> Die Crontab des Kits
+(<code>cron/zeugnio.crontab</code>) enthält die stündliche Sicherung mit Zweitkopie, den PII-Lauf und
+den Watchdog. Die Sicherung scheitert, solange der Bucket fehlt (Journal B3). Der PII-Lauf würde vor
+Cutover A über die App bei Supabase löschen, parallel zum Vercel-Cron. Darum kommen die Einträge
+erst, wenn der Bucket steht, und der PII-Lauf erst mit Cutover A.</p>
+
+<p><span class="label">Upload-Grenze und Antwortzeit.</span> Gemessen am 7.10.2026: nines
+<code>nginx.conf</code> setzt global <code>client_max_body_size 64m</code>, und
+<code>proxy_read_timeout</code> fehlt (Vorgabe 60 s). Beides reicht. Enger zu setzen wäre nur eine
+Absicherung (4 MB genügen für das 2-MB-Logo) und ist kein Schritt dieses Abschnitts.</p>
 
 <h2 id="s10">11 · Vollprobe</h2>
 

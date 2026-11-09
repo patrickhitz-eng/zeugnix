@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # zeugnio.ch - Deployment auf dem Managed Server bei nine.ch.
 #
+# ABGELOEST durch das advisori01-Kit: ~/kit/deploy.sh zeugnio (Runbook docs/setup-zeugnio-nine.html,
+# Abschnitt 10; was nur zeugnio betrifft, steht als Hook unter deploy/nine/hooks/). Nicht mehr
+# benutzen. Die Datei wird nach dem ersten erfolgreichen Kit-Deployment geloescht.
+#
 # Jede Version wird in einem eigenen Ordner unter ~/zeugnio/releases gebaut. Erst wenn Build
 # und Migrationen durch sind, zeigt ~/zeugnio/current auf die neue Version und die App startet
 # neu. Schlaegt vorher etwas fehl, laeuft die bisherige Version unveraendert weiter. Antwortet
