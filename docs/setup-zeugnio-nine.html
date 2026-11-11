@@ -916,16 +916,24 @@ aus, schaltet es auf die vorherige Version zurück. Scheitert etwas vor dem Umsc
 wie es war.</p>
 
 <div class="warn">
-<p><span class="label">Die Testadresse spricht vorerst nur HTTP</span> (gemessen am 9.11.2026).
+<p><span class="label">nines Testadresse spricht nur HTTP.</span>
 <code>http://zeugnio.ch.advisori01.nine.ch</code> führt auf den vhost <code>zeugnio.ch</code>. Über
-HTTPS liefert nginx nur sein selbstsigniertes Zertifikat (<code>CN=advisori01.nine.ch</code>) und
-nines Standardseite, weil der vhost noch kein Zertifikat hat. Die kürzere Form
-<code>zeugnio.advisori01.nine.ch</code> landet immer auf der Standardseite.</p>
-<p>Für diesen Schritt genügt HTTP, denn geprüft wird mit <code>curl</code>. Im Browser sieht die
-Seite dagegen kaputt aus: Die Content-Security-Policy enthält <code>upgrade-insecure-requests</code>,
-der Browser lädt Skripte und Stile darum über HTTPS nach und scheitert am Zertifikat. Die Vollprobe
-(§ 11) braucht deshalb ein gültiges Zertifikat auf der Testadresse
-(<code>cutover-reihenfolge.md</code> 1.3).</p>
+HTTPS liefert nginx dort nur sein selbstsigniertes Zertifikat (<code>CN=advisori01.nine.ch</code>)
+und nines Standardseite. Die kürzere Form <code>zeugnio.advisori01.nine.ch</code> landet immer auf
+der Standardseite. Für <code>curl</code> genügt das. Im Browser sieht die Seite kaputt aus: Die
+Content-Security-Policy enthält <code>upgrade-insecure-requests</code>, der Browser lädt Skripte und
+Stile darum über HTTPS nach und scheitert am Zertifikat.</p>
+<p>Ein Zertifikat für den vhost <code>zeugnio.ch</code> gibt es vor der DNS-Umschaltung nicht:
+<code>certificate create</code> braucht für jeden Namen des vhosts DNS auf den Server, und
+<code>zeugnio.ch</code> und <code>www</code> zeigen bis Schritt 5.6 auf Vercel. Für Browser und
+Vollprobe gibt es darum seit dem 11.11.2026 <strong><code>https://test.zeugnio.ch</code></strong>:
+ein eigener vhost auf denselben Port 3010, mit eigenem Let's-Encrypt-Zertifikat. Angelegt als
+<code>www-data</code>, nachdem bei Vercel der A-Eintrag <code>test</code> → <code>5.148.171.221</code>
+stand:</p>
+<pre><code>sudo nine-manage-vhosts virtual-host create test.zeugnio.ch --template=proxy --template-variable PROXYPORT=3010 --user=www-zeugnio
+sudo nine-manage-vhosts certificate create --virtual-host=test.zeugnio.ch
+sudo nine-manage-vhosts virtual-host update test.zeugnio.ch --template=proxy_letsencrypt_https</code></pre>
+<p>Das Zertifikat erneuert nines nächtlicher Lauf, solange der DNS-Eintrag auf den Server zeigt.</p>
 </div>
 
 <div class="warn">
@@ -963,7 +971,7 @@ signierten Zeugnisse in <code>/verify</code> als ungeprüft.</p>
 <p>Gegenprobe von aussen (PowerShell auf dem eigenen Rechner): dieselbe Antwort über nginx, und der
 Port 3010 selbst ist nicht erreichbar.</p>
 
-<pre><code>curl.exe -sS http://zeugnio.ch.advisori01.nine.ch/api/health
+<pre><code>curl.exe -sS https://test.zeugnio.ch/api/health
 curl.exe -sS --max-time 5 http://5.148.171.221:3010/api/health</code></pre>
 
 <p>Ab dem zweiten Mal genau gleich: <code>~/kit/deploy.sh zeugnio main</code>.</p>
@@ -975,13 +983,14 @@ Cutover A über die App bei Supabase löschen, parallel zum Vercel-Cron. Darum k
 erst, wenn der Bucket steht, und der PII-Lauf erst mit Cutover A.</p>
 
 <p><span class="label">Upload-Grenze und Antwortzeit.</span> Gemessen am 7.10.2026: nines
-<code>nginx.conf</code> setzt global <code>client_max_body_size 64m</code>, und
-<code>proxy_read_timeout</code> fehlt (Vorgabe 60 s). Beides reicht. Enger zu setzen wäre nur eine
+<code>nginx.conf</code> setzt global <code>client_max_body_size 64m</code>. Die vhost-Vorlagen
+setzen <code>proxy_read_timeout</code> auf 300 s (Variable <code>TIMEOUT</code>, gesehen am
+11.11.2026), nicht auf die Vorgabe von 60 s. Beides reicht. Enger zu setzen wäre nur eine
 Absicherung (4 MB genügen für das 2-MB-Logo) und ist kein Schritt dieses Abschnitts.</p>
 
 <h2 id="s10">11 · Vollprobe</h2>
 
-<p>Auf <code>https://zeugnio.ch.advisori01.nine.ch</code>, <strong>bevor DNS irgendetwas
+<p>Auf <code>https://test.zeugnio.ch</code>, <strong>bevor DNS irgendetwas
 sieht</strong> und ausschliesslich mit erfundenen Namen. Der ganze Weg, nicht nur der Start:</p>
 
 <ol>
