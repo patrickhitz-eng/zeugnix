@@ -953,6 +953,13 @@ einfach wiederholen.</p>
 pm2 ls
 ~/kit/deploy.sh zeugnio --check</code></pre>
 
+<p>Dazu die Signaturschlüssel. <code>/api/health</code> prüft nur, ob ein privater Schlüssel gesetzt ist.
+Ob die zurückgezogenen ankommen, zeigt allein diese Liste: der eigene Schlüssel mit <code>true</code>,
+<code>44df4953c533a8f7</code> mit <code>false</code>. Fehlt der zweite, gelten alle auf Vercel
+signierten Zeugnisse in <code>/verify</code> als ungeprüft.</p>
+
+<pre><code>curl -s http://127.0.0.1:3010/api/signing-keys | grep -oE '"keyId":"[0-9a-f]+"|"active":(true|false)'</code></pre>
+
 <p>Gegenprobe von aussen (PowerShell auf dem eigenen Rechner): dieselbe Antwort über nginx, und der
 Port 3010 selbst ist nicht erreichbar.</p>
 
