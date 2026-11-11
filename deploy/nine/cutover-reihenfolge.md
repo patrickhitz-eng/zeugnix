@@ -81,7 +81,7 @@ Branch `fix/umzug-vorbereitung` und wirkt, sobald er auf Vercel deployt ist.
 |---|---|---|
 | **1.1** | **Mail A an Patrick Lion** in SVC-117420: Upgrade auf 17 mit admin-Benutzer, Terminvorschlag, Rolle des Nachtdumps (A1/A4). Entwurf oben in `antwort-2026-10-13.email.md` | Phase 2.2 und 2.3 |
 | **1.2** | **Benutzer `www-zeugnio` und vhost `zeugnio.ch` selbst anlegen**, zunächst ohne Zertifikat. Befehle unter der Tabelle | Phase 2.1 — **und damit alles Übrige** |
-| **1.3** | **Zertifikat vor der DNS-Umschaltung, ohne DNS-01.** Die nine-Doku kennt nur HTTP-01. Let's Encrypt folgt dabei aber Weiterleitungen (auf Port 80 oder 443). In Phase 3 testen: Vercel leitet `/.well-known/acme-challenge/*` auf `http://zeugnio.ch.advisori01.nine.ch/.well-known/acme-challenge/*` weiter, dann `certificate create`. Offen ist, ob `nine-manage-vhosts` vorher selbst prüft, ob die Domain auf den Server zeigt. Lehnt es ab, nine nach DNS-01 fragen oder das Fenster aus Phase 5 hinnehmen | entscheidet die Form von Phase 5 |
+| **1.3** | **Zertifikat vor der DNS-Umschaltung, ohne DNS-01.** Die nine-Doku kennt nur HTTP-01. Let's Encrypt folgt dabei aber Weiterleitungen (auf Port 80 oder 443). In Phase 3 testen: Vercel leitet `/.well-known/acme-challenge/*` auf `http://zeugnio.ch.advisori01.nine.ch/.well-known/acme-challenge/*` weiter, dann `certificate create`. Offen ist, ob `nine-manage-vhosts` vorher selbst prüft, ob die Domain auf den Server zeigt. Lehnt es ab, nine nach DNS-01 fragen oder das Fenster aus Phase 5 hinnehmen. **Ergebnis 11.11.:** geht nicht. Vercel beantwortet `/.well-known/acme-challenge/` selbst, und `certificate create` braucht für jeden Namen des vhosts DNS auf den Server. Das Fenster 5.6–5.7 bleibt. Für die Vollprobe gibt es stattdessen `test.zeugnio.ch` mit eigenem Zertifikat (Journal 11.11.) | entscheidet die Form von Phase 5 |
 
 **Befehle zu 1.2**, als `www-data` auf advisori01. Zuerst nachsehen, was schon da ist:
 
@@ -212,6 +212,13 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - **Offen vor Cutover A:** die drei Punkte aus 2.3, dazu der Bucket (B3).
 - **Als Nächstes:** das Zertifikat für die Testadresse (1.3). Ohne es lädt der Browser Skripte und Stile nicht, und die Vollprobe 3.1 geht nicht.
 
+**Stand 11.11., später: 1.3 geklärt** (Journal 11.11.).
+- Ein Zertifikat für `zeugnio.ch` vor der DNS-Umschaltung gibt es nicht. Das Fenster 5.6–5.7 bleibt, HSTS steht dafür schon auf 300 s.
+- Für die Vollprobe läuft die App zusätzlich unter `https://test.zeugnio.ch`: eigener vhost, Let's-Encrypt-Zertifikat bis 9.2.2027, gleicher Port 3010.
+- Der DNS-Eintrag `test` steht in der Vercel-Zone und muss mit zu Infomaniak (0.1a).
+- Nach dem Umzug entscheiden: `test.zeugnio.ch` als Testumgebung behalten oder vhost und DNS-Eintrag entfernen.
+- **Als Nächstes:** Vollprobe 3.1. Vorher klären, ob sie mit gesetztem `DATA_API_URL` läuft. Leer schreibt sie in die Live-Datenbank bei Supabase und prüft den Weg über PostgREST nicht.
+
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
@@ -249,7 +256,7 @@ arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine auslief
 
 | # | Schritt | Gate |
 |---|---|---|
-| 3.1 | **Vollprobe auf der Testadresse:** Zeugnis → Einladung → Beurteilung → finalisieren → PDF mit Logo, QR und Inter (Helvetica im PDF heisst: Schriften fehlen) → `/verify` mit einem **echten Bestands-Hash** → PDF-Worker aus `/pdfjs/` | § 11 |
+| 3.1 | **Vollprobe auf `https://test.zeugnio.ch`:** Zeugnis → Einladung → Beurteilung → finalisieren → PDF mit Logo, QR und Inter (Helvetica im PDF heisst: Schriften fehlen) → `/verify` mit einem **echten Bestands-Hash** → PDF-Worker aus `/pdfjs/` | § 11 |
 | 3.2 | **Restore-Übung.** Nie gelaufen. nines Dump wiederherstellen, in eine Wegwerf-Datenbank, Zeilenzahlen und Prüfsummen vergleichen | **Cutover-Gate** |
 | 3.3 | Mailweg: solange Resend läuft, bleibt alles wie heute. mailomat.swiss ist **bewusst nach** dem Cutover — siehe „Mailweg und DNS" in `kommunikation.md` | — |
 
@@ -275,7 +282,7 @@ arbeiten, wären sie für das Konto lesbar, das jeden vhost der Maschine auslief
 | 5.4 | **Integritätsprüfung als Abbruchkriterium:** Prüfsummen über `hash`, `canonical_content`, `signature`. Abweichung = Abbruch, keine Diskussion | — |
 | 5.5 | `.env` final, `DATA_API_URL` setzen, `pm2 restart`, Smoke **auf der Testadresse** | ja |
 | 5.6 | **A-Record Apex und `www` auf 5.148.171.221** (ein A statt Vercels zwei; `www` vom CNAME zum A). Kein AAAA — nine hat kein IPv6 | ja, Rückweg dauert eine TTL |
-| 5.7 | `sudo nine-manage-vhosts certificate create --virtual-host=zeugnio.ch`, danach `virtual-host update zeugnio.ch --template=proxy_letsencrypt_https_redirect` (fällt weg, wenn 1.3 geklappt hat) | ja |
+| 5.7 | `sudo nine-manage-vhosts certificate create --virtual-host=zeugnio.ch`, danach `virtual-host update zeugnio.ch --template=proxy_letsencrypt_https_redirect` (1.3 hat nicht geklappt, der Schritt bleibt) | ja |
 | 5.8 | Smoke auf der echten Domain, beide Namen | — |
 
 **Das Downtime-Fenster liegt zwischen 5.6 und 5.7** und rechnet sich so: bis zu einer TTL
@@ -326,7 +333,7 @@ sie zeigen. Ob der Registrar-Wechsel vor oder nach dem Nameserver-Wechsel kommt,
 
 | # | Schritt | Gate |
 |---|---|---|
-| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird | Liste vollständig, mit dem Vercel-Dashboard abgeglichen |
+| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird. Seit 11.11. zusätzlich `test` A `5.148.171.221` (Testname der Vollprobe): mitnehmen, solange es den vhost `test.zeugnio.ch` gibt | Liste vollständig, mit dem Vercel-Dashboard abgeglichen |
 | 0.1b | Bei Infomaniak die Zone mit genau diesen Einträgen anlegen, TTL der Apex-A-Records gleich auf 300 (ersetzt 0.2) | Abfrage direkt beim Infomaniak-Nameserver liefert dieselben Antworten wie Vercel |
 | 0.1c | Nameserver auf Infomaniak umstellen. **Kein DNSSEC aktiv** (kein DS-Eintrag, gemessen 3.11.), der Wechsel braucht also keinen Schlüsseltausch | `NS zeugnio.ch` zeigt Infomaniak, Seite und Anmeldemail laufen |
 | 0.1d | Domain mit dem Transfer-Code aus Vercel zu Infomaniak übertragen, automatische Verlängerung und Zwei-Faktor-Anmeldung an | RDAP bei `rdap.nic.ch` zeigt das neue Registrierungsereignis |
