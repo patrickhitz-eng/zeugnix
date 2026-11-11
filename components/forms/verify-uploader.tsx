@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { AnalysisResult } from "@/lib/phrases/analyze";
 import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { VerifyAnalysisResult } from "@/components/forms/verify-analysis-result";
@@ -32,12 +32,33 @@ type State =
   | { kind: "no_sentinel"; message: string }
   | { kind: "error"; message: string };
 
-export function VerifyUploader({ tier }: { tier?: "premium" | "analyse" }) {
+export function VerifyUploader({
+  tier,
+  onResultHash,
+}: {
+  tier?: "premium" | "analyse";
+  /**
+   * Meldet den Hash des geprüften PDFs (null, solange keiner vorliegt). Der
+   * QR-Ablauf (verify-flow.tsx) vergleicht ihn mit dem Hash aus dem QR-Code.
+   */
+  onResultHash?: (hash: string | null) => void;
+}) {
   const [state, setState] = useState<State>({ kind: "idle" });
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const resultHash =
+    state.kind === "verified" ||
+    state.kind === "revoked" ||
+    state.kind === "mismatch" ||
+    state.kind === "unknown"
+      ? state.hash
+      : null;
+  useEffect(() => {
+    onResultHash?.(resultHash);
+  }, [resultHash, onResultHash]);
 
   async function handleFile(file: File) {
     if (file.type !== "application/pdf") {

@@ -394,6 +394,36 @@ export type VerifyOutcome =
   | { result: "unknown"; calculatedHash: string }
   | { result: "no_sentinel" };
 
+/**
+ * Vergleichsfelder der Hash-Abfrage (QR-Scan, POST /api/verify/hash).
+ *
+ * Gleiche Felder wie beim PDF-Abgleich, dazu die Signatur in drei Zuständen:
+ * Beim QR-Scan gibt es kein PDF, dessen eingebettete Signatur man prüfen
+ * könnte. Geprüft wird darum die beim Finalisieren GESPEICHERTE Signatur gegen
+ * den gespeicherten Hash, mit dem öffentlichen Schlüssel. „invalid" heisst:
+ * Es ist eine Signatur hinterlegt, sie passt aber nicht. Das deutet auf einen
+ * Eintrag hin, der nicht über die Finalisierung entstanden ist.
+ */
+export interface HashLookupCertificateFields extends VerifiedCertificateFields {
+  signatureState: "valid" | "invalid" | "none";
+  signingKeyId: string | null;
+}
+
+/**
+ * Ergebnis der Hash-Abfrage. Bewusst ohne interne Zeugnis-ID: Wer nur den
+ * QR-Code hat, braucht sie nicht. Einen „mismatch" gibt es hier nicht, denn
+ * ohne PDF-Text gibt es nichts, was vom Siegel abweichen könnte.
+ */
+export type HashLookupOutcome =
+  | { result: "verified"; hash: string; certificate: HashLookupCertificateFields }
+  | {
+      result: "revoked";
+      hash: string;
+      revokedAt: string | null;
+      certificate: HashLookupCertificateFields;
+    }
+  | { result: "unknown"; hash: string };
+
 // ============================================================================
 // Verify-URL (QR-Code / Link)
 // ============================================================================
@@ -401,9 +431,43 @@ export type VerifyOutcome =
 /**
  * Erzeugt die URL, die im QR-Code des PDFs kodiert wird und auf die
  * Verifikationsseite mit vorausgefülltem Hash zeigt.
+ *
+ * Der Hash steht im Fragment (`/verify#hash=…`), nicht in der Query
+ * (`?hash=…`). Den Teil nach `#` schickt der Browser nie an den Server. Er
+ * landet darum in keinem Zugriffsprotokoll (Nginx, Vercel) und in keiner
+ * Link-Vorschau. Das zählt, weil die Seite zum Hash den Namen der
+ * Mitarbeiterin oder des Mitarbeiters zeigt. Die Seite liest das Fragment im
+ * Browser und fragt den Hash per POST ab.
+ *
+ * Alte PDFs tragen noch `?hash=…`. Die Seite versteht beide Formen.
  */
 export function buildVerifyUrl(baseUrl: string, hash: string): string {
   const u = new URL("/verify", baseUrl);
-  u.searchParams.set("hash", hash);
+  u.hash = new URLSearchParams({ hash }).toString();
   return u.toString();
+}
+
+/** Ein zeugnio-Prüfwert: SHA-256 als 64 Hex-Zeichen. */
+const VERIFY_HASH_RE = /^[0-9a-f]{64}$/;
+
+/**
+ * Bringt einen Prüfwert aus URL oder Anfrage in die kanonische Form
+ * (klein geschrieben, ohne Leerraum). Gibt null zurück, wenn er kein
+ * SHA-256-Hex ist. Läuft vor jeder Datenbankabfrage.
+ */
+export function normalizeVerifyHash(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const v = raw.trim().toLowerCase();
+  return VERIFY_HASH_RE.test(v) ? v : null;
+}
+
+/**
+ * Liest den Rohwert von `hash` aus einem URL-Fragment wie `#hash=…` (mit oder
+ * ohne führendes `#`). Gibt null zurück, wenn kein `hash` darin steht. Die
+ * Prüfung des Formats übernimmt normalizeVerifyHash().
+ */
+export function readHashFromFragment(fragment: string): string | null {
+  const f = fragment.startsWith("#") ? fragment.slice(1) : fragment;
+  if (!f) return null;
+  return new URLSearchParams(f).get("hash");
 }
