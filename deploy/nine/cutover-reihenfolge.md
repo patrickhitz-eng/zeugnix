@@ -202,6 +202,16 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - **Offen vor Cutover A:** unverändert die drei Punkte aus 2.3.
 - **Als Nächstes 2.5:** erstes Deployment auf der Testadresse `zeugnio.ch.advisori01.nine.ch` (§ 10).
 
+**Stand 11.11.: 2.5 erledigt** (Journal 9.11. und 11.11., PR #57 und #58).
+- Die App läuft auf advisori01, mit dem Kit ausgeliefert, auf `127.0.0.1:3010` hinter nginx. `/api/health` über die Testadresse: überall `ok`, `datenquelle: supabase`.
+- Die Hooks aus `deploy/nine/hooks/` sind im Einsatz. `pre-install` hat beim ersten Lauf einen falschen Wert in der `.env` gestoppt.
+- Signatur: eigener Schlüssel `0656117e35aa84ab`, der Vercel-Schlüssel `44df4953c533a8f7` bleibt als zurückgezogener prüfbar.
+- Die Testadresse spricht nur HTTP. Über HTTPS antwortet nines Standardseite mit selbstsigniertem Zertifikat.
+- `DATA_API_URL` bleibt bis Schritt 5.5 leer. Was auf der Testadresse eingegeben wird, landet also in der Live-Datenbank bei Supabase.
+- **Noch keine Crontab:** Die Sicherung braucht den Bucket (B3), der PII-Lauf kommt erst mit Cutover A.
+- **Offen vor Cutover A:** die drei Punkte aus 2.3, dazu der Bucket (B3).
+- **Als Nächstes:** das Zertifikat für die Testadresse (1.3). Ohne es lädt der Browser Skripte und Stile nicht, und die Vollprobe 3.1 geht nicht.
+
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
 2. `pg_dump --version` zeigt 17, als `www-albisrun` und als `www-zeugnio`.
@@ -227,7 +237,7 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - GitHub ist über HTTPS lesbar.
 - Offen sind nur die erwarteten Punkte: `postgrest.conf` fehlt (2.4), es gibt noch keinen Auszug, und es läuft noch keine Version.
 - `pg_dump` ist noch 16.15. Ab dem Upgrade braucht es 17.
-- Die `.env` hat einen **eigenen Signaturschlüssel**; der Vercel-Schlüssel `44df4953c533a8f7` steht als zurückgezogener in `ZEUGNIO_SIGNING_PUBLIC_KEYS`.
+- Die `.env` hat einen **eigenen Signaturschlüssel**; der Vercel-Schlüssel `44df4953c533a8f7` steht als zurückgezogener in `ZEUGNIO_SIGNING_PUBLIC_KEYS`. **Korrektur 11.11.:** Das stimmte nicht, der Server hatte noch den Vercel-Schlüssel. Seit dem 11.11. ist es so eingerichtet (Journal).
 - Das Passwort von `nmd_zeugnio` ist neu, `CRON_SECRET` und der Resend-Schlüssel gelten nur für den Server. In Vercel wurde nichts geändert.
 
 **Geheimnisse erst ab 2.1, und nur in `/home/www-zeugnio`.** Solange wir in `www-data`
