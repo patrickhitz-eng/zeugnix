@@ -105,7 +105,10 @@ export default function Page() {
                 </strong>{" "}
                 kryptografischer Hash und Signatur des finalisierten Zeugnisses,
                 Ausstellungsdatum und Status. Dieser Registereintrag macht das
-                Zeugnis prüfbar.
+                Zeugnis prüfbar: Wer den QR-Code auf dem Zeugnis scannt oder das
+                PDF auf der Prüfseite hochlädt, sieht Status, Name der
+                Mitarbeiterin oder des Mitarbeiters, Arbeitgeber, Dokumenttitel,
+                Ausstellungsdatum und Unterzeichnende.
               </li>
               <li>
                 <strong className="font-medium text-ink-800">

@@ -1,18 +1,21 @@
 import type { Metadata } from "next";
-import { VerifyUploader } from "@/components/forms/verify-uploader";
+import { VerifyFlow } from "@/components/forms/verify-flow";
 
 export const metadata: Metadata = {
   title: "Zeugnis prüfen",
   description:
-    "Laden Sie ein Arbeitszeugnis hoch. Wir prüfen den Hash und analysieren die Formulierungen.",
+    "Scannen Sie den QR-Code auf einem Arbeitszeugnis oder laden Sie es als PDF hoch. Wir prüfen den Hash und analysieren die Formulierungen.",
 };
 
 export default async function VerifyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tier?: string }>;
+  searchParams: Promise<{ tier?: string; hash?: string | string[] }>;
 }) {
-  const { tier } = await searchParams;
+  const { tier, hash } = await searchParams;
+  // Alte PDFs tragen den Hash als ?hash=, neue als #hash= (das sieht nur der
+  // Browser). Beides wertet VerifyFlow aus; hier wird nur durchgereicht.
+  const queryHash = typeof hash === "string" ? hash : undefined;
   // Premium und Analyse schalten zusätzlich die Klartext-Analyse frei.
   const analysisTier =
     tier === "premium" || tier === "analyse" ? tier : undefined;
@@ -32,13 +35,11 @@ export default async function VerifyPage({
           <p className="mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-ink-600">
             {analysisTier
               ? "Laden Sie ein Arbeitszeugnis als PDF hoch. Wir prüfen den Hash und analysieren die Formulierungen nach Schweizer Arbeitszeugnislogik."
-              : "Laden Sie ein Arbeitszeugnis als PDF hoch. Wir berechnen den Hash und vergleichen ihn mit unserer Datenbank."}
+              : "Scannen Sie den QR-Code auf dem Zeugnis oder laden Sie es als PDF hoch. Wir vergleichen den Hash mit unserer Datenbank."}
           </p>
         </div>
 
-        <div className="mt-12">
-          <VerifyUploader tier={analysisTier} />
-        </div>
+        <VerifyFlow tier={analysisTier} queryHash={queryHash} />
 
         <div
           id="disclaimer"
@@ -50,6 +51,8 @@ export default async function VerifyPage({
           Die Verifikation prüft, ob der aus dem hochgeladenen Dokument
           berechnete Inhaltshash mit einem registrierten Hash übereinstimmt.
           Sie bestätigt nicht die materielle Richtigkeit des Zeugnisinhalts.
+          Ein QR-Code allein belegt nur, dass ein Zeugnis registriert ist, nicht,
+          dass das vorliegende Dokument denselben Text trägt.
         </div>
       </div>
     </section>

@@ -13,7 +13,11 @@ import {
   type VerifyOutcome,
 } from "@/lib/hash/canonicalize";
 import { verifyCertificateSignature } from "@/lib/crypto/signing";
-import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
+import {
+  VERIFY_SELECT_COLS,
+  buildCertificateFields,
+  findCertificateByHash,
+} from "@/lib/verify/certificate-fields";
 import { logError } from "@/lib/log";
 
 // S2: node:crypto (Ed25519-Verifikation) benötigt die Node-Runtime (nicht Edge).
@@ -100,42 +104,18 @@ export async function POST(req: NextRequest) {
         ? verifyCertificateSignature(metaHash, parsedSig.keyId, parsedSig.signature)
         : false;
 
-    // 3. In DB suchen. Mitgeladen werden die Vergleichsfelder (S1a): Arbeitgeber
-    //    und Unterzeichnende sowie Mitarbeiter/in, Typ und Ausstelldatum zum
-    //    Bestätigen des Datensatzes. Status bewusst NICHT auf 'final' gefiltert
-    //    (H2): ein widerrufenes Zeugnis muss denselben Hash-Match finden, um
-    //    korrekt als "revoked" statt fälschlich als "unknown" auszuweisen.
-    //
-    //    `meta_snapshot` ist der EINGEFRORENE Stand von Arbeitgeber, Titel und
-    //    Unterzeichnenden zum Finalisierungszeitpunkt – genau die Werte, über die
-    //    der v2-Hash gebildet wurde. Die dem Prüfenden gezeigten Soll-Angaben
-    //    stammen daraus und nicht aus den lebenden Spalten (siehe
-    //    lib/certificate/presentation.ts). Die lebenden Spalten bleiben für
-    //    v1-Zeugnisse geladen, die kein Siegel über diese Felder haben.
+    // 3. In DB suchen. Spalten und Suche teilt sich dieser Weg mit dem QR-Scan
+    //    (lib/verify/certificate-fields.ts). Status bewusst NICHT auf 'final'
+    //    gefiltert (H2): ein widerrufenes Zeugnis muss denselben Hash-Match
+    //    finden, um korrekt als "revoked" statt fälschlich als "unknown"
+    //    auszuweisen.
     const supabase = createServiceClient();
-    const SELECT_COLS =
-      "id, company_id, status, type, hash, hash_version, meta_snapshot, " +
-      "finalized_at, revoked_at, " +
-      "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
-      "employees(first_name, last_name), " +
-      "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)";
-
-    async function findByHash(h: string) {
-      const { data } = await supabase
-        .from("certificates")
-        .select(SELECT_COLS)
-        .eq("hash", h)
-        .in("status", ["final", "revoked"])
-        .limit(1)
-        .maybeSingle();
-      return data;
-    }
 
     // v2 zuerst (das vollständige Siegel), dann v1 (Bestandsschutz). Sequentiell
     // statt .in(), um Mehrdeutigkeit zu vermeiden, falls zwei Zeugnisse denselben
     // Body teilen (v1) und eines zusätzlich per v2 trifft.
-    let match = metaHash ? await findByHash(metaHash) : null;
-    if (!match) match = await findByHash(bodyHash);
+    let match = metaHash ? await findCertificateByHash(supabase, metaHash) : null;
+    if (!match) match = await findCertificateByHash(supabase, bodyHash);
 
     // S1b Fallback: kein Hash-Treffer, aber der Body deckt sich mit einem
     // registrierten v2-Zeugnis -> Meta (Kopf/Unterschriften) wurde getauscht
@@ -144,7 +124,7 @@ export async function POST(req: NextRequest) {
     if (!match) {
       const { data: bodyMatch } = await supabase
         .from("certificates")
-        .select(SELECT_COLS)
+        .select(VERIFY_SELECT_COLS)
         .eq("canonical_content", canonical)
         .in("status", ["final", "revoked"])
         .limit(1)
@@ -157,88 +137,10 @@ export async function POST(req: NextRequest) {
 
     let outcome: VerifyOutcome;
     if (match) {
-      // PostgREST bettet die 1:1-Relationen als Objekt ein; defensiv auch den
-      // Array-Fall (je nach Typ-Inferenz) abfangen.
-      const employee = Array.isArray(match.employees)
-        ? match.employees[0]
-        : match.employees;
-      const company = Array.isArray(match.companies)
-        ? match.companies[0]
-        : match.companies;
-
-      // Soll-Angaben für den Abgleich mit dem Papier. Bei einem v2-Zeugnis aus
-      // dem eingefrorenen meta_snapshot – also aus dem, was tatsächlich
-      // versiegelt wurde, nicht aus dem heutigen Stand der Firmen- und
-      // Zeugnis-Spalten. Ohne das würde eine spätere, völlig legitime Änderung
-      // der Firmen-Unterzeichnenden dazu führen, dass eine ältere, echte PDF-
-      // Kopie hier gegen abweichende Angaben läuft und wie eine Fälschung
-      // aussieht. v1-Zeugnisse behalten den lebenden Pfad (Bestandsschutz).
-      const presentation = resolveCertificatePresentation(match, company ?? {});
-      const signatories = presentation.signatories;
-
-      // V1-Trust-Signal: Hat die ausstellende Firma eine verifizierte Domain?
-      // Liegt AUSSERHALB des Hashes; dient dem Prüfer als Aussteller-Beleg.
-      let verifiedDomain: string | null = null;
-      if (match.company_id) {
-        const { data: dom } = await supabase
-          .from("company_domains")
-          .select("domain")
-          .eq("company_id", match.company_id)
-          .eq("status", "verified")
-          .order("verified_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        verifiedDomain = dom?.domain ?? null;
-      }
-
-      // V2-Trust-Signal: identitaetsgebundene Unterzeichner-Freigaben, die per
-      // Magic-Link bestaetigt wurden. Datum pro Slot; die bestaetigende E-Mail
-      // bleibt aus Datenschutzgruenden ausserhalb der oeffentlichen Antwort.
-      let signatory1ConfirmedAt: string | null = null;
-      let signatory2ConfirmedAt: string | null = null;
-      {
-        const { data: signoffs } = await supabase
-          .from("certificate_signoffs")
-          .select("slot, confirmed_at")
-          .eq("certificate_id", match.id)
-          .eq("status", "confirmed");
-        for (const so of signoffs ?? []) {
-          const formatted = so.confirmed_at
-            ? new Date(so.confirmed_at).toLocaleDateString("de-CH", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })
-            : null;
-          if (so.slot === 1) signatory1ConfirmedAt = formatted;
-          if (so.slot === 2) signatory2ConfirmedAt = formatted;
-        }
-      }
-
-      const issueDate = match.finalized_at
-        ? new Date(match.finalized_at).toLocaleDateString("de-CH", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          })
-        : null;
-
+      // Soll-Angaben für den Abgleich mit dem Papier, bei v2 aus dem
+      // eingefrorenen meta_snapshot (siehe lib/verify/certificate-fields.ts).
       const certificateFields = {
-        employeeName: [employee?.first_name, employee?.last_name]
-          .filter(Boolean)
-          .join(" "),
-        employer: presentation.employer,
-        documentType: presentation.documentTitle,
-        issueDate,
-        signatory1Name: signatories.signatory_1_name,
-        signatory1Role: signatories.signatory_1_role,
-        signatory2Name: signatories.signatory_2_name,
-        signatory2Role: signatories.signatory_2_role,
-        verifiedDomain,
-        signatory1ConfirmedAt,
-        signatory2ConfirmedAt,
-        // S1b: 2 = Aussteller/Titel/Unterzeichnende sind vom Hash gedeckt.
-        sealVersion: match.hash_version ?? 1,
+        ...(await buildCertificateFields(supabase, match)),
         // S2: PDF trägt eine gültige, offline verifizierte zeugnio-Signatur.
         signatureValid,
       };
