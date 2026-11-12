@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { logError } from "@/lib/log";
+import { publicOrigin } from "@/lib/public-origin";
 
 /**
  * Middleware – robust gegen fehlende ENV-Variablen.
@@ -131,6 +132,20 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Weiterleitung zur Anmeldung, mit der Adresse, die der Browser kennt.
+  // request.nextUrl trägt den Host, unter dem Next die Anfrage bekommt. Hinter
+  // nginx auf advisori01 ist das localhost:3010, weil nginx den ursprünglichen
+  // Hostnamen nicht weitergibt; die Weiterleitung schickte den Browser nach
+  // https://localhost:3010/login (gemessen 12.11. auf test.zeugnio.ch).
+  // Relativ («/login?…») geht nicht: Next lehnt in der Middleware einen
+  // relativen Location-Kopf ab («Invalid URL», jede App-Seite gibt 500).
+  function redirectToLogin(params: Record<string, string>): NextResponse {
+    const url = new URL("/login", publicOrigin(request));
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
+    return NextResponse.redirect(url);
+  }
+
+
   // Öffentliche Routen – kein Supabase-Touch nötig
   const isPublic =
     path === "/" ||
@@ -160,10 +175,7 @@ export async function middleware(request: NextRequest) {
   if (!hasSupabaseConfig) {
     if (path.startsWith("/app") && !path.startsWith("/app/invitations")) {
       // App-Bereich braucht Supabase – auf Setup-Hinweis umleiten
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("error", "setup_incomplete");
-      return sealed(NextResponse.redirect(url));
+      return sealed(redirectToLogin({ error: "setup_incomplete" }));
     }
     // Öffentliche Seiten: einfach durchlassen
     return sealed(NextResponse.next({ request: { headers: forwardedHeaders() } }));
@@ -211,10 +223,7 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/app") &&
       !path.startsWith("/app/invitations")
     ) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("next", path);
-      return sealed(NextResponse.redirect(url));
+      return sealed(redirectToLogin({ next: path }));
     }
 
     return sealed(supabaseResponse);
@@ -223,10 +232,7 @@ export async function middleware(request: NextRequest) {
     // App-Routes auf Login-Seite mit Hinweis umleiten
     logError("[middleware] Supabase error:", err);
     if (path.startsWith("/app") && !path.startsWith("/app/invitations")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("error", "service_unavailable");
-      return sealed(NextResponse.redirect(url));
+      return sealed(redirectToLogin({ error: "service_unavailable" }));
     }
     return sealed(NextResponse.next({ request: { headers: forwardedHeaders() } }));
   }
