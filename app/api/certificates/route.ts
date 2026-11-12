@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { createClient } from "@/lib/db/supabase-server";
 import { deriveLegacyType } from "@/lib/phrases/schlusssaetze";
 import { cleanTaskKeywords } from "@/lib/certificate/task-keywords";
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
   const companyId = text(body.company_id);
   if (!companyId) return NextResponse.json({ error: "Firma fehlt." }, { status: 400 });
 
-  if (!(await userIsCompanyMember(supabase, companyId, user.id))) {
-    return NextResponse.json({ error: "Kein Zugriff auf diese Firma." }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, companyId, user.id, "edit"))) {
+    return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
   }
 
   const zeugnisTyp = text(body.zeugnis_typ) as ZeugnisTyp | null;

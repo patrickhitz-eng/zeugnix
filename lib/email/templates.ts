@@ -493,3 +493,119 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
 
   return { subject, html, text };
 }
+
+// ============================================================================
+// Einladung ins Team einer Organisation (Marktstart Schritt 23)
+// ============================================================================
+interface TeamInvitationProps {
+  organizationName: string;
+  roleLabel: string;
+  inviterName?: string;
+  inviterEmail?: string;
+  inviteUrl: string;
+  expiresAt: Date;
+}
+
+export function buildTeamInvitationEmail(props: TeamInvitationProps): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { organizationName, roleLabel, inviterName, inviterEmail, inviteUrl, expiresAt } = props;
+  const expiryDate = expiresAt.toLocaleDateString("de-CH", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  const inviter = inviterName
+    ? inviterEmail
+      ? `${inviterName} (${inviterEmail})`
+      : inviterName
+    : inviterEmail ?? "Ein Admin";
+
+  const subject = `Einladung ins Team von ${organizationName} auf zeugnio.ch`;
+
+  const text = [
+    "Guten Tag,",
+    "",
+    `${inviter} lädt Sie ins Team von ${organizationName} auf zeugnio.ch ein.`,
+    `Ihre Rolle: ${roleLabel}.`,
+    "",
+    "Einladung annehmen:",
+    inviteUrl,
+    "",
+    `Der Link ist gültig bis ${expiryDate} und funktioniert nur mit dieser`,
+    "E-Mail-Adresse. Sie melden sich mit einem Code an, den wir Ihnen per Mail",
+    "schicken; ein Passwort braucht es nicht.",
+    "",
+    "Mit freundlichen Grüssen",
+    "zeugnio.ch",
+    "",
+    "—",
+    "Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese Mail.",
+  ].join("\n");
+
+  const p = "margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;";
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1d22;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:8px;border:1px solid #e4e6ea;">
+        <tr>
+          <td style="padding:28px 32px 20px 32px;border-bottom:1px solid #e4e6ea;font-size:16px;font-weight:600;color:#1a1d22;">
+            zeugnio<span style="color:#0f7a6b;">.ch</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;">
+              Einladung ins Team<br>
+              <span style="font-style:italic;color:#0f7a6b;">${escapeHtml(organizationName)}</span>
+            </h1>
+            <p style="${p}">Guten Tag,</p>
+            <p style="${p}">${escapeHtml(inviter)} lädt Sie ins Team von
+              ${escapeHtml(organizationName)} auf zeugnio.ch ein. Ihre Rolle:
+              <strong>${escapeHtml(roleLabel)}</strong>.</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;">
+              <tr>
+                <td style="border-radius:6px;background:#0f7a6b;">
+                  <a href="${escapeHtml(inviteUrl)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:500;color:#ffffff;text-decoration:none;">
+                    Einladung annehmen →
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:16px 0 4px 0;font-size:12px;color:#6b7178;">
+              Falls der Button nicht funktioniert, kopieren Sie diesen Link:
+            </p>
+            <p style="margin:0 0 16px 0;font-size:11.5px;color:#6b7178;word-break:break-all;font-family:'SF Mono',Menlo,Consolas,monospace;">
+              ${escapeHtml(inviteUrl)}
+            </p>
+            <p style="${p}">Der Link ist gültig bis ${expiryDate} und funktioniert nur
+              mit dieser E-Mail-Adresse. Sie melden sich mit einem Code an, den wir
+              Ihnen per Mail schicken; ein Passwort braucht es nicht.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px 28px 32px;border-top:1px solid #e4e6ea;font-size:11.5px;line-height:1.55;color:#8a8f96;">
+            Falls Sie diese Einladung nicht erwartet haben, ignorieren Sie diese Mail.
+            <br><br>
+            zeugnio.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return { subject, html, text };
+}

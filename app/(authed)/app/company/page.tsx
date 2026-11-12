@@ -27,6 +27,20 @@ export default async function CompanyPage() {
 
   const hasCompanies = companies && companies.length > 0;
 
+  // Rollen (Migration 033): Firmendaten pflegt nur ein Admin der Organisation.
+  // Wer nur eingeladenes Mitglied ist, sieht die Firmen, ändert sie aber nicht
+  // und legt keine neuen an. Wer noch zu keiner Organisation gehört, legt mit
+  // der ersten Firma seine eigene an.
+  const { data: myOrgs } = await supabase
+    .from("organization_members")
+    .select("organization_id, role")
+    .eq("user_id", user?.id ?? "")
+    .is("deactivated_at", null);
+  const adminOrgIds = new Set(
+    (myOrgs ?? []).filter((m: any) => m.role === "admin").map((m: any) => m.organization_id),
+  );
+  const canCreate = (myOrgs ?? []).length === 0 || adminOrgIds.size > 0;
+
   // Domains aller sichtbaren Firmen laden (RLS: nur eigene) und je Firma gruppieren.
   const companyIds = (companies ?? []).map((c: any) => c.id);
   const domainsByCompany = new Map<string, CompanyDomain[]>();
@@ -72,6 +86,11 @@ export default async function CompanyPage() {
                   </span>
                 )}
               </div>
+              {!adminOrgIds.has(c.organization_id) ? (
+                <p className="rounded-md border border-ink-200 bg-white px-4 py-3 text-[12.5px] text-ink-600">
+                  Firmendaten, Logo und Unterzeichnende pflegt der Admin Ihrer Organisation.
+                </p>
+              ) : (
               <div className="space-y-6">
                 <CompanyDomainControls
                   companyId={c.id}
@@ -81,12 +100,19 @@ export default async function CompanyPage() {
                 />
                 <CompanyForm company={c} />
               </div>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {!hasCompanies && (
+      {!hasCompanies && !canCreate && (
+        <p className="text-[13.5px] text-ink-600">
+          Ihnen ist noch keine Firma freigegeben. Das macht der Admin Ihrer Organisation unter «Team».
+        </p>
+      )}
+
+      {!hasCompanies && canCreate && (
         <div>
           <h2 className="mb-4 text-[16px] font-medium tracking-tight">
             Erste Firma anlegen
@@ -95,7 +121,7 @@ export default async function CompanyPage() {
         </div>
       )}
 
-      {hasCompanies && (
+      {hasCompanies && canCreate && (
         <details className="rounded-md border border-ink-200 bg-white p-5">
           <summary className="cursor-pointer text-[13px] font-medium">
             Weitere Firma anlegen

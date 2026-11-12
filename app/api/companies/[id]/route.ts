@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { createClient } from "@/lib/db/supabase-server";
 import { pickCompanyFields } from "@/lib/company/payload";
 import { logError } from "@/lib/log";
@@ -27,8 +27,8 @@ export async function PATCH(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
-  if (!(await userIsCompanyMember(supabase, id, user.id))) {
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, id, user.id, "admin"))) {
+    return NextResponse.json({ error: permissionDeniedMessage("admin") }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;

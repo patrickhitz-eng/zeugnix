@@ -25,6 +25,8 @@
     "test:pdf-roundtrip": "tsx scripts/test-pdf-roundtrip.ts",
     "test:tasks": "tsx scripts/test-task-keywords.ts",
     "test:schlusssaetze": "tsx scripts/test-schlusssaetze.ts",
+    "test:rollen": "tsx scripts/test-rollen.ts",
+    "test:rollen-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-rollen.sql",
     "render:sample": "tsx scripts/render-sample-certificate.ts",
     "test:dataapi": "tsx scripts/test-data-api-token.ts",
     "backfill:hash": "tsx scripts/backfill-hash.ts",

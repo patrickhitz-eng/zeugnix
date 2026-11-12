@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { createClient } from "@/lib/db/supabase-server";
 import { logError, logWarn } from "@/lib/log";
 import {
@@ -69,8 +69,8 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
-  if (!(await userIsCompanyMember(supabase, id, user.id))) {
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, id, user.id, "admin"))) {
+    return NextResponse.json({ error: permissionDeniedMessage("admin") }, { status: 403 });
   }
 
   let form: FormData;
@@ -234,8 +234,8 @@ export async function DELETE(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
-  if (!(await userIsCompanyMember(supabase, id, user.id))) {
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, id, user.id, "admin"))) {
+    return NextResponse.json({ error: permissionDeniedMessage("admin") }, { status: 403 });
   }
 
   const { error } = await supabase.from("companies").update({ logo_url: null }).eq("id", id);

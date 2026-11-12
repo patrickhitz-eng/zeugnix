@@ -9,10 +9,13 @@ interface Props {
   certificate: any;
   evaluationCount: number;
   invitationCount: number;
+  /** Darf versiegeln (HR-Leitung, Admin). Ohne: Hinweis statt Knopf. */
+  canSeal?: boolean;
 }
 
 export function CertificateActions({
   certificate,
+  canSeal = true,
   evaluationCount,
   invitationCount,
 }: Props) {
@@ -331,7 +334,12 @@ export function CertificateActions({
           desc="SHA-256-Hash berechnen, PDF generieren, unveränderlich speichern"
           done={isCertificateLocked(certificate.status)}
         >
-          {certificate.generated_text && !isCertificateLocked(certificate.status) && (
+          {certificate.generated_text && !isCertificateLocked(certificate.status) && !canSeal && (
+            <span className="text-[12px] text-ink-500">
+              Finalisiert die HR-Leitung oder ein Admin.
+            </span>
+          )}
+          {certificate.generated_text && !isCertificateLocked(certificate.status) && canSeal && (
             <button
               onClick={finalize}
               disabled={busy}

@@ -41,6 +41,11 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
 
+  // Der Trigger aus Migration 033 lehnt ab, wenn ein eingeladenes Mitglied
+  // ohne Admin-Recht eine Firma anlegen will (42501). Das ist kein Serverfehler.
+  if (dbError?.code === "42501") {
+    return NextResponse.json({ error: dbError.message }, { status: 403 });
+  }
   if (dbError || !created) {
     logError("[companies] Anlegen fehlgeschlagen:", dbError);
     return NextResponse.json(
