@@ -287,8 +287,10 @@ export function SchlusssatzControls({
           {nichtImText && (
             <p className="mt-2 rounded-md border border-amber-200 bg-amber-50/50 px-3 py-2 text-[12px] leading-relaxed text-amber-900">
               Im Zeugnistext steht der bisherige Schlusssatz nicht mehr
-              unverändert, darum wurde er dort nicht ersetzt. Ersetze ihn im
-              Editor von Hand oder generiere den Text über „Neu generieren" neu.
+              unverändert, darum wurde er dort nicht ersetzt. Passen Sie ihn im
+              Editor von Hand an, oder klicken Sie oben auf «Neu generieren».
+              Das ersetzt den ganzen Text im Editor, auch Ihre übrigen
+              Änderungen.
             </p>
           )}
         </div>

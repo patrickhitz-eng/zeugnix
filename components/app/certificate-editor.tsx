@@ -74,8 +74,8 @@ export function CertificateEditor({
   // ausstehenden Auto-Save flushen kann.
   useEffect(() => {
     if (!workspace) return;
-    workspace.registerFlush(saveNow);
-    return () => workspace.registerFlush(null);
+    workspace.registerEditor({ flush: saveNow });
+    return () => workspace.registerEditor(null);
   }, [workspace, saveNow]);
 
   useEffect(() => {

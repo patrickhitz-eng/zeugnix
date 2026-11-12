@@ -78,16 +78,29 @@ export function CertificateActions({
   }
 
   async function generateText() {
+    // «Neu generieren» ersetzt auch die Fassung im Editor (der Server löscht
+    // formatted_content). Gibt es dort Änderungen, zuerst nachfragen.
+    if (
+      workspace?.hasEdits() &&
+      !confirm(
+        "Neu generieren ersetzt den Text im Editor. Ihre Änderungen dort gehen verloren. Fortfahren?",
+      )
+    )
+      return;
+    // Ein noch ausstehendes Auto-Save würde die verworfene Fassung sonst nach
+    // dem Generieren wieder zurückschreiben.
+    workspace?.discardPending();
     setBusy(true);
     setError("");
     try {
       const res = await fetch(`/api/certificates/${certificate.id}/generate`, {
         method: "POST",
       });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error ?? "Generierung fehlgeschlagen");
       }
+      if (typeof data.text === "string") workspace?.replaceWithText(data.text);
       router.refresh();
     } catch (e: any) {
       setError(e.message);

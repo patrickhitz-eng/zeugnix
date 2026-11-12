@@ -118,3 +118,30 @@ export function plainTextToTiptap(text: string): TiptapDoc {
   if (content.length === 0) content.push({ type: "paragraph" });
   return { type: "doc", content };
 }
+
+// ----------------------------------------------------------------------------
+// Editor-Fassung gegen generierten Text
+// ----------------------------------------------------------------------------
+
+function hatMarks(node: TiptapNode): boolean {
+  if (node.marks && node.marks.length > 0) return true;
+  return (node.content ?? []).some(hatMarks);
+}
+
+/**
+ * Weicht die Editor-Fassung vom generierten Text ab? «Neu generieren» fragt
+ * dann nach, weil es die Editor-Fassung ersetzt.
+ *
+ * Verglichen wird der Klartext, nicht das JSON: Tiptap speichert dasselbe
+ * Dokument je nach Weg leicht anders (z. B. leere `attrs`), und ein reiner
+ * JSON-Vergleich würde dann grundlos nachfragen. Formatierungen zählen als
+ * Abweichung, denn der generierte Text hat keine.
+ */
+export function weichtVomGeneriertenAb(
+  doc: TiptapNode | null | undefined,
+  generatedText: string,
+): boolean {
+  if (!doc) return false;
+  if (hatMarks(doc)) return true;
+  return tiptapToPlainText(doc) !== tiptapToPlainText(plainTextToTiptap(generatedText));
+}
