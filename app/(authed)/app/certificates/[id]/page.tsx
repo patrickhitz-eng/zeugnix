@@ -15,6 +15,7 @@ import {
 import { CertificateWorkspace } from "@/components/app/certificate-workspace";
 import { CertificateManage } from "@/components/app/certificate-manage";
 import { isCertificateLocked } from "@/lib/certificate/status";
+import { getCompanyRole, roleAllows } from "@/lib/auth/ownership";
 import Link from "next/link";
 
 interface PageProps {
@@ -79,6 +80,13 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   // Unterzeichner-/Editor-Formulare fuer ein widerrufenes Zeugnis wieder
   // freigeschaltet.
   const isLocked = isCertificateLocked(cert.status);
+  // Rolle in dieser Firma (Migration 033). «Lesen» sieht alles, ändert nichts:
+  // die Formulare verhalten sich dann wie bei einem finalisierten Zeugnis.
+  // Die Grenze ziehen Server und Datenbank; das hier spart nur Fehlklicks.
+  const role = await getCompanyRole(supabase, cert.company_id);
+  const canEdit = roleAllows(role, "edit");
+  const canSeal = roleAllows(role, "seal");
+  const formsLocked = isLocked || !canEdit;
   const hasText = !!cert.generated_text;
   const isArchived = !!cert.archived_at;
   // Der Editor liest seinen Text nur beim Mounten. Ändert der Server den
@@ -243,12 +251,21 @@ export default async function CertificateDetailPage({ params }: PageProps) {
       {/* Aktionen + Editor teilen sich einen Workspace, damit Finalisieren den
           ausstehenden Auto-Save des Editors flushen kann. */}
       <CertificateWorkspace>
+      {!canEdit && (
+        <div className="rounded-md border border-ink-200 bg-white p-4 text-[12.5px] text-ink-600">
+          Sie haben für diese Firma die Rolle «Lesen». Sie können das Zeugnis
+          ansehen und herunterladen, aber nicht ändern.
+        </div>
+      )}
       {/* Aktionen */}
-      <CertificateActions
-        certificate={cert}
-        evaluationCount={evaluations.length}
-        invitationCount={invitations.length}
-      />
+      {canEdit && (
+        <CertificateActions
+          certificate={cert}
+          canSeal={canSeal}
+          evaluationCount={evaluations.length}
+          invitationCount={invitations.length}
+        />
+      )}
 
       {/* Schlusssatz-Leiste: zwischen Aktionen-Panel und Vorschau. Nur für
           schluss/zwischen (Arbeitsbestätigung hat keinen Schlusssatz; Alt-Zeugnisse
@@ -257,7 +274,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         <SchlusssatzControls
           certificateId={cert.id}
           zeugnisTyp={cert.zeugnis_typ}
-          finalized={isLocked}
+          finalized={formsLocked}
           subject={{
             firstName: employee.first_name,
             lastName: employee.last_name,
@@ -281,7 +298,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
           die Firmenvorgabe nur für dieses Zeugnis (leer = Firmenvorgabe). */}
       <SignatoryControls
         certificateId={cert.id}
-        finalized={isLocked}
+        finalized={formsLocked}
         companyDefaults={{
           signatory1Name: company.signatory_1_name ?? "",
           signatory1Role: company.signatory_1_role ?? "",
@@ -299,7 +316,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
 
       {/* V2: identitätsgebundene Unterzeichner-Freigabe. Erst sinnvoll, wenn ein
           Text zum Freigeben existiert und mindestens eine Person hinterlegt ist. */}
-      {hasText && signoffSlots.length > 0 && (
+      {hasText && canEdit && signoffSlots.length > 0 && (
         <CertificateSignoffControls
           certificateId={cert.id}
           slots={signoffSlots}
@@ -318,7 +335,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
             certificateId={cert.id}
             generatedText={cert.generated_text ?? ""}
             initialFormattedContent={cert.formatted_content ?? null}
-            finalized={isLocked}
+            finalized={formsLocked}
             themeId={company.default_certificate_font_family}
             company={previewCompany}
             employee={employee}
@@ -372,11 +389,14 @@ export default async function CertificateDetailPage({ params }: PageProps) {
       </CertificateWorkspace>
 
       {/* Verwaltung: Archivieren / Löschen / Widerrufen */}
-      <CertificateManage
-        certificateId={cert.id}
-        status={cert.status}
-        archived={isArchived}
-      />
+      {canEdit && (
+        <CertificateManage
+          certificateId={cert.id}
+          status={cert.status}
+          archived={isArchived}
+          canSeal={canSeal}
+        />
+      )}
 
       {/* Verlauf (H3): automatisch protokollierte Statuswechsel */}
       {auditLog && auditLog.length > 0 && (

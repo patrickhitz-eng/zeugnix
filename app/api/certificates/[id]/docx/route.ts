@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { docxImageType, loadCompanyLogo } from "@/lib/uploads/load-logo";
 import { renderCertificateDocx, type DocxLogo } from "@/lib/docx/certificate";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
@@ -40,8 +40,8 @@ export async function GET(
   if (!cert)
     return NextResponse.json({ error: "Zeugnis nicht gefunden" }, { status: 404 });
 
-  if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "read")))
+    return NextResponse.json({ error: permissionDeniedMessage("read") }, { status: 403 });
 
   if (!isCertificateLocked(cert.status) || !cert.hash) {
     return NextResponse.json(

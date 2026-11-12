@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import {
   deriveLegacyType,
   schlusssatzPreview,
@@ -46,8 +46,8 @@ export async function PATCH(
   if (!cert)
     return NextResponse.json({ error: "Zeugnis nicht gefunden" }, { status: 404 });
 
-  if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit")))
+    return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
 
   // Nach der Finalisierung ist der Inhalt eingefroren (Hash) – keine Änderung.
   // Gilt genauso nach einem Widerruf (H2): 'revoked' ist ebenfalls ein

@@ -1,46 +1,102 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Defense-in-Depth Ownership-Check, der die RLS-Logik explizit im Code
- * spiegelt: Ein User darf eine Firma (und damit ihre Zeugnisse) verwalten,
- * wenn er entweder ihr Ersteller ist (`companies.created_by_user_id`) ODER als
- * Mitglied in `company_members` eingetragen ist.
+ * Rollen und Rechte pro Firma (Marktstart Schritt 23, Migration 033).
  *
- * Erwartet den AUTHENTIFIZIERTEN Client (createClient, nicht Service-Role).
- * Da RLS dieselben Zeilen ohnehin filtert, ist dies die zweite
- * Verteidigungslinie — und liefert ein klares 403 statt eines indirekten 404.
+ * Die Rolle berechnet allein die Datenbankfunktion `zeugnio_company_role`.
+ * Dieselbe Funktion steckt in den Zeilenregeln (RLS). Der Server fragt sie hier
+ * per RPC ab und prüft damit ein zweites Mal, vor jeder Änderung. Die
+ * Datenbank bleibt die Grenze; diese Prüfung liefert ein klares 403 statt
+ * eines stillen «0 Zeilen geändert».
+ *
+ * Erwartet den AUTHENTIFIZIERTEN Client (createClient, nicht Service-Role):
+ * die Funktion liest die handelnde Person aus der Sitzung (auth.uid()).
  */
-export async function userIsCompanyMember(
+
+export type CompanyRole = "admin" | "hr_leitung" | "hr" | "lesen";
+
+/**
+ * read   ansehen, PDF und Word laden
+ * edit   Mitarbeitende und Zeugnisse anlegen und bearbeiten, Vorgesetzte einladen
+ * seal   finalisieren (versiegeln) und widerrufen
+ * admin  Firmendaten, Logo, Domain, Benutzer und Rollen
+ */
+export type CompanyPermission = "read" | "edit" | "seal" | "admin";
+
+const ALLOWED: Record<CompanyPermission, readonly CompanyRole[]> = {
+  read: ["admin", "hr_leitung", "hr", "lesen"],
+  edit: ["admin", "hr_leitung", "hr"],
+  seal: ["admin", "hr_leitung"],
+  admin: ["admin"],
+};
+
+export const COMPANY_ROLES: readonly CompanyRole[] = ["admin", "hr_leitung", "hr", "lesen"];
+
+/** Bezeichnungen für die Oberfläche. */
+export const COMPANY_ROLE_LABEL: Record<CompanyRole, string> = {
+  admin: "Admin",
+  hr_leitung: "HR-Leitung",
+  hr: "HR",
+  lesen: "Lesen",
+};
+
+export function isCompanyRole(value: unknown): value is CompanyRole {
+  return typeof value === "string" && (COMPANY_ROLES as readonly string[]).includes(value);
+}
+
+/** Bezeichnung einer Firmenrolle aus der Datenbank; Unbekanntes bleibt sichtbar. */
+export function companyRoleLabel(value: unknown, fallback = "Mitglied"): string {
+  return isCompanyRole(value) ? COMPANY_ROLE_LABEL[value as CompanyRole] : fallback;
+}
+
+/** Reine Regel, ohne Datenbank. Spiegelt die Tabelle in Migration 033. */
+export function roleAllows(role: CompanyRole | null | undefined, permission: CompanyPermission): boolean {
+  if (!role) return false;
+  return ALLOWED[permission].includes(role);
+}
+
+/** Rolle der angemeldeten Person in dieser Firma, oder null ohne Zugriff. */
+export async function getCompanyRole(
+  supabase: SupabaseClient,
+  companyId: string | null | undefined,
+): Promise<CompanyRole | null> {
+  if (!companyId) return null;
+  const { data, error } = await supabase.rpc("zeugnio_company_role", {
+    p_company_id: companyId,
+  });
+  // Echte Fehler (Timeout, Netzwerk) nicht als «kein Zugriff» verschlucken:
+  // sonst bekäme eine berechtigte Person fälschlich ein 403. Die Route liefert
+  // dann 500 (wiederholbar).
+  if (error) {
+    throw new Error(`Rollenprüfung fehlgeschlagen: ${error.message}`);
+  }
+  return isCompanyRole(data) ? data : null;
+}
+
+/**
+ * Darf die angemeldete Person das in dieser Firma? `userId` dient nur als
+ * Schutz gegen einen fehlenden Login; massgeblich ist die Sitzung.
+ */
+export async function userHasCompanyPermission(
   supabase: SupabaseClient,
   companyId: string | null | undefined,
   userId: string | null | undefined,
+  permission: CompanyPermission,
 ): Promise<boolean> {
   if (!companyId || !userId) return false;
+  return roleAllows(await getCompanyRole(supabase, companyId), permission);
+}
 
-  // Echte Query-Fehler (Timeout, Netzwerk) NICHT verschlucken: sonst würde
-  // `data` zu null und der legitime Owner bekäme fälschlich ein 403. Bei einem
-  // echten Fehler werfen → Route liefert 500 (wiederholbar). `maybeSingle()`
-  // liefert bei "keine Zeile" error=null, wirft also nur bei echten Fehlern.
-  const { data: company, error: companyErr } = await supabase
-    .from("companies")
-    .select("created_by_user_id")
-    .eq("id", companyId)
-    .maybeSingle();
-  if (companyErr) {
-    throw new Error(`Ownership-Check fehlgeschlagen (companies): ${companyErr.message}`);
+/** Fehlermeldung für ein 403, passend zum fehlenden Recht. */
+export function permissionDeniedMessage(permission: CompanyPermission): string {
+  switch (permission) {
+    case "seal":
+      return "Versiegeln und Widerrufen darf nur die HR-Leitung oder ein Admin.";
+    case "edit":
+      return "Mit der Rolle «Lesen» lässt sich nichts ändern.";
+    case "admin":
+      return "Das darf nur ein Admin der Organisation.";
+    default:
+      return "Kein Zugriff";
   }
-
-  if (company?.created_by_user_id === userId) return true;
-
-  const { data: membership, error: memberErr } = await supabase
-    .from("company_members")
-    .select("user_id")
-    .eq("company_id", companyId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (memberErr) {
-    throw new Error(`Ownership-Check fehlgeschlagen (company_members): ${memberErr.message}`);
-  }
-
-  return !!membership;
 }

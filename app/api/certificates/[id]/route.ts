@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { isCertificateLocked } from "@/lib/certificate/status";
 
 /**
@@ -31,8 +31,8 @@ export async function DELETE(
   if (!cert)
     return NextResponse.json({ error: "Zeugnis nicht gefunden" }, { status: 404 });
 
-  if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit")))
+    return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
 
   if (isCertificateLocked(cert.status)) {
     return NextResponse.json(
@@ -87,8 +87,8 @@ export async function PATCH(
   if (!cert)
     return NextResponse.json({ error: "Zeugnis nicht gefunden" }, { status: 404 });
 
-  if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit")))
+    return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
 
   const { error } = await supabase
     .from("certificates")

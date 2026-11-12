@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import {
   normalizeDomain,
   emailDomain,
@@ -36,8 +36,8 @@ export async function POST(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!(await userIsCompanyMember(supabase, id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, id, user.id, "admin")))
+    return NextResponse.json({ error: permissionDeniedMessage("admin") }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
   const normalized = normalizeDomain((body as { domain?: string }).domain);
@@ -160,8 +160,8 @@ export async function DELETE(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  if (!(await userIsCompanyMember(supabase, id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, id, user.id, "admin")))
+    return NextResponse.json({ error: permissionDeniedMessage("admin") }, { status: 403 });
 
   const body = await req.json().catch(() => ({}));
   const normalized = normalizeDomain((body as { domain?: string }).domain);

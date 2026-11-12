@@ -7,9 +7,11 @@ interface Props {
   certificateId: string;
   status: string;
   archived: boolean;
+  /** Darf widerrufen (HR-Leitung, Admin). */
+  canSeal?: boolean;
 }
 
-export function CertificateManage({ certificateId, status, archived }: Props) {
+export function CertificateManage({ certificateId, status, archived, canSeal = true }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -135,7 +137,7 @@ export function CertificateManage({ certificateId, status, archived }: Props) {
           </button>
         )}
 
-        {isFinal && (
+        {isFinal && canSeal && (
           <button
             onClick={revoke}
             disabled={busy}

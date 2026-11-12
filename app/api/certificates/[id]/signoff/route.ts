@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
-import { userIsCompanyMember } from "@/lib/auth/ownership";
+import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { randomBytes } from "crypto";
@@ -58,8 +58,8 @@ export async function POST(
   if (!cert)
     return NextResponse.json({ error: "Zeugnis nicht gefunden" }, { status: 404 });
 
-  if (!(await userIsCompanyMember(supabase, cert.company_id, user.id)))
-    return NextResponse.json({ error: "Kein Zugriff" }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit")))
+    return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
 
   const employee: any = Array.isArray(cert.employees) ? cert.employees[0] : cert.employees;
   const company: any = Array.isArray(cert.companies) ? cert.companies[0] : cert.companies;
