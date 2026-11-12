@@ -125,10 +125,17 @@ export async function POST(
 
   // 4. Speichern – Schreibfehler auswerten, sonst ginge der generierte Text
   // verloren, während die UI "generiert" meldet.
+  //
+  // Die Editor-Fassung (formatted_content, daraus edited_text) wird verworfen.
+  // Sie hat Vorrang vor generated_text in Editor, PDF und Siegel; bliebe sie
+  // stehen, änderte «Neu generieren» nach einer Bearbeitung sichtbar nichts,
+  // auch kein neuer Schlusssatz. Die Detailseite fragt vorher nach.
   const { error: saveErr } = await supabase
     .from("certificates")
     .update({
       generated_text: result.text,
+      formatted_content: null,
+      edited_text: null,
       status: "manager_submitted",
     })
     .eq("id", id);

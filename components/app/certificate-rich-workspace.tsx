@@ -10,6 +10,7 @@ import { CertificatePreview } from "./certificate-preview";
 import {
   plainTextToTiptap,
   tiptapToPlainText,
+  weichtVomGeneriertenAb,
   type TiptapDoc,
 } from "@/lib/certificate/tiptap-plaintext";
 import { fontConfig } from "@/lib/pdf/fonts";
@@ -134,12 +135,42 @@ export function CertificateRichWorkspace({
     onSelectionUpdate: () => setTick((t) => t + 1),
   });
 
-  // saveNow beim Workspace registrieren (Finalisieren flusht ausstehende Saves).
+  // Stand des generierten Texts, gegen den «hat Änderungen» prüft. Ein Ref,
+  // weil replaceWithText ihn vor dem nächsten Server-Render neu setzt.
+  const generatedRef = useRef(generatedText);
+
+  // Beim Workspace anmelden: Finalisieren flusht ausstehende Saves, «Neu
+  // generieren» fragt nach Änderungen und setzt den neuen Text direkt ein.
+  // Direkt einsetzen ist nötig, weil der Editor sonst nur bei geändertem
+  // generated_text neu aufgebaut wird (key auf der Detailseite). Ergibt das
+  // Neu-Generieren denselben Text, bliebe die verworfene Fassung stehen.
   useEffect(() => {
     if (!workspace) return;
-    workspace.registerFlush(saveNow);
-    return () => workspace.registerFlush(null);
-  }, [workspace, saveNow]);
+    const discardPending = () => {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+    };
+    workspace.registerEditor({
+      flush: saveNow,
+      hasEdits: () => weichtVomGeneriertenAb(jsonRef.current, generatedRef.current),
+      discardPending,
+      replaceWithText: (text) => {
+        discardPending();
+        const fresh = plainTextToTiptap(text);
+        // emitUpdate: false, sonst plant onUpdate ein Speichern, das die
+        // eben verworfene Fassung als formatted_content zurückschreibt.
+        editor?.commands.setContent(fresh, { emitUpdate: false });
+        generatedRef.current = text;
+        jsonRef.current = fresh;
+        lastSavedRef.current = JSON.stringify(fresh);
+        setDoc(fresh);
+        setStatus("idle");
+      },
+    });
+    return () => workspace.registerEditor(null);
+  }, [workspace, saveNow, editor]);
 
   useEffect(() => {
     return () => {
@@ -166,8 +197,11 @@ export function CertificateRichWorkspace({
         const data = await res.json();
         throw new Error(data.error ?? "Zurücksetzen fehlgeschlagen");
       }
-      const fresh = plainTextToTiptap(generatedText);
-      editor?.commands.setContent(fresh);
+      // generatedRef statt Prop: Nach «Neu generieren» ist der Prop bis zum
+      // nächsten Server-Render noch der alte Text.
+      const fresh = plainTextToTiptap(generatedRef.current);
+      // Ohne emitUpdate: false plante onUpdate gleich wieder ein Speichern.
+      editor?.commands.setContent(fresh, { emitUpdate: false });
       jsonRef.current = fresh;
       lastSavedRef.current = JSON.stringify(fresh);
       setDoc(fresh);

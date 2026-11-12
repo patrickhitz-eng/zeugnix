@@ -12,6 +12,7 @@
 import {
   plainTextToTiptap,
   tiptapToPlainText,
+  weichtVomGeneriertenAb,
   type TiptapNode,
 } from "../lib/certificate/tiptap-plaintext";
 import { tiptapToBlocks, blocksToPlainText } from "../lib/certificate/tiptap-runs";
@@ -121,6 +122,35 @@ async function run() {
   // auch mit voller Formatierung (Marks ändern den Run-Text nicht)
   const fmtRuns = canonicalizeForHash(blocksToPlainText(tiptapToBlocks(all)));
   assert("formatiert: blocksToPlainText ≡ projektion", fmtRuns === canonicalizeForHash(plain));
+
+  // ----- Editor-Fassung gegen generierten Text («Neu generieren» fragt nach) -----
+  console.log("\nEditor-Fassung vs. generierter Text:");
+  const gen = "Frau Anna Muster war bei uns tätig.\n\nWir danken ihr.";
+  const genDoc = plainTextToTiptap(gen);
+  assert("unverändert → keine Abweichung", !weichtVomGeneriertenAb(genDoc, gen));
+  assert(
+    "leere attrs (Tiptap-Eigenheit) → keine Abweichung",
+    !weichtVomGeneriertenAb(
+      {
+        ...genDoc,
+        content: genDoc.content!.map((p) => ({ ...p, attrs: {} })),
+      },
+      gen,
+    ),
+  );
+  assert(
+    "Wort geändert → Abweichung",
+    weichtVomGeneriertenAb(plainTextToTiptap(gen.replace("danken", "verdanken")), gen),
+  );
+  assert(
+    "nur fett formatiert → Abweichung",
+    weichtVomGeneriertenAb(decorateAllText(genDoc, [{ type: "bold" }]), gen),
+  );
+  assert(
+    "neuer Text, alte Fassung → Abweichung",
+    weichtVomGeneriertenAb(genDoc, gen.replace("danken ihr", "danken ihr herzlich")),
+  );
+  assert("kein Dokument → keine Abweichung", !weichtVomGeneriertenAb(null, gen));
 
   console.log(`\n=== ${passed} passed, ${failed} failed ===\n`);
   if (failed > 0) process.exit(1);
