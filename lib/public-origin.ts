@@ -4,10 +4,11 @@
  *
  * Auf Vercel trägt die Anfrage den echten Host, request.nextUrl stimmt also.
  * Hinter nginx auf advisori01 kommt die Anfrage dagegen als localhost:3010 an,
- * weil nines Vorlage den ursprünglichen Host nicht weiterreicht (gemessen
+ * weil nines Vorlage den Host-Kopf auf das Ziel von proxy_pass setzt (gemessen
  * 12.11.2026 auf test.zeugnio.ch). Darum, nur wenn der Host eine
  * Loopback-Adresse ist:
- *   1. X-Forwarded-Host, falls nginx ihn setzt;
+ *   1. X-Forwarded-Host – nines nginx setzt ihn (gemessen 13.11.2026: die
+ *      Weiterleitung zeigt auf test.zeugnio.ch);
  *   2. sonst NEXT_PUBLIC_SITE_URL – aber nur im Produktionsbetrieb, damit
  *      `npm run dev` auf localhost nicht zur Live-Seite umleitet.
  *
