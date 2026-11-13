@@ -4,19 +4,25 @@ import { createClient } from "@/lib/db/supabase-server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { buildTeamInvitationEmail } from "@/lib/email/templates";
-import { COMPANY_ROLE_LABEL } from "@/lib/auth/ownership";
+import { COMPANY_ROLE_LABEL, permissionDeniedMessage } from "@/lib/auth/ownership";
 import { emailDomain } from "@/lib/company/domain";
-import { INVITATION_DAYS, newInvitationToken, parseInvitationInput } from "@/lib/team/invitations";
+import {
+  INVITATION_DAYS,
+  newInvitationToken,
+  parseInvitationInput,
+  TEAM_MANAGER_ROLES,
+} from "@/lib/team/invitations";
 import { logError } from "@/lib/log";
 
 /**
  * POST /api/team/invitations
  * Body: { organizationId, email, role: 'admin'|'hr_leitung'|'hr'|'lesen', companyIds: [] }
  *
- * Ein Admin lädt eine Person in die Organisation ein. Geschrieben wird mit der
- * Sitzung des Admins: die Zeilenregel aus 033 lässt nur Admins der Organisation
- * Einladungen anlegen. Die Prüfungen hier geben klare Meldungen, die Grenze
- * bleibt die Datenbank.
+ * Ein Admin lädt eine Person in die Organisation ein. Seit 035 darf das auch,
+ * wer in den gewählten Firmen das Feinrecht «Team verwalten» hat, dann aber
+ * nur als Mitglied mit HR oder Lesen. Geschrieben wird mit der Sitzung: die
+ * Zeilenregeln aus 033 und 035 ziehen die Grenze, die Prüfungen hier geben
+ * klare Meldungen.
  */
 export const runtime = "nodejs";
 
@@ -45,7 +51,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Prüfung fehlgeschlagen." }, { status: 500 });
   }
   if (!isAdmin) {
-    return NextResponse.json({ error: "Einladen darf nur ein Admin der Organisation." }, { status: 403 });
+    // Feinrecht «Team verwalten» (035): als Mitglied, mit HR oder Lesen, nur in
+    // Firmen mit diesem Recht. Dieselbe Grenze zieht die Zeilenregel.
+    if (input.orgRole !== "mitglied" || !input.companyRole || !TEAM_MANAGER_ROLES.includes(input.companyRole)) {
+      return NextResponse.json(
+        { error: "Sie können nur mit den Rollen HR oder Lesen einladen." },
+        { status: 403 },
+      );
+    }
+    const { data: canManageAll, error: manageErr } = await supabase.rpc("zeugnio_can_manage_team_all", {
+      p_company_ids: input.companyIds,
+    });
+    if (manageErr) {
+      logError("[team/invitations] Teamrecht-Prüfung fehlgeschlagen:", manageErr);
+      return NextResponse.json({ error: "Prüfung fehlgeschlagen." }, { status: 500 });
+    }
+    if (!canManageAll) {
+      return NextResponse.json({ error: permissionDeniedMessage("team") }, { status: 403 });
+    }
   }
 
   const { data: org } = await supabase
@@ -118,6 +141,14 @@ export async function POST(req: NextRequest) {
     })
     .select("id")
     .single();
+  if (insertErr?.code === "23505") {
+    // Eine offene Einladung, die jemand anderes verschickt hat (meist der
+    // Admin), lässt sich ohne Admin-Recht nicht ersetzen.
+    return NextResponse.json(
+      { error: "An diese Adresse ist schon eine Einladung offen. Der Admin kann sie zurückziehen." },
+      { status: 409 },
+    );
+  }
   if (insertErr || !created) {
     logError("[team/invitations] Anlegen fehlgeschlagen:", insertErr);
     return NextResponse.json({ error: "Die Einladung liess sich nicht speichern." }, { status: 500 });

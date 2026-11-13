@@ -16,19 +16,75 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type CompanyRole = "admin" | "hr_leitung" | "hr" | "lesen";
 
 /**
- * read   ansehen, PDF und Word laden
- * edit   Mitarbeitende und Zeugnisse anlegen und bearbeiten, Vorgesetzte einladen
- * seal   finalisieren (versiegeln) und widerrufen
- * admin  Firmendaten, Logo, Domain, Benutzer und Rollen
+ * read     ansehen, PDF und Word laden
+ * edit     Mitarbeitende und Zeugnisse anlegen und bearbeiten, Vorgesetzte einladen
+ * seal     finalisieren (versiegeln) und widerrufen
+ * team     in diese Firma einladen, dort HR und Lesen vergeben (Migration 035)
+ * company  Firmendaten, Logo und Mastervorlage (Migration 035)
+ * admin    alles, dazu Domain, Organisation und Feinrechte
+ *
+ * Die Rolle ist nur die Vorlage. Seit 035 kann die Admin-Person pro Person und
+ * Firma «seal», «team» und «company» abweichend setzen. Massgeblich ist darum
+ * getCompanyPermissions(), nicht roleAllows().
  */
-export type CompanyPermission = "read" | "edit" | "seal" | "admin";
+export type CompanyPermission = "read" | "edit" | "seal" | "team" | "company" | "admin";
 
+export const COMPANY_PERMISSIONS: readonly CompanyPermission[] = [
+  "read",
+  "edit",
+  "seal",
+  "team",
+  "company",
+  "admin",
+];
+
+/** Vorgaben der Rollen, ohne Feinrechte. Spiegelt zeugnio_permissions_for() in 035. */
 const ALLOWED: Record<CompanyPermission, readonly CompanyRole[]> = {
   read: ["admin", "hr_leitung", "hr", "lesen"],
   edit: ["admin", "hr_leitung", "hr"],
   seal: ["admin", "hr_leitung"],
+  team: ["admin"],
+  company: ["admin"],
   admin: ["admin"],
 };
+
+/** Die drei Feinrechte, die die Admin-Person pro Person und Firma setzen kann. */
+export type FineRight = "seal" | "team" | "company";
+export const FINE_RIGHTS: readonly FineRight[] = ["seal", "team", "company"];
+export const FINE_RIGHT_LABEL: Record<FineRight, string> = {
+  seal: "Versiegeln und widerrufen",
+  team: "Team verwalten",
+  company: "Firmendaten und Vorlage",
+};
+
+/** Spalten in company_members. seal: null = wie die Rolle. */
+export interface FineRightColumns {
+  seal_override: boolean | null;
+  may_manage_team: boolean;
+  may_edit_company: boolean;
+}
+
+/**
+ * Wirksame Rechte aus Rolle und Feinrechten, ohne Datenbank. Spiegelt
+ * zeugnio_permissions_for() in 035; die Datenbank bleibt massgeblich.
+ */
+export function effectivePermissions(
+  role: CompanyRole | null | undefined,
+  fine?: Partial<FineRightColumns> | null,
+): Set<CompanyPermission> {
+  const out = new Set<CompanyPermission>();
+  if (!role) return out;
+  if (role === "admin") return new Set(COMPANY_PERMISSIONS);
+  out.add("read");
+  if (role === "hr_leitung" || role === "hr") {
+    out.add("edit");
+    const seal = fine?.seal_override ?? role === "hr_leitung";
+    if (seal) out.add("seal");
+  }
+  if (fine?.may_manage_team) out.add("team");
+  if (fine?.may_edit_company) out.add("company");
+  return out;
+}
 
 export const COMPANY_ROLES: readonly CompanyRole[] = ["admin", "hr_leitung", "hr", "lesen"];
 
@@ -74,6 +130,30 @@ export async function getCompanyRole(
 }
 
 /**
+ * Wirksame Rechte der angemeldeten Person in dieser Firma, aus Rolle und
+ * Feinrechten (Migration 035, Funktion zeugnio_permissions).
+ */
+export async function getCompanyPermissions(
+  supabase: SupabaseClient,
+  companyId: string | null | undefined,
+): Promise<Set<CompanyPermission>> {
+  if (!companyId) return new Set();
+  const { data, error } = await supabase.rpc("zeugnio_permissions", {
+    p_company_id: companyId,
+  });
+  // Wie bei getCompanyRole: ein echter Fehler ist kein «kein Zugriff».
+  if (error) {
+    throw new Error(`Rechteprüfung fehlgeschlagen: ${error.message}`);
+  }
+  const list = Array.isArray(data) ? data : [];
+  return new Set(
+    list.filter((p: unknown): p is CompanyPermission =>
+      (COMPANY_PERMISSIONS as readonly unknown[]).includes(p),
+    ),
+  );
+}
+
+/**
  * Darf die angemeldete Person das in dieser Firma? `userId` dient nur als
  * Schutz gegen einen fehlenden Login; massgeblich ist die Sitzung.
  */
@@ -84,16 +164,20 @@ export async function userHasCompanyPermission(
   permission: CompanyPermission,
 ): Promise<boolean> {
   if (!companyId || !userId) return false;
-  return roleAllows(await getCompanyRole(supabase, companyId), permission);
+  return (await getCompanyPermissions(supabase, companyId)).has(permission);
 }
 
 /** Fehlermeldung für ein 403, passend zum fehlenden Recht. */
 export function permissionDeniedMessage(permission: CompanyPermission): string {
   switch (permission) {
     case "seal":
-      return "Versiegeln und Widerrufen darf nur die HR-Leitung oder ein Admin.";
+      return "Versiegeln und Widerrufen ist für Sie in dieser Firma nicht freigeschaltet.";
     case "edit":
       return "Mit der Rolle «Lesen» lässt sich nichts ändern.";
+    case "team":
+      return "Das Team dieser Firma verwaltet der Admin der Organisation.";
+    case "company":
+      return "Firmendaten und Vorlage ändert der Admin der Organisation.";
     case "admin":
       return "Das darf nur ein Admin der Organisation.";
     default:

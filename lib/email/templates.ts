@@ -399,8 +399,10 @@ export function buildEvaluationSubmittedEmail(props: EvaluationSubmittedProps): 
   const greeting = hrName ? `Guten Tag ${hrName}` : "Guten Tag";
   const beurteiler = managerName ? `${managerName} (${managerEmail})` : managerEmail;
 
-  // Diese Mail geht an die HR-Person, die das Zeugnis angelegt hat – sie kennt die
-  // Person also. Der Name bleibt trotzdem draussen: die Mail liegt danach im
+  // Diese Mail geht an die HR-Person, die das Zeugnis angelegt hat, oder, wenn
+  // sie keinen Zugriff mehr hat, an die HR-Leitung der Firma
+  // (lib/team/notify-recipients.ts). Alle kennen die Person also. Der Name
+  // bleibt trotzdem draussen: die Mail liegt danach im
   // Postfach eines Anbieters, und eine Regel, die nur manchmal gilt, ist in einer
   // Datenschutzerklärung nicht formulierbar.
   const subject = "Beurteilung erhalten – Arbeitszeugnis";

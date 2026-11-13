@@ -7,6 +7,8 @@ import {
   hashInvitationToken,
   invitationState,
   isAccessRole,
+  ACCESS_ROLE_RANK,
+  type AccessRole,
 } from "@/lib/team/invitations";
 import { logError } from "@/lib/log";
 
@@ -99,11 +101,29 @@ export async function POST(req: NextRequest) {
       .select("id")
       .eq("organization_id", inv.organization_id)
       .in("id", inv.company_ids);
-    const rows = (companies ?? []).map((c: { id: string }) => ({
-      company_id: c.id,
-      user_id: user.id,
-      access_role: inv.company_role,
-    }));
+    // Wie bei der Organisation stuft auch hier eine Einladung niemanden zurück:
+    // Hat die Person in einer Firma schon eine höhere Rolle, bleibt sie. Sonst
+    // könnte jemand mit «Team verwalten» eine HR-Leitung per Einladung auf HR
+    // setzen, was ihm direkt verwehrt ist.
+    const invitedRole = inv.company_role as AccessRole;
+    const { data: existingAccess } = await service
+      .from("company_members")
+      .select("company_id, access_role")
+      .eq("user_id", user.id)
+      .in("company_id", inv.company_ids);
+    const currentRole = new Map(
+      (existingAccess ?? []).map((a: { company_id: string; access_role: string }) => [a.company_id, a.access_role]),
+    );
+    const rows = (companies ?? [])
+      .filter((c: { id: string }) => {
+        const current = currentRole.get(c.id);
+        return !isAccessRole(current) || ACCESS_ROLE_RANK[current] < ACCESS_ROLE_RANK[invitedRole];
+      })
+      .map((c: { id: string }) => ({
+        company_id: c.id,
+        user_id: user.id,
+        access_role: invitedRole,
+      }));
     if (rows.length > 0) {
       const { error: accessErr } = await service
         .from("company_members")

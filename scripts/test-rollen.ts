@@ -9,8 +9,16 @@
  */
 import assert from "node:assert/strict";
 
-import { roleAllows, type CompanyPermission, type CompanyRole } from "../lib/auth/ownership";
 import {
+  COMPANY_PERMISSIONS,
+  effectivePermissions,
+  roleAllows,
+  type CompanyPermission,
+  type CompanyRole,
+} from "../lib/auth/ownership";
+import {
+  ACCESS_ROLE_RANK,
+  TEAM_MANAGER_ROLES,
   emailMatchesInvitation,
   hashInvitationToken,
   invitationState,
@@ -29,11 +37,14 @@ function check(name: string, fn: () => void) {
 const ORG = "11111111-1111-4111-8111-111111111111";
 const C1 = "22222222-2222-4222-8222-222222222222";
 
-// Die Tabelle aus Migration 033, Zeile für Zeile.
+// Die Tabelle aus Migration 033, Zeile für Zeile, dazu die Rollen-Vorgaben
+// für die Feinrechte aus 035 (ohne Abweichung).
 const expected: Record<CompanyPermission, Record<CompanyRole, boolean>> = {
   read: { admin: true, hr_leitung: true, hr: true, lesen: true },
   edit: { admin: true, hr_leitung: true, hr: true, lesen: false },
   seal: { admin: true, hr_leitung: true, hr: false, lesen: false },
+  team: { admin: true, hr_leitung: false, hr: false, lesen: false },
+  company: { admin: true, hr_leitung: false, hr: false, lesen: false },
   admin: { admin: true, hr_leitung: false, hr: false, lesen: false },
 };
 
@@ -44,7 +55,42 @@ for (const [perm, row] of Object.entries(expected) as [CompanyPermission, Record
   }
 }
 check("ohne Rolle: nichts", () => {
-  for (const perm of ["read", "edit", "seal", "admin"] as CompanyPermission[]) assert.equal(roleAllows(null, perm), false);
+  for (const perm of COMPANY_PERMISSIONS) assert.equal(roleAllows(null, perm), false);
+});
+
+console.log("Feinrechte (035)");
+const sorted = (s: Set<CompanyPermission>) => Array.from(s).sort();
+check("ohne Abweichung wie die Rolle", () => {
+  for (const role of ["admin", "hr_leitung", "hr", "lesen"] as CompanyRole[]) {
+    const fromRole = COMPANY_PERMISSIONS.filter((p) => roleAllows(role, p)).sort();
+    assert.deepEqual(sorted(effectivePermissions(role, null)), fromRole);
+  }
+});
+check("HR darf mit Abweichung versiegeln", () =>
+  assert.ok(effectivePermissions("hr", { seal_override: true }).has("seal")));
+check("HR-Leitung ohne Versiegeln", () => {
+  const p = effectivePermissions("hr_leitung", { seal_override: false });
+  assert.ok(!p.has("seal"));
+  assert.ok(p.has("edit"));
+});
+check("Lesen kann nie versiegeln, auch nicht mit Abweichung", () =>
+  assert.ok(!effectivePermissions("lesen", { seal_override: true }).has("seal")));
+check("Team verwalten und Firmendaten zusätzlich", () => {
+  const p = effectivePermissions("hr", { may_manage_team: true, may_edit_company: true });
+  assert.ok(p.has("team") && p.has("company"));
+  assert.ok(!p.has("admin"));
+});
+check("Admin hat alles, Abweichungen zählen nicht", () => {
+  const p = effectivePermissions("admin", { seal_override: false });
+  assert.deepEqual(sorted(p), [...COMPANY_PERMISSIONS].sort());
+});
+check("ohne Rolle helfen Feinrechte nichts", () =>
+  assert.equal(effectivePermissions(null, { may_manage_team: true }).size, 0));
+check("Team verwalten vergibt nur HR und Lesen", () =>
+  assert.deepEqual([...TEAM_MANAGER_ROLES].sort(), ["hr", "lesen"]));
+check("Rang: HR-Leitung > HR > Lesen", () => {
+  assert.ok(ACCESS_ROLE_RANK.hr_leitung > ACCESS_ROLE_RANK.hr);
+  assert.ok(ACCESS_ROLE_RANK.hr > ACCESS_ROLE_RANK.lesen);
 });
 
 console.log("Einladung prüfen");
@@ -108,5 +154,18 @@ check("Firmenrolle 'admin' gibt es nicht", () => {
 });
 check("leere Änderung abgelehnt", () => assert.ok(parseMemberUpdate({ organizationId: ORG }).error));
 check("deaktivieren", () => assert.equal(parseMemberUpdate({ organizationId: ORG, active: false }).data?.active, false));
+check("Feinrechte setzen", () => {
+  const r = parseMemberUpdate({ organizationId: ORG, rights: { [C1]: { seal: true, team: false, company: true } } });
+  assert.deepEqual(r.data?.rights, { [C1]: { seal: true, team: false, company: true } });
+});
+check("Versiegeln zurück auf die Rollenvorgabe (null)", () => {
+  const r = parseMemberUpdate({ organizationId: ORG, rights: { [C1]: { seal: null } } });
+  assert.deepEqual(r.data?.rights, { [C1]: { seal: null } });
+});
+check("Feinrechte: falsche Typen abgelehnt", () => {
+  assert.ok(parseMemberUpdate({ organizationId: ORG, rights: { [C1]: { team: "ja" } } }).error);
+  assert.ok(parseMemberUpdate({ organizationId: ORG, rights: { [C1]: {} } }).error);
+  assert.ok(parseMemberUpdate({ organizationId: ORG, rights: { x: { team: true } } }).error);
+});
 
 console.log(`\n${passed} Prüfungen bestanden.`);

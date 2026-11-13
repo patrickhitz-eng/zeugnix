@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/db/supabase-server";
 import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { buildEvaluationSubmittedEmail } from "@/lib/email/templates";
+import { evaluationMailRecipients } from "@/lib/team/notify-recipients";
 
 // Öffentlicher (token-basierter) Endpunkt → Rate-Limit gegen Token-Bruteforce
 // und Spam. Doppel-Submit ist zusätzlich DB-seitig abgesichert.
@@ -104,36 +105,35 @@ export async function POST(req: NextRequest) {
       console.warn("[evaluations/submit] Zeugnis-Status-Update fehlgeschlagen:", certUpdErr.message);
     }
 
-    // HR per Mail benachrichtigen, dass Beurteilung eingegangen ist
+    // HR per Mail benachrichtigen, dass Beurteilung eingegangen ist. Empfänger
+    // ist, wer das Zeugnis angelegt hat und es noch bearbeiten darf; sonst das
+    // aktive Team der Firma (lib/team/notify-recipients.ts).
     try {
       const cert: any = inv.certificates;
-      if (cert?.created_by_user_id) {
-        const { data: hrProfile } = await supabase
-          .from("profiles")
-          .select("full_name, email")
-          .eq("id", cert.created_by_user_id)
-          .single();
+      const recipients = await evaluationMailRecipients(
+        supabase,
+        cert?.company_id,
+        cert?.created_by_user_id,
+      );
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
+      const certificateUrl = `${baseUrl}/app/certificates/${inv.certificate_id}`;
 
-        if (hrProfile?.email) {
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
-          const certificateUrl = `${baseUrl}/app/certificates/${inv.certificate_id}`;
+      for (const recipient of recipients) {
+        // Der Name der beurteilten Person geht bewusst NICHT in die Mail –
+        // siehe den Kopf von lib/email/templates.ts.
+        const mail = buildEvaluationSubmittedEmail({
+          hrName: recipient.fullName ?? undefined,
+          managerEmail: inv.manager_email,
+          managerName: inv.manager_name ?? undefined,
+          certificateUrl,
+        });
 
-          // Der Name der beurteilten Person geht bewusst NICHT in die Mail –
-          // siehe den Kopf von lib/email/templates.ts.
-          const mail = buildEvaluationSubmittedEmail({
-            hrName: hrProfile.full_name ?? undefined,
-            managerEmail: inv.manager_email,
-            managerName: inv.manager_name ?? undefined,
-            certificateUrl,
-          });
-
-          await sendEmail({
-            to: hrProfile.email,
-            subject: mail.subject,
-            html: mail.html,
-            text: mail.text,
-          });
-        }
+        await sendEmail({
+          to: recipient.email,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+        });
       }
     } catch (notifyErr) {
       // Mail-Versand soll den Submit nicht blockieren

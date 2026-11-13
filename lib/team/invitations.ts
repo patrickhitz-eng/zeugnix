@@ -114,13 +114,28 @@ export function emailMatchesInvitation(
   return normalizeEmail(userEmail) === normalizeEmail(invitationEmail);
 }
 
+/** Feinrechte pro Firma (Migration 035). seal: null = wie die Rolle. */
+export interface FineRightsUpdate {
+  seal?: boolean | null;
+  team?: boolean;
+  company?: boolean;
+}
+
 export interface MemberUpdate {
   organizationId: string;
   orgRole?: OrgRole;
   active?: boolean;
   /** Firmen-ID → Rolle, null = Zugriff entziehen. Nur für Mitglieder wirksam. */
   access?: Record<string, AccessRole | null>;
+  /** Firmen-ID → Feinrechte. Nur die Admin-Person darf sie setzen. */
+  rights?: Record<string, FineRightsUpdate>;
 }
+
+/** Rang der Firmenrollen: eine Einladung stuft niemanden zurück. */
+export const ACCESS_ROLE_RANK: Record<AccessRole, number> = { hr_leitung: 3, hr: 2, lesen: 1 };
+
+/** Rollen, die jemand mit «Team verwalten» (ohne Admin) vergeben darf. */
+export const TEAM_MANAGER_ROLES: readonly AccessRole[] = ["hr", "lesen"];
 
 /** Prüft den Rumpf von PATCH /api/team/members/[userId]. */
 export function parseMemberUpdate(
@@ -151,7 +166,39 @@ export function parseMemberUpdate(
     }
     data.access = access;
   }
-  if (data.orgRole === undefined && data.active === undefined && data.access === undefined) {
+  if (b.rights !== undefined) {
+    if (!b.rights || typeof b.rights !== "object" || Array.isArray(b.rights)) {
+      return { error: "Ungültige Feinrechte." };
+    }
+    const rights: Record<string, FineRightsUpdate> = {};
+    for (const [companyId, raw] of Object.entries(b.rights as Record<string, unknown>)) {
+      if (!isUuid(companyId)) return { error: "Ungültige Firma." };
+      if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { error: "Ungültige Feinrechte." };
+      const r = raw as Record<string, unknown>;
+      const out: FineRightsUpdate = {};
+      if (r.seal !== undefined) {
+        if (r.seal !== null && typeof r.seal !== "boolean") return { error: "Ungültiges Recht «Versiegeln»." };
+        out.seal = r.seal as boolean | null;
+      }
+      if (r.team !== undefined) {
+        if (typeof r.team !== "boolean") return { error: "Ungültiges Recht «Team verwalten»." };
+        out.team = r.team;
+      }
+      if (r.company !== undefined) {
+        if (typeof r.company !== "boolean") return { error: "Ungültiges Recht «Firmendaten»." };
+        out.company = r.company;
+      }
+      if (Object.keys(out).length === 0) return { error: "Ungültige Feinrechte." };
+      rights[companyId] = out;
+    }
+    data.rights = rights;
+  }
+  if (
+    data.orgRole === undefined &&
+    data.active === undefined &&
+    data.access === undefined &&
+    data.rights === undefined
+  ) {
     return { error: "Nichts zu ändern." };
   }
   return { data };

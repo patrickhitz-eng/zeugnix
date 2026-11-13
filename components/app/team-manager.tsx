@@ -32,6 +32,13 @@ export interface TeamCompany {
   name: string;
 }
 
+/** Feinrechte pro Firma (Migration 035). seal_override null = wie die Rolle. */
+export interface TeamFineRights {
+  seal_override: boolean | null;
+  may_manage_team: boolean;
+  may_edit_company: boolean;
+}
+
 export interface TeamMember {
   userId: string;
   email: string;
@@ -40,6 +47,13 @@ export interface TeamMember {
   active: boolean;
   isSelf: boolean;
   access: Record<string, AccessRole>;
+  fine: Record<string, TeamFineRights>;
+}
+
+const NO_FINE: TeamFineRights = { seal_override: null, may_manage_team: false, may_edit_company: false };
+
+function hasFineRights(f: TeamFineRights | undefined): boolean {
+  return !!f && (f.seal_override !== null || f.may_manage_team || f.may_edit_company);
 }
 
 export interface TeamInvitation {
@@ -56,6 +70,12 @@ interface Props {
   companies: TeamCompany[];
   members: TeamMember[];
   invitations: TeamInvitation[];
+  /**
+   * admin:   alles, inklusive Feinrechte.
+   * manager: Feinrecht «Team verwalten» (035). Nur die eigenen Firmen, nur HR
+   *          und Lesen, keine Organisation, keine Feinrechte, kein Deaktivieren.
+   */
+  mode?: "admin" | "manager";
 }
 
 const input =
@@ -74,7 +94,9 @@ async function send(url: string, method: string, body?: unknown): Promise<any> {
   return data;
 }
 
-export function TeamManager({ organization, companies, members, invitations }: Props) {
+export function TeamManager({ organization, companies, members, invitations, mode = "admin" }: Props) {
+  const isAdmin = mode === "admin";
+  const inviteRoles: TeamRole[] = isAdmin ? ["admin", "hr_leitung", "hr", "lesen"] : ["hr", "lesen"];
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -131,6 +153,23 @@ export function TeamManager({ organization, companies, members, invitations }: P
 
   const withdraw = (id: string) => run(() => send(`/api/team/invitations/${id}`, "DELETE"));
 
+  // Versiegeln: Häkchen zeigt das wirksame Recht. Entspricht die Wahl der
+  // Rollenvorgabe, wird die Abweichung gelöscht (null), sonst gesetzt.
+  const setSeal = (m: TeamMember, companyId: string, checked: boolean) => {
+    const roleDefault = m.access[companyId] === "hr_leitung";
+    updateMember(m.userId, { rights: { [companyId]: { seal: checked === roleDefault ? null : checked } } });
+  };
+  const setFlag = (m: TeamMember, companyId: string, key: "team" | "company", checked: boolean) =>
+    updateMember(m.userId, { rights: { [companyId]: { [key]: checked } } });
+
+  /** Darf jemand mit «Team verwalten» diese Zeile ändern? Spiegelt die Regel in 035. */
+  const managerMayEdit = (m: TeamMember, companyId: string) => {
+    if (m.isSelf || m.orgRole === "admin" || !m.active) return false;
+    const role = m.access[companyId];
+    if (role === "hr_leitung") return false;
+    return !hasFineRights(m.fine[companyId]);
+  };
+
   return (
     <div className="space-y-8">
       {(error || notice) && (
@@ -148,7 +187,15 @@ export function TeamManager({ organization, companies, members, invitations }: P
         </div>
       )}
 
+      {!isAdmin && (
+        <section className="card border-ink-100 p-6 text-[12.5px] text-ink-600">
+          Sie verwalten das Team dieser Firmen: einladen, Zugang ändern oder entziehen, mit den Rollen HR und Lesen.
+          HR-Leitungen, Admins und Personen mit Feinrechten ändert der Admin Ihrer Organisation.
+        </section>
+      )}
+
       {/* Organisation */}
+      {isAdmin && (
       <section className="card border-ink-100 p-6">
         <h2 className="mb-1 text-[15px] font-medium tracking-tight">Organisation</h2>
         <p className="mb-4 text-[12.5px] text-ink-500">
@@ -180,6 +227,7 @@ export function TeamManager({ organization, companies, members, invitations }: P
           </span>
         </label>
       </section>
+      )}
 
       {/* Einladen */}
       <section className="card border-ink-100 p-6">
@@ -197,7 +245,7 @@ export function TeamManager({ organization, companies, members, invitations }: P
             onChange={(e) => setEmail(e.target.value)}
           />
           <select className={`${select} py-2 text-[14px]`} value={role} onChange={(e) => setRole(e.target.value as TeamRole)}>
-            {(["admin", "hr_leitung", "hr", "lesen"] as TeamRole[]).map((r) => (
+            {inviteRoles.map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABEL[r]}
               </option>
@@ -237,13 +285,22 @@ export function TeamManager({ organization, companies, members, invitations }: P
 
       {/* Mitglieder */}
       <section className="card border-ink-100 p-6">
-        <h2 className="mb-4 text-[15px] font-medium tracking-tight">Personen ({members.length})</h2>
+        <h2 className="mb-1 text-[15px] font-medium tracking-tight">Personen ({members.length})</h2>
+        {isAdmin ? (
+          <p className="mb-4 text-[12.5px] text-ink-500">
+            Die Rolle ist die Vorlage. Pro Firma können Sie darunter einzelne Rechte abweichend setzen:
+            «Versiegeln» (HR-Leitung hat es, HR nicht), «Team» (in diese Firma einladen, nur HR und Lesen) und
+            «Firmendaten» (Stammdaten, Logo, Vorlage; die Domain bleibt bei Ihnen). Abweichungen sind markiert.
+          </p>
+        ) : (
+          <p className="mb-4 text-[12.5px] text-ink-500">Personen mit Zugang zu Ihren Firmen.</p>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left text-[12.5px]">
             <thead>
               <tr className="border-b border-ink-100 text-[11.5px] uppercase tracking-wide text-ink-500">
                 <th className="py-2 pr-4 font-medium">Person</th>
-                <th className="py-2 pr-4 font-medium">Organisation</th>
+                {isAdmin && <th className="py-2 pr-4 font-medium">Organisation</th>}
                 {companies.map((c) => (
                   <th key={c.id} className="py-2 pr-4 font-medium normal-case tracking-normal">
                     {c.name}
@@ -260,39 +317,92 @@ export function TeamManager({ organization, companies, members, invitations }: P
                     {m.name && <div className="text-[11.5px] text-ink-500">{m.email}</div>}
                     {!m.active && <div className="text-[11.5px] text-amber-700">deaktiviert</div>}
                   </td>
-                  <td className="py-3 pr-4">
-                    <select
-                      className={select}
-                      value={m.orgRole}
-                      disabled={busy || !m.active}
-                      onChange={(e) => updateMember(m.userId, { orgRole: e.target.value })}
-                    >
-                      <option value="admin">Admin</option>
-                      <option value="mitglied">Mitglied</option>
-                    </select>
-                  </td>
-                  {companies.map((c) => (
-                    <td key={c.id} className="py-3 pr-4">
-                      {m.orgRole === "admin" ? (
-                        <span className="text-ink-500">alles</span>
-                      ) : (
+                  {isAdmin && (
+                    <td className="py-3 pr-4">
+                      <select
+                        className={select}
+                        value={m.orgRole}
+                        disabled={busy || !m.active}
+                        onChange={(e) => updateMember(m.userId, { orgRole: e.target.value })}
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="mitglied">Mitglied</option>
+                      </select>
+                    </td>
+                  )}
+                  {companies.map((c) => {
+                    const role = m.access[c.id];
+                    const fine = m.fine[c.id] ?? NO_FINE;
+                    const sealEffective = fine.seal_override ?? role === "hr_leitung";
+                    if (m.orgRole === "admin") {
+                      return (
+                        <td key={c.id} className="py-3 pr-4 align-top">
+                          <span className="text-ink-500">alles</span>
+                        </td>
+                      );
+                    }
+                    if (!isAdmin && !managerMayEdit(m, c.id)) {
+                      return (
+                        <td key={c.id} className="py-3 pr-4 align-top text-ink-600">
+                          {role ? ROLE_LABEL[role] : "kein Zugriff"}
+                          {hasFineRights(m.fine[c.id]) && <span className="ml-1 text-petrol-700">· angepasst</span>}
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={c.id} className="py-3 pr-4 align-top">
                         <select
                           className={select}
-                          value={m.access[c.id] ?? ""}
+                          value={role ?? ""}
                           disabled={busy || !m.active}
                           onChange={(e) =>
                             updateMember(m.userId, { access: { [c.id]: e.target.value === "" ? null : e.target.value } })
                           }
                         >
                           <option value="">kein Zugriff</option>
-                          <option value="hr_leitung">HR-Leitung</option>
+                          {isAdmin && <option value="hr_leitung">HR-Leitung</option>}
                           <option value="hr">HR</option>
                           <option value="lesen">Lesen</option>
                         </select>
-                      )}
-                    </td>
-                  ))}
-                  <td className="py-3 text-right">
+                        {isAdmin && role && (
+                          <div className="mt-2 space-y-1 text-[11.5px] text-ink-600">
+                            <label className="flex items-center gap-1.5" title="Finalisieren, versiegeln und widerrufen">
+                              <input
+                                type="checkbox"
+                                checked={role !== "lesen" && sealEffective}
+                                disabled={busy || !m.active || role === "lesen"}
+                                onChange={(e) => setSeal(m, c.id, e.target.checked)}
+                              />
+                              Versiegeln
+                              {fine.seal_override !== null && <span className="text-petrol-700">· angepasst</span>}
+                            </label>
+                            <label className="flex items-center gap-1.5" title="In diese Firma einladen, HR und Lesen vergeben">
+                              <input
+                                type="checkbox"
+                                checked={fine.may_manage_team}
+                                disabled={busy || !m.active}
+                                onChange={(e) => setFlag(m, c.id, "team", e.target.checked)}
+                              />
+                              Team
+                              {fine.may_manage_team && <span className="text-petrol-700">· angepasst</span>}
+                            </label>
+                            <label className="flex items-center gap-1.5" title="Stammdaten, Logo und Mastervorlage dieser Firma">
+                              <input
+                                type="checkbox"
+                                checked={fine.may_edit_company}
+                                disabled={busy || !m.active}
+                                onChange={(e) => setFlag(m, c.id, "company", e.target.checked)}
+                              />
+                              Firmendaten
+                              {fine.may_edit_company && <span className="text-petrol-700">· angepasst</span>}
+                            </label>
+                          </div>
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td className="py-3 text-right align-top">
+                    {isAdmin && (
                     <button
                       className="text-[12px] text-ink-500 hover:text-red-700 disabled:opacity-50"
                       disabled={busy}
@@ -309,6 +419,7 @@ export function TeamManager({ organization, companies, members, invitations }: P
                     >
                       {m.active ? (m.isSelf ? "mich deaktivieren" : "deaktivieren") : "reaktivieren"}
                     </button>
+                    )}
                   </td>
                 </tr>
               ))}
