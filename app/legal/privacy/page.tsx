@@ -41,13 +41,14 @@ export default function Page() {
   return (
     <LegalContent
       title="Datenschutzerklärung"
-      updated="28. Oktober 2026"
+      updated="13. November 2026"
       intro={
         <>
           Diese Erklärung informiert nach dem Schweizer Datenschutzgesetz (DSG)
           und, soweit anwendbar, nach der Datenschutz-Grundverordnung der EU
           (DSGVO) darüber, welche Personendaten {siteConfig.name} bei der
-          Nutzung von {siteConfig.domain} bearbeitet.
+          Nutzung von {siteConfig.domain} bearbeitet. Abschnitt 10 erklärt,
+          wie wir Firmen auf {siteConfig.name} aufmerksam machen.
         </>
       }
       sections={[
@@ -139,7 +140,8 @@ export default function Page() {
               Konten zu sichern, um mit Ihnen zu kommunizieren (Anmeldelinks,
               Einladungen, Freigaben) und um Missbrauch abzuwehren. Texte
               entstehen aus Satzbausteinen. Wir setzen dafür keine künstliche
-              Intelligenz ein und nutzen Ihre Daten nicht für Werbung.
+              Intelligenz ein. Daten aus Konten, Zeugnissen und Prüfungen
+              nutzen wir nicht für Werbung.
             </p>
           ),
         },
@@ -249,7 +251,55 @@ export default function Page() {
           ),
         },
         {
-          heading: "10. Änderungen dieser Erklärung",
+          heading: "10. Kontaktaufnahme mit Firmen",
+          body: (
+            <>
+              <p>
+                Wir stellen {siteConfig.name} Firmen und Behörden persönlich
+                vor, per E-Mail, Telefon, LinkedIn oder Brief. Dafür bearbeiten
+                wir zu Ansprechpersonen Name, Funktion, Firma, geschäftliche
+                E-Mail-Adresse und Telefonnummer, die Herkunft dieser Angaben
+                sowie Datum und Inhalt unserer Kontakte und Ihrer Antworten.
+              </p>
+              <p>
+                Die Angaben stammen aus öffentlich zugänglichen Quellen, etwa
+                der Website Ihrer Firma, dem Handelsregister, Stelleninseraten
+                oder LinkedIn, aus unserem persönlichen Netzwerk oder aus einer
+                Empfehlung. Wir kaufen keine Adresslisten.
+              </p>
+              <p>
+                Wir nutzen die Angaben nur, um Ihnen {siteConfig.name}{" "}
+                vorzustellen, Termine zu vereinbaren und einen Pilotbetrieb zu
+                begleiten. Wir verkaufen sie nicht, geben sie nicht an andere
+                Firmen zur eigenen Nutzung weiter, verschicken keine
+                Serienmails oder Newsletter und verbinden sie nicht mit Daten aus
+                Zeugnissen. Die Korrespondenz führen wir über Microsoft 365.
+                Soweit die DSGVO anwendbar ist, etwa bei Firmen in
+                Liechtenstein, stützen wir uns auf unser berechtigtes Interesse,
+                Firmen unser Angebot vorzustellen (Art. 6 Abs. 1 lit. f DSGVO).
+              </p>
+              <p>
+                Bleibt eine Antwort aus, löschen wir die Angaben 12 Monate nach
+                dem letzten Kontakt. Nutzt Ihre Firma {siteConfig.name}, gelten
+                für Ihr Konto die Abschnitte 2 bis 6.
+              </p>
+              <p>
+                <strong className="font-medium text-ink-800">
+                  Sie können dieser Bearbeitung jederzeit widersprechen.
+                </strong>{" "}
+                Eine kurze Antwort auf unsere Nachricht oder eine E-Mail an{" "}
+                <a href={`mailto:${companyInfo.contactEmail}`} className="underline">
+                  {companyInfo.contactEmail}
+                </a>{" "}
+                genügt. Danach kontaktieren wir Sie nicht mehr. Damit das so
+                bleibt, behalten wir nur Ihre E-Mail-Adresse, Ihre Firma und das
+                Datum des Widerspruchs in einer Sperrliste.
+              </p>
+            </>
+          ),
+        },
+        {
+          heading: "11. Änderungen dieser Erklärung",
           body: (
             <p>
               Wir passen diese Datenschutzerklärung an, wenn sich die
