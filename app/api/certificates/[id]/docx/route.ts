@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
-import { docxImageType, loadCompanyLogo } from "@/lib/uploads/load-logo";
-import { renderCertificateDocx, type DocxLogo } from "@/lib/docx/certificate";
-import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { isCertificateLocked } from "@/lib/certificate/status";
+import { renderSealedCertificate } from "@/lib/certificate/render-sealed";
 
 // docx baut rein in JS (kein headless Chrome), braucht aber Node-APIs (Buffer,
 // Dateizugriff fürs Logo). Antwort nicht cachen.
@@ -17,7 +15,8 @@ export const maxDuration = 30;
  *
  * Erzeugt das Zeugnis als Word-Datei (.docx) – bearbeitbare Variante zum PDF.
  * Gleiche Zugriffs- und Finalisierungsregeln wie die PDF-Route: nur die
- * ausstellende Firma, nur finalisierte (gehashte) Zeugnisse.
+ * ausstellende Firma, nur finalisierte (gehashte) Zeugnisse. Der Zusammenbau
+ * steht in lib/certificate/render-sealed.ts.
  */
 export async function GET(
   _req: NextRequest,
@@ -50,102 +49,13 @@ export async function GET(
     );
   }
 
-  const company = cert.companies;
-  const employee = cert.employees;
-  if (!company || !employee) {
-    return NextResponse.json(
-      {
-        error:
-          "Zeugnis ist nicht vollständig verknüpft (Mitarbeitende oder Firma fehlt).",
-      },
-      { status: 400 },
-    );
-  }
-
-  // Arbeitgeber, Titel und Unterzeichnende aus dem Siegel, sobald das Zeugnis
-  // per v2 versiegelt ist – identisch zur PDF-Route, damit beide Ausgaben
-  // dasselbe Dokument sind. Siehe lib/certificate/presentation.ts.
-  const presentation = resolveCertificatePresentation(cert, company);
-  const signatories = presentation.signatories;
-
-  // Bestätigte Unterzeichner-Freigaben pro Slot (identisch zur PDF-Route).
-  const signoffBySlot: Record<number, { email: string; confirmedAt: string }> = {};
-  {
-    const { data: signoffs } = await supabase
-      .from("certificate_signoffs")
-      .select("slot, email, confirmed_at, status")
-      .eq("certificate_id", id)
-      .eq("status", "confirmed");
-    for (const so of signoffs ?? []) {
-      if (so.confirmed_at && (so.slot === 1 || so.slot === 2)) {
-        signoffBySlot[so.slot] = { email: so.email, confirmedAt: so.confirmed_at };
-      }
-    }
-  }
-
-  // Logo über dasselbe Modul wie die PDF-Route (lib/uploads/load-logo.ts) –
-  // lokale Datei ODER Supabase-Adresse aus der Zeit vor dem Umzug. Dass diese
-  // Route früher nur den lokalen Fall kannte, war die Ursache dafür, dass im
-  // Word-Export nie ein Logo erschien.
-  let companyLogo: DocxLogo | null = null;
-  const logo = await loadCompanyLogo(company.logo_url);
-  if (logo) {
-    const type = docxImageType(logo);
-    if (type) companyLogo = { data: logo.bytes, type };
-    else console.warn("Logo-Art für Word nicht unterstützt, wird übersprungen:", logo.contentType);
-  }
-
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zeugnio.ch";
-  const certificateTitle = presentation.documentTitle;
-  const bodyText = cert.edited_text || cert.generated_text || "";
-
   try {
-    const buffer = await renderCertificateDocx({
-      companyName: presentation.employer,
-      companyAddress: company.address ?? undefined,
-      companyPostalCode: company.postal_code ?? undefined,
-      companyCity: company.city ?? undefined,
-      companyPhone: company.phone ?? undefined,
-      companyEmail: company.email ?? undefined,
-      companyWebsite: company.website ?? undefined,
-      companyFooter: company.certificate_footer ?? undefined,
-      companyLogo,
-
-      employeeFirstName: employee.first_name,
-      employeeLastName: employee.last_name,
-
-      certificateTitle,
-      bodyText,
-      formattedContent: cert.formatted_content ?? null,
-      themeId: company.default_certificate_font_family ?? undefined,
-      // Mastervorlage (034): eigene Akzentfarbe und sichtbarer Echtheitsnachweis.
-      brandAccent: company.brand_accent ?? undefined,
-      showVerificationBlock: company.show_verification_block !== false,
-
-      signatory1Name: signatories.signatory_1_name ?? undefined,
-      signatory1Role: signatories.signatory_1_role ?? undefined,
-      signatory2Name: signatories.signatory_2_name ?? undefined,
-      signatory2Role: signatories.signatory_2_role ?? undefined,
-      signatureMode: cert.signature_mode ?? undefined,
-
-      signatory1Email: signoffBySlot[1]?.email,
-      signatory1ConfirmedAt: signoffBySlot[1]?.confirmedAt,
-      signatory2Email: signoffBySlot[2]?.email,
-      signatory2ConfirmedAt: signoffBySlot[2]?.confirmedAt,
-
-      hash: cert.hash,
-      baseUrl,
-    });
-
-    const fileName = `${certificateTitle}_${employee.last_name}_${employee.first_name}.docx`;
-    const body = new Uint8Array(buffer);
-
-    return new NextResponse(body, {
+    const rendered = await renderSealedCertificate(supabase, cert, "docx");
+    return new NextResponse(new Uint8Array(rendered.buffer), {
       headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "Content-Type": rendered.contentType,
         // attachment: Word-Dateien lassen sich nicht sinnvoll inline anzeigen.
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": `attachment; filename="${rendered.fileName}"`,
       },
     });
   } catch (err: any) {

@@ -6,6 +6,7 @@ import type {
   HashLookupCertificateFields,
   HashLookupOutcome,
 } from "@/lib/hash/canonicalize";
+import { RegisterNote } from "@/components/forms/register-note";
 
 export type HashLookupState =
   | { kind: "loading" }
@@ -124,6 +125,7 @@ function RegisteredFields({
         Registrierte Angaben
       </div>
       <TrustBadges c={c} />
+      <RegisterNote fromRegister={c.fromRegister} />
       <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
         {c.employeeName && (
           <Field label="Mitarbeiter/in">

@@ -365,6 +365,10 @@ export interface VerifiedCertificateFields {
   // Signatur-Block fehlt/ist gebrochen). Bestandsschutz: false stuft nur das
   // Trust-Label ab, der v2-/v1-Hash-Match bleibt davon unberührt.
   signatureValid?: boolean;
+  // 036: Treffer stammt aus dem Prüfregister. Die ausstellende Firma hat ihre
+  // Daten gelöscht; es gibt darum keinen Namen und keine Unterzeichnenden mehr,
+  // Hash, Signatur, Status, Arbeitgeber und Datum aber schon.
+  fromRegister?: boolean;
 }
 
 export type VerifyOutcome =

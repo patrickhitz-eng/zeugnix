@@ -30,6 +30,8 @@
     "test:rollen": "tsx scripts/test-rollen.ts",
     "test:rollen-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-rollen.sql",
     "test:feinrechte-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-feinrechte.sql",
+    "test:loeschen": "tsx scripts/test-loeschen.ts",
+    "test:loeschen-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-loeschen.sql",
     "render:sample": "tsx scripts/render-sample-certificate.ts",
     "test:dataapi": "tsx scripts/test-data-api-token.ts",
     "backfill:hash": "tsx scripts/backfill-hash.ts",

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import type { AnalysisResult } from "@/lib/phrases/analyze";
 import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { VerifyAnalysisResult } from "@/components/forms/verify-analysis-result";
+import { RegisterNote } from "@/components/forms/register-note";
 
 type State =
   | { kind: "idle" }
@@ -295,6 +296,7 @@ export function VerifyUploader({
                 Arbeitgeber, Unterzeichnende oder Titel vom Papier ab, wurde das
                 Dokument nachträglich verändert – trotz übereinstimmendem Hash.
               </p>
+              <RegisterNote fromRegister={state.certificate.fromRegister} />
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
                 {state.certificate.employeeName && (
                   <div>
@@ -440,6 +442,7 @@ export function VerifyUploader({
               <div className="text-[10px] font-medium uppercase tracking-wider text-red-700">
                 Registrierte Angaben
               </div>
+              <RegisterNote fromRegister={state.certificate.fromRegister} />
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
                 {state.certificate.employeeName && (
                   <div>
@@ -556,6 +559,7 @@ export function VerifyUploader({
               <div className="text-[10px] font-medium uppercase tracking-wider text-red-700">
                 Registriertes Original
               </div>
+              <RegisterNote fromRegister={state.certificate.fromRegister} />
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
                 {state.certificate.employeeName && (
                   <div>
