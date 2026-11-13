@@ -20,6 +20,9 @@ interface Company {
   signatory_2_name?: string | null;
   signatory_2_role?: string | null;
   certificate_footer?: string | null;
+  // Mastervorlage (034)
+  brand_accent?: string | null;
+  show_verification_block?: boolean | null;
 }
 
 interface Employee {
@@ -66,8 +69,10 @@ export function CertificatePreview({
   themeId,
   signatureMode,
 }: Props) {
-  const theme = resolveTheme(themeId);
+  const theme = resolveTheme(themeId, company.brand_accent);
   const css = buildDocumentCss(theme);
+  // Mastervorlage: ausgeschaltet zeigt auch die Vorschau keinen Hash-Block.
+  const showVerification = company.show_verification_block !== false;
   // Schwarz/weiss wie im PDF (certificate.tsx) – bester Scan-Kontrast.
   const qrDark = theme.colors.textPrimary;
   const qrLight = theme.colors.paper;
@@ -265,7 +270,7 @@ export function CertificatePreview({
 
         {/* Hash-Block (nur bei finalisierten Zeugnissen) – zweispaltig:
             Hash-Text links, QR-Code rechts (konsistent zum PDF) */}
-        {hash && (
+        {hash && showVerification && (
           <div style={css.hashBlock}>
             <div style={{ flex: 1 }}>
               <div style={css.hashLabel}>Echtheitsnachweis (SHA-256)</div>

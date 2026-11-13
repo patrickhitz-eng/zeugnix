@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   BRAND_THEMES,
   BUILTIN_THEMES,
+  DEFAULT_THEME,
+  isReadableAccent,
   resolveThemeFromCompany,
 } from "@/lib/design/document-tokens";
 
@@ -25,6 +27,13 @@ interface Company {
   default_certificate_font_family?: string | null;
   default_certificate_text_color?: string | null;
   certificate_footer?: string | null;
+  // Mastervorlage (Migration 034)
+  brand_accent?: string | null;
+  show_verification_block?: boolean | null;
+  default_zeugnis_typ?: string | null;
+  default_wertschaetzungsgrad?: string | null;
+  default_optin_bedauern?: boolean | null;
+  company_description?: string | null;
 }
 
 interface Props {
@@ -46,6 +55,12 @@ export function CompanyForm({ company, compact = false }: Props) {
   const [pendingPreview, setPendingPreview] = useState("");
   const [removeLogo, setRemoveLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Eigene Akzentfarbe ("" = Farbe des Stils). Nur ein erster Hinweis hier; die
+  // verbindliche Kontrastprüfung macht der Server (lib/company/payload.ts).
+  const [accent, setAccent] = useState(company?.brand_accent ?? "");
+  const accentOk = accent === "" || isReadableAccent(accent);
+  const hasBrandTheme = resolveThemeFromCompany(company ?? {}).id in BRAND_THEMES;
 
   const isEdit = !!company?.id;
   const shownLogo = pendingPreview || (removeLogo ? "" : logoUrl);
@@ -113,6 +128,16 @@ export function CompanyForm({ company, compact = false }: Props) {
       // erhalten; nur aussen trimmen, leere Eingabe wird zu null.
       data.certificate_footer =
         (fd.get("certificate_footer") as string)?.trim() || null;
+      // Mastervorlage (034). Marken-Themes behalten ihre Farbe, darum dort
+      // kein brand_accent schicken.
+      if (!hasBrandTheme) data.brand_accent = accent.trim() || null;
+      data.show_verification_block = fd.get("show_verification_block") === "on";
+      data.default_zeugnis_typ = (fd.get("default_zeugnis_typ") as string) || null;
+      data.default_wertschaetzungsgrad =
+        (fd.get("default_wertschaetzungsgrad") as string) || null;
+      data.default_optin_bedauern = fd.get("default_optin_bedauern") === "on";
+      data.company_description =
+        (fd.get("company_description") as string)?.trim() || null;
       // logo_url wird nur beim Entfernen mitgeschickt. Gesetzt wird es
       // ausschliesslich von /api/companies/<id>/logo – sonst könnte hier eine
       // beliebige Adresse eingetragen werden, die die PDF-Route dann abruft.
@@ -390,7 +415,7 @@ export function CompanyForm({ company, compact = false }: Props) {
                   bewusst nicht öffentlich wählbar. Stattdessen eine gesperrte Zeile
                   plus Hidden-Input, damit das Speichern des Formulars das
                   Marken-Theme nicht auf einen Standard-Stil zurücksetzt. */}
-              {resolveThemeFromCompany(company ?? {}).id in BRAND_THEMES ? (
+              {hasBrandTheme ? (
                 <>
                   <input
                     type="hidden"
@@ -416,7 +441,135 @@ export function CompanyForm({ company, compact = false }: Props) {
                 </select>
               )}
             </Field>
+            {!hasBrandTheme && (
+              <Field label="Akzentfarbe (Titel und Beschriftungen)">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    aria-label="Akzentfarbe wählen"
+                    value={accent || DEFAULT_THEME.colors.brandAccent}
+                    onChange={(e) => setAccent(e.target.value)}
+                    className="h-9 w-12 cursor-pointer rounded border border-ink-200 bg-white p-0.5"
+                  />
+                  <input
+                    type="text"
+                    value={accent}
+                    onChange={(e) => setAccent(e.target.value.trim())}
+                    placeholder={`Farbe des Stils (${DEFAULT_THEME.colors.brandAccent})`}
+                    maxLength={7}
+                    className="input"
+                  />
+                  {accent !== "" && (
+                    <button
+                      type="button"
+                      onClick={() => setAccent("")}
+                      className="whitespace-nowrap text-[12px] text-ink-500 underline"
+                    >
+                      Zurücksetzen
+                    </button>
+                  )}
+                </div>
+                {!accentOk && (
+                  <p className="mt-1 text-[12px] text-red-700">
+                    Zu hell für Text auf weissem Papier oder kein Farbwert wie #1a2b3c.
+                  </p>
+                )}
+              </Field>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Mastervorlage: Vorgaben für neue Zeugnisse */}
+      {!compact && (
+        <div className="card p-5">
+          <div className="mb-1 text-[13px] font-medium tracking-tight">
+            Vorgaben für neue Zeugnisse
+          </div>
+          <p className="mb-4 text-[12px] text-ink-500">
+            Neue Zeugnisse dieser Firma starten mit diesen Werten. HR kann sie
+            pro Zeugnis anpassen, die Vorgaben selbst ändert nur der Admin.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Zeugnistyp">
+              <select
+                name="default_zeugnis_typ"
+                defaultValue={company?.default_zeugnis_typ ?? "schluss"}
+                className="input"
+              >
+                <option value="schluss">Schlusszeugnis</option>
+                <option value="zwischen">Zwischenzeugnis</option>
+                <option value="arbeitsbestaetigung">Arbeitsbestätigung</option>
+              </select>
+            </Field>
+            <Field label="Wertschätzungsgrad (Schlusssatz)">
+              <select
+                name="default_wertschaetzungsgrad"
+                defaultValue={company?.default_wertschaetzungsgrad ?? "standard"}
+                className="input"
+              >
+                <option value="standard">Standard</option>
+                <option value="wertschaetzender">Etwas wertschätzender</option>
+                <option value="top">Top-Mitarbeitende</option>
+              </select>
+            </Field>
+          </div>
+          <label className="mt-4 flex items-center gap-2 text-[13px]">
+            <input
+              type="checkbox"
+              name="default_optin_bedauern"
+              defaultChecked={company?.default_optin_bedauern ?? false}
+            />
+            <span>Bedauern über das Ausscheiden (nur Schlusszeugnisse)</span>
+          </label>
+        </div>
+      )}
+
+      {/* Mastervorlage: fester Firmenbeschrieb */}
+      {!compact && (
+        <div className="card p-5">
+          <div className="mb-1 text-[13px] font-medium tracking-tight">
+            Firmenbeschrieb
+          </div>
+          <p className="mb-4 text-[12px] text-ink-500">
+            Optional. Erscheint in jedem neu erzeugten Zeugnistext als eigener
+            Absatz nach dem Einleitungssatz und wird mit dem Zeugnis versiegelt.
+            Bestehende Texte ändern sich erst beim nächsten Erzeugen.
+          </p>
+          <Field label="Text">
+            <textarea
+              name="company_description"
+              defaultValue={company?.company_description ?? ""}
+              rows={3}
+              maxLength={600}
+              placeholder="Die Muster AG ist ein Treuhandunternehmen in Zug mit rund 40 Mitarbeitenden."
+              className="input"
+              style={{ resize: "vertical", fontFamily: "inherit" }}
+            />
+          </Field>
+        </div>
+      )}
+
+      {/* Mastervorlage: sichtbarer Echtheitsnachweis */}
+      {!compact && (
+        <div className="card p-5">
+          <div className="mb-1 text-[13px] font-medium tracking-tight">
+            Echtheitsnachweis im Dokument
+          </div>
+          <label className="flex items-start gap-2 text-[13px]">
+            <input
+              type="checkbox"
+              name="show_verification_block"
+              defaultChecked={company?.show_verification_block ?? true}
+              className="mt-0.5"
+            />
+            <span>Hash, QR-Code und Prüflink im Zeugnis zeigen</span>
+          </label>
+          <p className="mt-2 text-[12px] text-ink-500">
+            Ausgeschaltet bleibt das PDF über den Upload auf zeugnio.ch/verify
+            prüfbar, Empfänger sehen aber keinen Hinweis darauf. Das
+            Word-Dokument trägt dann den Vermerk «Arbeitskopie, nicht prüfbar».
+          </p>
         </div>
       )}
 

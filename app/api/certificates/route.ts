@@ -74,6 +74,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unbekannter Zeugnistyp." }, { status: 400 });
   }
 
+  // Mastervorlage (034): Vorgaben der Firma für den Schlusssatz. HR kann sie auf
+  // der Detailseite pro Zeugnis ändern. Fehlt die Zeile (RLS), greifen die
+  // bisherigen Standardwerte; die Berechtigung ist oben schon geprüft.
+  const { data: vorlage } = await supabase
+    .from("companies")
+    .select("default_wertschaetzungsgrad, default_optin_bedauern")
+    .eq("id", companyId)
+    .maybeSingle();
+
   const firstName = text(body.first_name);
   const lastName = text(body.last_name);
   const gender = text(body.gender);
@@ -132,11 +141,11 @@ export async function POST(req: NextRequest) {
       zeugnis_typ: zeugnisTyp,
       // Vorgaben für den Schlusssatz; auf der Detailseite anpassbar.
       austrittsgrund: zeugnisTyp === "schluss" ? "wunsch_an" : null,
-      optin_bedauern: false,
+      optin_bedauern: zeugnisTyp === "schluss" && vorlage?.default_optin_bedauern === true,
       optin_reorg: false,
       optin_vorgesetztenwechsel: false,
       optin_interner_wechsel: false,
-      wertschaetzungsgrad: "standard",
+      wertschaetzungsgrad: vorlage?.default_wertschaetzungsgrad ?? "standard",
       tasks: tasksFrom(body.tasks),
       status: "draft",
       // Der Dank ist im Schlusssatz-Katalog bereits enthalten.

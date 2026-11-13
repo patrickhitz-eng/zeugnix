@@ -1,4 +1,4 @@
-import { BRAND_THEMES, BUILTIN_THEMES } from "@/lib/design/document-tokens";
+import { BRAND_THEMES, BUILTIN_THEMES, isReadableAccent } from "@/lib/design/document-tokens";
 
 /**
  * Nimmt den Rumpf einer Anfrage an /api/companies und gibt daraus genau die
@@ -32,9 +32,11 @@ const TEXT_FIELDS = [
   // Ausstellerspezifische Fusszeile (mehrzeilig). trimmedOrNull trimmt nur aussen
   // und erhält interne Zeilenumbrüche; Länge wird unten begrenzt.
   "certificate_footer",
+  // Mastervorlage (034): fester Firmenbeschrieb, Absatz nach der Einleitung.
+  "company_description",
 ] as const;
 
-export type CompanyPayload = Record<string, string | null>;
+export type CompanyPayload = Record<string, string | boolean | null>;
 
 export interface PickOptions {
   /** Aktueller Wert von default_certificate_font_family, falls die Firma schon existiert. */
@@ -62,12 +64,12 @@ export function pickCompanyFields(
 
   if ("name" in body) {
     if (!data.name) return { data, error: "Der Firmenname ist Pflicht." };
-    if (data.name.length > 200) return { data, error: "Der Firmenname ist zu lang." };
+    if (String(data.name).length > 200) return { data, error: "Der Firmenname ist zu lang." };
   }
 
   // Fusszeile: wenige Zeilen Branding/Pflichtangaben, kein Fliesstext. Die Grenze
   // schützt das Layout (die Fusszeile sitzt im Seitenunterrand) und die DB.
-  if (data.certificate_footer && data.certificate_footer.length > 500) {
+  if (typeof data.certificate_footer === "string" && data.certificate_footer.length > 500) {
     return { data, error: "Die Fusszeile ist zu lang (max. 500 Zeichen)." };
   }
 
@@ -103,5 +105,49 @@ export function pickCompanyFields(
     data.default_certificate_font_family = value;
   }
 
+  // --- Mastervorlage (Migration 034) ----------------------------------------
+
+  if (typeof data.company_description === "string" && data.company_description.length > 600) {
+    return { data, error: "Der Firmenbeschrieb ist zu lang (max. 600 Zeichen)." };
+  }
+
+  if ("brand_accent" in body) {
+    const value = trimmedOrNull(body.brand_accent);
+    if (value !== null && !isReadableAccent(value)) {
+      return {
+        data,
+        error:
+          "Die Akzentfarbe ist zu hell für Text auf weissem Papier (Kontrast unter 4.5:1) oder kein Farbwert der Form #1a2b3c.",
+      };
+    }
+    data.brand_accent = value === null ? null : value.toLowerCase();
+  }
+
+  for (const field of ["show_verification_block", "default_optin_bedauern"] as const) {
+    if (field in body) {
+      if (typeof body[field] !== "boolean") return { data, error: `Ungültiger Wert für ${field}.` };
+      data[field] = body[field] as boolean;
+    }
+  }
+
+  if ("default_zeugnis_typ" in body) {
+    const value = trimmedOrNull(body.default_zeugnis_typ);
+    if (value !== null && !ZEUGNIS_TYPEN.includes(value)) {
+      return { data, error: "Unbekannter Zeugnistyp." };
+    }
+    data.default_zeugnis_typ = value;
+  }
+
+  if ("default_wertschaetzungsgrad" in body) {
+    const value = trimmedOrNull(body.default_wertschaetzungsgrad);
+    if (value !== null && !WERTSCHAETZUNGSGRADE.includes(value)) {
+      return { data, error: "Unbekannter Wertschätzungsgrad." };
+    }
+    data.default_wertschaetzungsgrad = value;
+  }
+
   return { data };
 }
+
+const ZEUGNIS_TYPEN = ["schluss", "zwischen", "arbeitsbestaetigung"];
+const WERTSCHAETZUNGSGRADE = ["standard", "wertschaetzender", "top"];

@@ -20,6 +20,7 @@
     "test:domain": "tsx scripts/test-domain.ts",
     "test:client-ip": "tsx scripts/test-client-ip.ts",
     "test:public-origin": "tsx scripts/test-public-origin.ts",
+    "test:mastervorlage": "tsx scripts/test-mastervorlage.ts",
     "test:verify-hash": "tsx scripts/test-verify-hash.ts",
     "test:tiptap": "tsx scripts/test-tiptap.ts",
     "test:themes": "tsx scripts/test-themes.ts",

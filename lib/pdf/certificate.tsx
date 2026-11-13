@@ -86,6 +86,14 @@ interface RenderInput {
    * default_certificate_font_family. Leer -> Standard-Theme.
    */
   themeId?: string;
+  /** Eigene Akzentfarbe der Mastervorlage (companies.brand_accent). */
+  brandAccent?: string;
+  /**
+   * Sichtbarer Echtheitsnachweis (Hash, QR, Prüflink). false blendet nur den
+   * sichtbaren Block aus (companies.show_verification_block); die unsichtbaren
+   * Sentinels bleiben, das PDF ist per Upload weiter prüfbar. Standard: true.
+   */
+  showVerificationBlock?: boolean;
 
   signatory1Name?: string;
   signatory1Role?: string;
@@ -330,7 +338,9 @@ function CertificateDocument(props: DocProps) {
 
         {/* Hash + QR */}
         {/* Handunterschrift: kleinerer Abstand, damit die Namen bündig auf der
-            Trennlinie über dem Hash sitzen (der Normalwert lässt sonst eine Lücke). */}
+            Trennlinie über dem Hash sitzen (der Normalwert lässt sonst eine Lücke).
+            Mastervorlage: ausgeschaltet entfällt nur dieser sichtbare Block. */}
+        {props.showVerificationBlock !== false ? (
         <View style={isHandwritten ? [styles.hashBlock, styles.hashBlockAfterHandwritten] : styles.hashBlock}>
           <View style={styles.hashText}>
             <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
@@ -346,6 +356,7 @@ function CertificateDocument(props: DocProps) {
             <Image src={qrDataUrl} style={styles.qrCode} />
           ) : null}
         </View>
+        ) : null}
 
         {/* Ausstellerspezifische Fusszeile – fix am unteren Rand JEDER Seite.
             Ausserhalb aller Body-/Meta-Sentinels, daher ohne Einfluss auf den
@@ -363,16 +374,19 @@ function CertificateDocument(props: DocProps) {
 }
 
 export async function renderCertificatePdf(input: RenderInput): Promise<Buffer> {
-  const theme = resolveTheme(input.themeId);
+  const theme = resolveTheme(input.themeId, input.brandAccent);
   const verifyUrl = buildVerifyUrl(input.baseUrl, input.hash);
   // QR-Code bewusst schwarz auf weiss (nicht in Markenfarbe): schwarze Module
   // haben den höchsten Kontrast und lassen sich am zuverlässigsten scannen –
   // gerade beim ausgedruckten/gescannten Zeugnis (Wunsch Call 2026-07-24).
-  const qrDataUrl = await QRCode.toDataURL(verifyUrl, {
-    margin: 0,
-    width: 200,
-    color: { dark: theme.colors.textPrimary, light: theme.colors.paper },
-  });
+  const qrDataUrl =
+    input.showVerificationBlock === false
+      ? ""
+      : await QRCode.toDataURL(verifyUrl, {
+          margin: 0,
+          width: 200,
+          color: { dark: theme.colors.textPrimary, light: theme.colors.paper },
+        });
 
   const buffer = await renderToBuffer(
     React.createElement(CertificateDocument, {

@@ -326,7 +326,17 @@ const LEGACY_FONT_TO_THEME: Record<string, string> = {
  * für die Einführung der Themes keine DB-Migration: die bestehende Spalte hält
  * künftig die Theme-ID, alte Zeilen halten weiter 'helvetica'|'times'|'courier'.
  */
-export function resolveTheme(value?: string | null): DocumentTheme {
+export function resolveTheme(value?: string | null, accent?: string | null): DocumentTheme {
+  const base = resolveBaseTheme(value);
+  // Eigene Akzentfarbe der Mastervorlage (companies.brand_accent, Migration 034).
+  // Gilt nur, wenn sie lesbar ist: die API lässt keine blasse Farbe durch, aber
+  // ein per SQL gesetzter Wert soll das Dokument nicht unlesbar machen können.
+  // Marken-Themes behalten ihre kuratierte Farbe.
+  if (!accent || base.id in BRAND_THEMES || !isReadableAccent(accent)) return base;
+  return { ...base, colors: { ...base.colors, brandAccent: normalizeHex(accent) } };
+}
+
+function resolveBaseTheme(value?: string | null): DocumentTheme {
   if (!value) return DEFAULT_THEME;
   const legacy = LEGACY_FONT_TO_THEME[value];
   return ALL_THEMES[value] ?? (legacy ? BUILTIN_THEMES[legacy] : undefined) ?? DEFAULT_THEME;
@@ -334,8 +344,26 @@ export function resolveTheme(value?: string | null): DocumentTheme {
 
 export function resolveThemeFromCompany(company: {
   default_certificate_font_family?: string | null;
+  brand_accent?: string | null;
 }): DocumentTheme {
-  return resolveTheme(company.default_certificate_font_family);
+  return resolveTheme(company.default_certificate_font_family, company.brand_accent);
+}
+
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+function normalizeHex(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/**
+ * Eine eigene Akzentfarbe ist zulässig, wenn sie ein 6-stelliger Hex-Wert ist
+ * und gegen Papierweiss WCAG AA erreicht – dieselbe Grenze wie für die
+ * kuratierten Themes (assertThemeReadable).
+ */
+export function isReadableAccent(value: string): boolean {
+  const hex = value.trim();
+  if (!HEX_COLOR.test(hex)) return false;
+  return contrastRatio(hex, BASE_COLORS.paper) >= WCAG_AA_NORMAL_TEXT;
 }
 
 // ---------------------------------------------------------------------------

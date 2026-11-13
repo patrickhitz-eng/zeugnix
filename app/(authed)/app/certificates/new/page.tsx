@@ -9,7 +9,7 @@ export default async function NewCertificatePage() {
 
   const { data: companies } = await supabase
     .from("companies")
-    .select("id, name");
+    .select("id, name, default_zeugnis_typ");
 
   if (!companies || companies.length === 0) {
     return (
