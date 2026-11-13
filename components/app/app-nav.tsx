@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/app/certificates/new", label: "Neues Zeugnis" },
   { href: "/app/company", label: "Firma" },
   { href: "/app/team", label: "Team" },
+  { href: "/app/daten", label: "Daten" },
 ];
 
 function isActive(pathname: string, href: string): boolean {

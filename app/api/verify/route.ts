@@ -17,6 +17,8 @@ import {
   VERIFY_SELECT_COLS,
   buildCertificateFields,
   findCertificateByHash,
+  findRegisterByBodyHash,
+  matchedCertificateIdForLog,
 } from "@/lib/verify/certificate-fields";
 import { logError } from "@/lib/log";
 
@@ -134,6 +136,16 @@ export async function POST(req: NextRequest) {
         isMismatch = true;
       }
     }
+    // Dasselbe für gelöschte Zeugnisse (036): Das Register hält keinen Text,
+    // aber den Hash über den Text. Trifft er, ist der Text echt und nur Kopf
+    // oder Unterschriften wurden getauscht.
+    if (!match) {
+      const registerBodyMatch = await findRegisterByBodyHash(supabase, bodyHash);
+      if (registerBodyMatch) {
+        match = registerBodyMatch;
+        isMismatch = true;
+      }
+    }
 
     let outcome: VerifyOutcome;
     if (match) {
@@ -181,7 +193,8 @@ export async function POST(req: NextRequest) {
     await supabase.from("verifications").insert({
       uploaded_file_path: "inline-text", // bei echtem Upload PDF-Pfad eintragen
       calculated_hash: calculatedHash,
-      matched_certificate_id: match?.id ?? null,
+      // Register-Treffer (036) haben keine Zeile mehr in certificates.
+      matched_certificate_id: matchedCertificateIdForLog(match),
       result: outcome.result,
       paid: false, // Bezahlung über Stripe-Webhook setzt paid=true
     });

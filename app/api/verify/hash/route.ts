@@ -10,6 +10,7 @@ import { verifyCertificateSignature } from "@/lib/crypto/signing";
 import {
   buildCertificateFields,
   findCertificateByHash,
+  matchedCertificateIdForLog,
 } from "@/lib/verify/certificate-fields";
 import { logError } from "@/lib/log";
 
@@ -111,7 +112,8 @@ export async function POST(req: NextRequest) {
     await supabase.from("verifications").insert({
       uploaded_file_path: "qr-hash",
       calculated_hash: hash,
-      matched_certificate_id: match?.id ?? null,
+      // Register-Treffer (036) haben keine Zeile mehr in certificates.
+      matched_certificate_id: matchedCertificateIdForLog(match),
       result: outcome.result,
       paid: false,
     });

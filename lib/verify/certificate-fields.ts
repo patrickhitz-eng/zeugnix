@@ -34,6 +34,10 @@ export const VERIFY_SELECT_COLS =
  * Sucht ein finales oder widerrufenes Zeugnis über seinen Hash. Status bewusst
  * NICHT nur 'final' (H2): Ein widerrufenes Zeugnis muss gefunden werden, damit
  * es als „widerrufen" statt fälschlich als „unbekannt" erscheint.
+ *
+ * Fällt auf das Prüfregister zurück (036): Hat eine Firma ihre Daten gelöscht,
+ * steht das Zeugnis dort ohne Personendaten. Ein Register-Treffer trägt
+ * `fromRegister: true`; seine `id` gibt es in `certificates` nicht mehr.
  */
 export async function findCertificateByHash(supabase: any, hash: string) {
   const { data } = await supabase
@@ -43,7 +47,57 @@ export async function findCertificateByHash(supabase: any, hash: string) {
     .in("status", ["final", "revoked"])
     .limit(1)
     .maybeSingle();
-  return data;
+  if (data) return data;
+
+  const { data: entry } = await supabase
+    .from("certificate_register")
+    .select(REGISTER_SELECT_COLS)
+    .eq("hash", hash)
+    .limit(1)
+    .maybeSingle();
+  return entry ? registerAsMatch(entry) : null;
+}
+
+const REGISTER_SELECT_COLS =
+  "certificate_id, hash, hash_version, status, finalized_at, revoked_at, " +
+  "signature, signing_key_id, employer, document_title, verified_domain";
+
+/** Register-Zeile in der Form eines Treffers aus `certificates`. */
+function registerAsMatch(entry: any) {
+  return {
+    fromRegister: true,
+    id: entry.certificate_id,
+    company_id: null,
+    status: entry.status,
+    hash: entry.hash,
+    hash_version: entry.hash_version,
+    finalized_at: entry.finalized_at,
+    revoked_at: entry.revoked_at,
+    signature: entry.signature,
+    signing_key_id: entry.signing_key_id,
+    register: entry,
+  };
+}
+
+/**
+ * Sonderfall «Kopf oder Unterschriften verändert» für gelöschte Zeugnisse:
+ * Der Text-Hash trifft einen Registereintrag mit v2-Siegel, der Siegel-Hash
+ * nicht. Gegenstück zum Abgleich über canonical_content in /api/verify.
+ */
+export async function findRegisterByBodyHash(supabase: any, bodyHash: string) {
+  const { data: entry } = await supabase
+    .from("certificate_register")
+    .select(REGISTER_SELECT_COLS)
+    .eq("body_hash", bodyHash)
+    .gte("hash_version", 2)
+    .limit(1)
+    .maybeSingle();
+  return entry ? registerAsMatch(entry) : null;
+}
+
+/** ID für verifications.matched_certificate_id (Fremdschlüssel): nie aus dem Register. */
+export function matchedCertificateIdForLog(match: any): string | null {
+  return match && !match.fromRegister ? match.id : null;
 }
 
 /**
@@ -74,6 +128,25 @@ export async function buildCertificateFields(
   supabase: any,
   match: any,
 ): Promise<Omit<VerifiedCertificateFields, "signatureValid">> {
+  if (match.fromRegister) {
+    const entry = match.register;
+    return {
+      employeeName: "",
+      employer: entry.employer ?? "",
+      documentType: entry.document_title ?? "Arbeitszeugnis",
+      issueDate: formatDateCh(entry.finalized_at),
+      signatory1Name: null,
+      signatory1Role: null,
+      signatory2Name: null,
+      signatory2Role: null,
+      verifiedDomain: entry.verified_domain ?? null,
+      signatory1ConfirmedAt: null,
+      signatory2ConfirmedAt: null,
+      sealVersion: entry.hash_version ?? 1,
+      fromRegister: true,
+    };
+  }
+
   const employee = pickOne<{ first_name?: string; last_name?: string }>(
     match.employees,
   );
