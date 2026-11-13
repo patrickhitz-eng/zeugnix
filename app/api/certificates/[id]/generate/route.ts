@@ -103,6 +103,7 @@ export async function POST(
     date: new Date().toISOString().split("T")[0],
     companyName: company.name,
     companyAddress: company.address,
+    companyDescription: company.company_description ?? undefined,
     newFunctionTitle: cert.new_function_title || undefined,
     newCompanyName: cert.new_company_name || undefined,
     transitionDate: cert.transition_date || undefined,

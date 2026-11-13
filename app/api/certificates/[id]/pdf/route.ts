@@ -156,6 +156,9 @@ export async function GET(
       bodyText,
       formattedContent: cert.formatted_content ?? null,
       themeId: company.default_certificate_font_family ?? undefined,
+      // Mastervorlage (034): eigene Akzentfarbe und sichtbarer Echtheitsnachweis.
+      brandAccent: company.brand_accent ?? undefined,
+      showVerificationBlock: company.show_verification_block !== false,
 
       // Zeugnis-Override ⟶ Firmenvorgabe (identisch zur A4-Vorschau).
       signatory1Name: signatories.signatory_1_name ?? undefined,

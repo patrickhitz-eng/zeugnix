@@ -70,6 +70,13 @@ export interface DocxRenderInput {
   bodyText: string;
   formattedContent?: TiptapDoc | null;
   themeId?: string;
+  /** Eigene Akzentfarbe der Mastervorlage (companies.brand_accent). */
+  brandAccent?: string;
+  /**
+   * Sichtbarer Echtheitsnachweis. false: kein Hash-Block, stattdessen eine
+   * kleine Zeile «Arbeitskopie, nicht prüfbar» (companies.show_verification_block).
+   */
+  showVerificationBlock?: boolean;
 
   signatory1Name?: string;
   signatory1Role?: string;
@@ -572,6 +579,29 @@ async function hashBlock(input: DocxRenderInput, theme: DocumentTheme): Promise<
   return [new Paragraph({ spacing: { before: pt(T.space.hashBlockMarginTop) }, children: [] }), table];
 }
 
+// --- Ohne Echtheitsnachweis ------------------------------------------------
+
+/**
+ * Mastervorlage mit ausgeschaltetem Echtheitsnachweis: Word ist ohnehin frei
+ * bearbeitbar und damit nie prüfbar. Ohne den Hash-Block soll niemand die
+ * Datei für die versiegelte Fassung halten, darum dieser kleine Vermerk.
+ */
+function workingCopyNote(theme: DocumentTheme): Paragraph[] {
+  return [
+    new Paragraph({
+      spacing: { before: pt(T.space.hashBlockMarginTop) },
+      children: [
+        new TextRun({
+          text: "Arbeitskopie, nicht prüfbar. Die prüfbare Fassung ist das PDF.",
+          size: halfPt(T.fontSize.footer),
+          font: docxFont(theme.fonts.body),
+          color: hex(theme.colors.textSecondary),
+        }),
+      ],
+    }),
+  ];
+}
+
 // --- Fusszeile (Word-Section-Footer) ---------------------------------------
 
 function buildFooter(input: DocxRenderInput, theme: DocumentTheme): Footer | undefined {
@@ -601,7 +631,7 @@ function buildFooter(input: DocxRenderInput, theme: DocumentTheme): Footer | und
 // --- Dokument --------------------------------------------------------------
 
 export async function renderCertificateDocx(input: DocxRenderInput): Promise<Buffer> {
-  const theme = resolveTheme(input.themeId);
+  const theme = resolveTheme(input.themeId, input.brandAccent);
   const headingFont = docxFont(theme.fonts.heading);
   const bodyFont = docxFont(theme.fonts.body);
 
@@ -630,7 +660,9 @@ export async function renderCertificateDocx(input: DocxRenderInput): Promise<Buf
     title,
     ...bodyParagraphs(input, theme),
     ...signatures(input, theme),
-    ...(await hashBlock(input, theme)),
+    ...(input.showVerificationBlock === false
+      ? workingCopyNote(theme)
+      : await hashBlock(input, theme)),
   ];
 
   const footer = buildFooter(input, theme);

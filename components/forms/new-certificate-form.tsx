@@ -3,8 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+type ZeugnisTyp = "schluss" | "zwischen" | "arbeitsbestaetigung";
+
 interface Props {
-  companies: { id: string; name: string }[];
+  /** default_zeugnis_typ: Vorauswahl aus der Mastervorlage der Firma (034). */
+  companies: { id: string; name: string; default_zeugnis_typ?: string | null }[];
+}
+
+function vorlageTyp(company?: { default_zeugnis_typ?: string | null }): ZeugnisTyp {
+  const t = company?.default_zeugnis_typ;
+  return t === "zwischen" || t === "arbeitsbestaetigung" ? t : "schluss";
 }
 
 export function NewCertificateForm({ companies }: Props) {
@@ -15,9 +23,9 @@ export function NewCertificateForm({ companies }: Props) {
   // Schritt 1 wählt nur noch den Zeugnistyp. Austrittsgrund, Opt-ins und
   // Wertschätzungsgrad (der Schlusssatz-Cluster) werden auf der Detailseite
   // gesetzt (SchlusssatzControls), damit die A4-Vorschau direkt mitläuft.
-  const [zeugnisTyp, setZeugnisTyp] = useState<
-    "schluss" | "zwischen" | "arbeitsbestaetigung"
-  >("schluss");
+  // Startwert aus der Mastervorlage der zuerst gewählten Firma; ein Wechsel
+  // der Firma übernimmt deren Vorgabe.
+  const [zeugnisTyp, setZeugnisTyp] = useState<ZeugnisTyp>(() => vorlageTyp(companies[0]));
 
   // Mitarbeitende und Zeugnis entstehen in einem Aufruf an /api/certificates.
   // Bisher schrieb der Browser beide Datensätze direkt in die Datenbank. Der Weg
@@ -70,7 +78,14 @@ export function NewCertificateForm({ companies }: Props) {
       {/* Firma */}
       <Section title="Firma">
         <Field label="Firma">
-          <select name="company_id" required className="input">
+          <select
+            name="company_id"
+            required
+            className="input"
+            onChange={(e) =>
+              setZeugnisTyp(vorlageTyp(companies.find((c) => c.id === e.target.value)))
+            }
+          >
             {companies.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}

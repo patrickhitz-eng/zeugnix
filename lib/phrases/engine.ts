@@ -84,6 +84,11 @@ export interface CertificateData {
   date: string;
   companyName: string;
   companyAddress?: string;
+  /**
+   * Fester Firmenbeschrieb aus der Mastervorlage (companies.company_description).
+   * Steht als eigener Absatz direkt nach dem Einleitungssatz.
+   */
+  companyDescription?: string;
   // Optionale Wechsel-Details (nur bei Wechsel-Typen relevant; speisen die
   // _detail-Schlussbausteine via {neue_funktion}/{neue_firma}/{wechsel_datum}).
   newFunctionTitle?: string;
@@ -139,6 +144,15 @@ function substitute(
       /\{wechsel_datum\}/g,
       cert?.transitionDate ? formatDate(cert.transitionDate) : "",
     );
+}
+
+/**
+ * Firmenbeschrieb als ein Absatz. Leerzeilen im Eingabefeld würden den Text in
+ * mehrere Absätze zerlegen (Absätze trennt das Dokument an Leerzeilen); darum
+ * werden alle Umbrüche zu Leerzeichen.
+ */
+function companyDescriptionParagraph(certificate: CertificateData): string {
+  return (certificate.companyDescription ?? "").replace(/\s+/g, " ").trim();
 }
 
 // Skill-Metadaten (Reihenfolge + Thema) für die themengruppierte Generierung.
@@ -283,6 +297,8 @@ export function generateCertificate(
     secs.push(
       `${name}${geb} ${zeitraum} als ${employee.functionTitle} in unserem Unternehmen tätig.`,
     );
+    const descriptionAb = companyDescriptionParagraph(certificate);
+    if (descriptionAb) secs.push(descriptionAb);
     if (
       employee.employmentPercentage != null &&
       employee.employmentPercentage < 100
@@ -334,6 +350,10 @@ export function generateCertificate(
       `${employee.firstName} ${employee.lastName} war als ${employee.functionTitle} in unserem Unternehmen tätig.`,
     );
   }
+
+  // ----- Firmenbeschrieb (Mastervorlage) -----
+  const description = companyDescriptionParagraph(certificate);
+  if (description) sections.push(description);
 
   // ----- Aufgabenbeschreibung -----
   // Wie oben: gesäubert, und die Überschrift nur, wenn darunter auch etwas steht.
