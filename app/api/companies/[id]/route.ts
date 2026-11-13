@@ -27,8 +27,8 @@ export async function PATCH(
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
-  if (!(await userHasCompanyPermission(supabase, id, user.id, "admin"))) {
-    return NextResponse.json({ error: permissionDeniedMessage("admin") }, { status: 403 });
+  if (!(await userHasCompanyPermission(supabase, id, user.id, "company"))) {
+    return NextResponse.json({ error: permissionDeniedMessage("company") }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;

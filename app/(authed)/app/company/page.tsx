@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getCompanyPermissions } from "@/lib/auth/ownership";
 import { CompanyForm } from "@/components/forms/company-form";
 import {
   CompanyDomainControls,
@@ -40,6 +41,13 @@ export default async function CompanyPage() {
     (myOrgs ?? []).filter((m: any) => m.role === "admin").map((m: any) => m.organization_id),
   );
   const canCreate = (myOrgs ?? []).length === 0 || adminOrgIds.size > 0;
+
+  // Feinrecht «Firmendaten und Vorlage» (Migration 035): auch ohne Admin-Rolle.
+  const companyEditable = new Set<string>();
+  for (const c of companies ?? []) {
+    if (adminOrgIds.has(c.organization_id)) continue;
+    if ((await getCompanyPermissions(supabase, c.id)).has("company")) companyEditable.add(c.id);
+  }
 
   // Domains aller sichtbaren Firmen laden (RLS: nur eigene) und je Firma gruppieren.
   const companyIds = (companies ?? []).map((c: any) => c.id);
@@ -87,9 +95,18 @@ export default async function CompanyPage() {
                 )}
               </div>
               {!adminOrgIds.has(c.organization_id) ? (
-                <p className="rounded-md border border-ink-200 bg-white px-4 py-3 text-[12.5px] text-ink-600">
-                  Firmendaten, Logo und Unterzeichnende pflegt der Admin Ihrer Organisation.
-                </p>
+                companyEditable.has(c.id) ? (
+                  <div className="space-y-3">
+                    <p className="rounded-md border border-ink-200 bg-white px-4 py-3 text-[12.5px] text-ink-600">
+                      Sie pflegen Firmendaten, Logo und Vorlage dieser Firma. Die Domain bestätigt der Admin Ihrer Organisation.
+                    </p>
+                    <CompanyForm company={c} />
+                  </div>
+                ) : (
+                  <p className="rounded-md border border-ink-200 bg-white px-4 py-3 text-[12.5px] text-ink-600">
+                    Firmendaten, Logo und Unterzeichnende pflegt der Admin Ihrer Organisation.
+                  </p>
+                )
               ) : (
               <div className="space-y-6">
                 <CompanyDomainControls

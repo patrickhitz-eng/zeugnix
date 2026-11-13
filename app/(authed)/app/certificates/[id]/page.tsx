@@ -15,7 +15,7 @@ import {
 import { CertificateWorkspace } from "@/components/app/certificate-workspace";
 import { CertificateManage } from "@/components/app/certificate-manage";
 import { isCertificateLocked } from "@/lib/certificate/status";
-import { getCompanyRole, roleAllows } from "@/lib/auth/ownership";
+import { getCompanyPermissions } from "@/lib/auth/ownership";
 import Link from "next/link";
 
 interface PageProps {
@@ -80,12 +80,13 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   // Unterzeichner-/Editor-Formulare fuer ein widerrufenes Zeugnis wieder
   // freigeschaltet.
   const isLocked = isCertificateLocked(cert.status);
-  // Rolle in dieser Firma (Migration 033). «Lesen» sieht alles, ändert nichts:
-  // die Formulare verhalten sich dann wie bei einem finalisierten Zeugnis.
-  // Die Grenze ziehen Server und Datenbank; das hier spart nur Fehlklicks.
-  const role = await getCompanyRole(supabase, cert.company_id);
-  const canEdit = roleAllows(role, "edit");
-  const canSeal = roleAllows(role, "seal");
+  // Rechte in dieser Firma (Rolle aus 033, Feinrechte aus 035). «Lesen» sieht
+  // alles, ändert nichts: die Formulare verhalten sich dann wie bei einem
+  // finalisierten Zeugnis. Die Grenze ziehen Server und Datenbank; das hier
+  // spart nur Fehlklicks.
+  const permissions = await getCompanyPermissions(supabase, cert.company_id);
+  const canEdit = permissions.has("edit");
+  const canSeal = permissions.has("seal");
   const formsLocked = isLocked || !canEdit;
   const hasText = !!cert.generated_text;
   const isArchived = !!cert.archived_at;

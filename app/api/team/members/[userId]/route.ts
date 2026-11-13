@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createClient } from "@/lib/db/supabase-server";
-import { isUuid, parseMemberUpdate } from "@/lib/team/invitations";
+import { permissionDeniedMessage } from "@/lib/auth/ownership";
+import { isUuid, parseMemberUpdate, TEAM_MANAGER_ROLES } from "@/lib/team/invitations";
 import { logError } from "@/lib/log";
 
 /**
@@ -9,10 +10,14 @@ import { logError } from "@/lib/log";
  * Body: { organizationId, orgRole?: 'admin'|'mitglied', active?: boolean,
  *         access?: { [companyId]: 'hr_leitung'|'hr'|'lesen'|null } }
  *
- * Ein Admin ändert Rolle, Status oder Firmenzugänge einer Person. Alles läuft
- * mit der Sitzung des Admins; die Zeilenregeln aus 033 lassen nur Admins der
- * Organisation schreiben. Die letzte aktive Admin-Person schützt ein Trigger
- * in der Datenbank – hier wird daraus eine verständliche Meldung.
+ * Ein Admin ändert Rolle, Status, Firmenzugänge oder Feinrechte einer Person.
+ * Wer das Feinrecht «Team verwalten» hat (035), ändert nur Firmenzugänge in
+ * seinen Firmen, und nur zwischen HR, Lesen und keinem Zugang. Alles läuft mit
+ * der Sitzung; die Zeilenregeln aus 033 und 035 ziehen die Grenze. Die letzte
+ * aktive Admin-Person schützt ein Trigger in der Datenbank – hier wird daraus
+ * eine verständliche Meldung.
+ *
+ * Body zusätzlich: rights?: { [companyId]: { seal?: boolean|null, team?: boolean, company?: boolean } }
  *
  * Austritt = active:false. Die Person verliert sofort jeden Zugriff, ihre
  * versiegelten Zeugnisse bleiben gültig (das Siegel trägt die Namen im Text,
@@ -36,7 +41,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
 
   const { data: isAdmin } = await supabase.rpc("zeugnio_is_org_admin", { p_org_id: input.organizationId });
   if (!isAdmin) {
-    return NextResponse.json({ error: "Das darf nur ein Admin der Organisation." }, { status: 403 });
+    // Feinrecht «Team verwalten» (035): nur Firmenzugänge, nur HR oder Lesen,
+    // nur in Firmen mit diesem Recht, nie die eigene Zeile. Die Zeilenregeln
+    // aus 035 ziehen dieselbe Grenze; hier entstehen die klaren Meldungen.
+    if (input.orgRole !== undefined || input.active !== undefined || input.rights !== undefined || !input.access) {
+      return NextResponse.json({ error: "Das darf nur ein Admin der Organisation." }, { status: 403 });
+    }
+    if (userId === user.id) {
+      return NextResponse.json({ error: "Die eigenen Rechte ändert der Admin der Organisation." }, { status: 403 });
+    }
+    for (const [companyId, role] of Object.entries(input.access)) {
+      if (role !== null && !TEAM_MANAGER_ROLES.includes(role)) {
+        return NextResponse.json({ error: "Sie können nur die Rollen HR und Lesen vergeben." }, { status: 403 });
+      }
+      const { data: canManage } = await supabase.rpc("zeugnio_can_manage_team", { p_company_id: companyId });
+      if (!canManage) {
+        return NextResponse.json({ error: permissionDeniedMessage("team") }, { status: 403 });
+      }
+    }
   }
 
   if (input.orgRole !== undefined || input.active !== undefined) {
@@ -76,9 +98,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
       return NextResponse.json({ error: "Eine Firma gehört nicht zu dieser Organisation." }, { status: 400 });
     }
 
+    // Wer auf «Lesen» geht, verliert eine Versiegel-Abweichung: Lesen kann
+    // ohnehin nicht finalisieren (Check-Regel in 035).
     const grant = Object.entries(input.access)
       .filter(([, role]) => role !== null)
-      .map(([company_id, access_role]) => ({ company_id, user_id: userId, access_role }));
+      .map(([company_id, access_role]) =>
+        access_role === "lesen"
+          ? { company_id, user_id: userId, access_role, seal_override: null }
+          : { company_id, user_id: userId, access_role },
+      );
     const revoke = Object.entries(input.access)
       .filter(([, role]) => role === null)
       .map(([companyId]) => companyId);
@@ -86,19 +114,79 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     if (grant.length > 0) {
       const { error } = await supabase.from("company_members").upsert(grant, { onConflict: "company_id,user_id" });
       if (error) {
+        if (error.code === "42501") {
+          return NextResponse.json(
+            { error: "Diese Person hat Rechte, die nur der Admin der Organisation ändern kann." },
+            { status: 403 },
+          );
+        }
         logError("[team/members] Firmenzugang nicht gespeichert:", error);
         return NextResponse.json({ error: "Der Firmenzugang liess sich nicht speichern." }, { status: 500 });
       }
     }
     if (revoke.length > 0) {
-      const { error } = await supabase
+      const { data: removed, error } = await supabase
         .from("company_members")
         .delete()
         .eq("user_id", userId)
-        .in("company_id", revoke);
+        .in("company_id", revoke)
+        .select("company_id");
       if (error) {
         logError("[team/members] Firmenzugang nicht entfernt:", error);
         return NextResponse.json({ error: "Der Firmenzugang liess sich nicht entfernen." }, { status: 500 });
+      }
+      // Ohne Admin verhindert die Zeilenregel stumm das Löschen geschützter Zeilen.
+      if (!isAdmin && (removed ?? []).length < revoke.length) {
+        return NextResponse.json(
+          { error: "Diese Person hat Rechte, die nur der Admin der Organisation ändern kann." },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
+  // Feinrechte (035): nur die Admin-Person, und nur auf bestehende Zugänge.
+  if (input.rights) {
+    const companyIds = Object.keys(input.rights);
+    const { data: rows } = await supabase
+      .from("company_members")
+      .select("company_id, access_role, companies!inner(organization_id)")
+      .eq("user_id", userId)
+      .in("company_id", companyIds)
+      .eq("companies.organization_id", input.organizationId);
+    const roleByCompany = new Map((rows ?? []).map((r: any) => [r.company_id as string, r.access_role as string]));
+
+    for (const [companyId, r] of Object.entries(input.rights)) {
+      const role = roleByCompany.get(companyId);
+      if (!role) {
+        return NextResponse.json(
+          { error: "Feinrechte gibt es nur für Firmen, auf die die Person Zugriff hat." },
+          { status: 400 },
+        );
+      }
+      if (r.seal !== undefined && r.seal !== null && role === "lesen") {
+        return NextResponse.json(
+          { error: "Mit der Rolle «Lesen» lässt sich nicht versiegeln. Wählen Sie zuerst HR oder HR-Leitung." },
+          { status: 400 },
+        );
+      }
+      const patch: Record<string, unknown> = {};
+      if (r.seal !== undefined) patch.seal_override = r.seal;
+      if (r.team !== undefined) patch.may_manage_team = r.team;
+      if (r.company !== undefined) patch.may_edit_company = r.company;
+
+      const { data: updated, error } = await supabase
+        .from("company_members")
+        .update(patch)
+        .eq("company_id", companyId)
+        .eq("user_id", userId)
+        .select("company_id");
+      if (error) {
+        logError("[team/members] Feinrechte nicht gespeichert:", error);
+        return NextResponse.json({ error: "Die Feinrechte liessen sich nicht speichern." }, { status: 500 });
+      }
+      if (!updated || updated.length === 0) {
+        return NextResponse.json({ error: "Die Feinrechte liessen sich nicht speichern." }, { status: 403 });
       }
     }
   }
