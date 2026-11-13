@@ -65,9 +65,9 @@
       "warum": "Der alte Satz war unvollständig (wen unterstützt die Person?) und wirkte dadurch codiert."
     },
     "lenkung_arbeitsleistung|genuegend|3": {
-      "praesens": "{{Er|Sie|Er/Sie}} motiviert {{seine|ihre|seine/ihre}} Mitarbeitenden und gibt ihnen klare Handlungsanweisungen.",
-      "praeteritum": "{{Er|Sie|Er/Sie}} motivierte {{seine|ihre|seine/ihre}} Mitarbeitenden und gab ihnen klare Handlungsanweisungen.",
-      "warum": "«ausreichende Handlungsanweisungen» wird als Abwertung gelesen; neu ist es ein klares Ja."
+      "praesens": "{{Er|Sie|Er/Sie}} motiviert {{seine|ihre|seine/ihre}} Mitarbeitenden und leitet sie verständlich an.",
+      "praeteritum": "{{Er|Sie|Er/Sie}} motivierte {{seine|ihre|seine/ihre}} Mitarbeitenden und leitete sie verständlich an.",
+      "warum": "«ausreichende Handlungsanweisungen» wird als Abwertung gelesen, und «gab klare Anweisungen» gilt laut deiner Notenskala bei Führungskräften als Code."
     },
     "lenkung_arbeitsleistung|ungenuegend|1": {
       "praesens": "{{Er|Sie|Er/Sie}} setzt {{seinen|ihren|seinen/ihren}} Mitarbeitenden klare Ziele. Die Leistung des Teams gezielt zu lenken und zu fördern, gelingt {{ihm|ihr|ihm/ihr}} jedoch nicht immer.",
@@ -80,8 +80,8 @@
       "warum": "Alt bleibt offen, was ohne Unterstützung geschieht; neu ist die Bewertung ausgesprochen."
     },
     "lenkung_arbeitsleistung|ungenuegend|3": {
-      "praesens": "{{Er|Sie|Er/Sie}} ist für {{seine|ihre|seine/ihre}} Mitarbeitenden ansprechbar. Es fällt {{ihm|ihr|ihm/ihr}} jedoch schwer, sie zu motivieren, und {{seine|ihre|seine/ihre}} Handlungsanweisungen sind nicht immer klar genug.",
-      "praeteritum": "{{Er|Sie|Er/Sie}} war für {{seine|ihre|seine/ihre}} Mitarbeitenden ansprechbar. Es fiel {{ihm|ihr|ihm/ihr}} jedoch schwer, sie zu motivieren, und {{seine|ihre|seine/ihre}} Handlungsanweisungen waren nicht immer klar genug.",
+      "praesens": "{{Er|Sie|Er/Sie}} ist für {{seine|ihre|seine/ihre}} Mitarbeitenden ansprechbar. Es fällt {{ihm|ihr|ihm/ihr}} jedoch häufig schwer, sie zu motivieren, und {{seine|ihre|seine/ihre}} Handlungsanweisungen sind nicht immer klar genug.",
+      "praeteritum": "{{Er|Sie|Er/Sie}} war für {{seine|ihre|seine/ihre}} Mitarbeitenden ansprechbar. Es fiel {{ihm|ihr|ihm/ihr}} jedoch häufig schwer, sie zu motivieren, und {{seine|ihre|seine/ihre}} Handlungsanweisungen waren nicht immer klar genug.",
       "warum": "Die Kritik bleibt gleich deutlich, bekommt aber eine Brücke zur Ansprechbarkeit."
     },
 
@@ -175,8 +175,8 @@
       "warum": "«mehrheitlich» ist ein Abschwächer mit Code-Wirkung; neu ist klar, was fehlt."
     },
     "initiativ_fleiss|ungenuegend|3": {
-      "praesens": "Klar umrissene Aufgaben erledigt {vorname} {nachname} selbständig. Es fällt {{ihm|ihr|ihm/ihr}} jedoch schwer, eigene Initiative zu entwickeln und sich darüber hinaus zu engagieren.",
-      "praeteritum": "Klar umrissene Aufgaben erledigte {vorname} {nachname} selbständig. Es fiel {{ihm|ihr|ihm/ihr}} jedoch schwer, eigene Initiative zu entwickeln und sich darüber hinaus zu engagieren.",
+      "praesens": "Klar umrissene Aufgaben erledigt {vorname} {nachname} selbständig. Es fällt {{ihm|ihr|ihm/ihr}} jedoch häufig schwer, eigene Initiative zu entwickeln und sich darüber hinaus zu engagieren.",
+      "praeteritum": "Klar umrissene Aufgaben erledigte {vorname} {nachname} selbständig. Es fiel {{ihm|ihr|ihm/ihr}} jedoch häufig schwer, eigene Initiative zu entwickeln und sich darüber hinaus zu engagieren.",
       "warum": "Die Kritik bleibt, «teilweise» fällt weg, und eine Brücke zur Selbständigkeit kommt dazu."
     },
 
@@ -218,8 +218,8 @@
       "warum": "Alt («den erwarteten Beitrag») sagt wörtlich «genügend»."
     },
     "unternehmensbeitrag|ungenuegend|2": {
-      "praesens": "Mit {{seinem|ihrem|seinem/ihrem}} Einsatz trägt {{er|sie|er/sie}} zu den Ergebnissen im eigenen Verantwortungsbereich bei. Dieser Beitrag bleibt jedoch unter dem, was die Stelle erfordert.",
-      "praeteritum": "Mit {{seinem|ihrem|seinem/ihrem}} Einsatz trug {{er|sie|er/sie}} zu den Ergebnissen im eigenen Verantwortungsbereich bei. Dieser Beitrag blieb jedoch unter dem, was die Stelle erforderte.",
+      "praesens": "Mit {{seinem|ihrem|seinem/ihrem}} Einsatz trägt {{er|sie|er/sie}} zu den Ergebnissen im eigenen Verantwortungsbereich bei. Dieser Beitrag bleibt jedoch wiederholt unter dem, was die Stelle erfordert.",
+      "praeteritum": "Mit {{seinem|ihrem|seinem/ihrem}} Einsatz trug {{er|sie|er/sie}} zu den Ergebnissen im eigenen Verantwortungsbereich bei. Dieser Beitrag blieb jedoch wiederholt unter dem, was die Stelle erforderte.",
       "warum": "Alt klingt neutral und meint «ungenügend» nur durch das fehlende «angemessen»."
     },
     "unternehmensbeitrag|ungenuegend|3": {
@@ -522,9 +522,9 @@
       "warum": "«meist» ist ein Codewort; neu ist klar, dass Ziele verfehlt werden."
     },
     "zielerreichung|ungenuegend|3": {
-      "praesens": "In einzelnen Bereichen erfüllt {{er|sie|er/sie}} die qualitativen und quantitativen Vorgaben. Insgesamt entsprechen {{seine|ihre|seine/ihre}} Leistungen jedoch nicht unseren Erwartungen.",
-      "praeteritum": "In einzelnen Bereichen erfüllte {{er|sie|er/sie}} die qualitativen und quantitativen Vorgaben. Insgesamt entsprachen {{seine|ihre|seine/ihre}} Leistungen jedoch nicht unseren Erwartungen.",
-      "warum": "«meist zufrieden» ist ein Code; neu sind Teilerfolg und Gesamturteil offen benannt."
+      "praesens": "In einzelnen Bereichen erfüllt {{er|sie|er/sie}} die qualitativen und quantitativen Vorgaben. In anderen bleiben {{seine|ihre|seine/ihre}} Leistungen jedoch hinter unseren Erwartungen zurück.",
+      "praeteritum": "In einzelnen Bereichen erfüllte {{er|sie|er/sie}} die qualitativen und quantitativen Vorgaben. In anderen blieben {{seine|ihre|seine/ihre}} Leistungen jedoch hinter unseren Erwartungen zurück.",
+      "warum": "«meist zufrieden» ist der Code, den Häusermann als Beispiel nennt; neu sind Teilerfolg und Lücke offen benannt, ohne absolutes Urteil."
     },
 
     "zufriedenheit_leistung|genuegend|1": {
@@ -657,8 +657,8 @@
       "warum": "«ordnet sich ein» ist Code für Unterordnung ohne eigenen Beitrag."
     },
     "teamfaehigkeit|ungenuegend|3": {
-      "praesens": "Eigenständige Aufgaben erledigt {{er|sie|er/sie}} gut. Die Arbeit im Team fällt {{ihm|ihr|ihm/ihr}} jedoch schwer, und {{er|sie|er/sie}} stimmt sich zu wenig mit den anderen ab.",
-      "praeteritum": "Eigenständige Aufgaben erledigte {{er|sie|er/sie}} gut. Die Arbeit im Team fiel {{ihm|ihr|ihm/ihr}} jedoch schwer, und {{er|sie|er/sie}} stimmte sich zu wenig mit den anderen ab.",
+      "praesens": "Eigenständige Aufgaben erledigt {{er|sie|er/sie}} gut. Die Arbeit im Team fällt {{ihm|ihr|ihm/ihr}} jedoch wiederholt schwer, und {{er|sie|er/sie}} stimmt sich zu wenig mit den anderen ab.",
+      "praeteritum": "Eigenständige Aufgaben erledigte {{er|sie|er/sie}} gut. Die Arbeit im Team fiel {{ihm|ihr|ihm/ihr}} jedoch wiederholt schwer, und {{er|sie|er/sie}} stimmte sich zu wenig mit den anderen ab.",
       "warum": "Die Kritik bleibt deutlich, bekommt aber eine Brücke; «einordnen» fällt weg."
     },
 
@@ -678,8 +678,8 @@
       "warum": "Alt klingt neutral und meint «ungenügend» nur durch Weglassen."
     },
     "offenheit_fuer_feedback|ungenuegend|3": {
-      "praesens": "{{Er|Sie|Er/Sie}} vertritt {{seine|ihre|seine/ihre}} Standpunkte mit Überzeugung. Andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen, fällt {{ihm|ihr|ihm/ihr}} jedoch schwer.",
-      "praeteritum": "{{Er|Sie|Er/Sie}} vertrat {{seine|ihre|seine/ihre}} Standpunkte mit Überzeugung. Andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen, fiel {{ihm|ihr|ihm/ihr}} jedoch schwer.",
+      "praesens": "{{Er|Sie|Er/Sie}} vertritt {{seine|ihre|seine/ihre}} Standpunkte mit Überzeugung. Andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen, fällt {{ihm|ihr|ihm/ihr}} jedoch oft schwer.",
+      "praeteritum": "{{Er|Sie|Er/Sie}} vertrat {{seine|ihre|seine/ihre}} Standpunkte mit Überzeugung. Andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen, fiel {{ihm|ihr|ihm/ihr}} jedoch oft schwer.",
       "warum": "Die Kritik bleibt, bekommt aber eine Brücke zur Überzeugungskraft."
     },
     "offenheit_fuer_feedback|ungenuegend|4": {
@@ -741,8 +741,8 @@
       "warum": "«vertraut Bewährtem» ist Code; alt war zudem fast gleich wie Variante 1."
     },
     "flexibilitaet|ungenuegend|3": {
-      "praesens": "In vertrauten Abläufen arbeitet {{er|sie|er/sie}} sicher. Auf veränderte Situationen kann {{er|sie|er/sie}} sich jedoch nur schwer einstellen.",
-      "praeteritum": "In vertrauten Abläufen arbeitete {{er|sie|er/sie}} sicher. Auf veränderte Situationen konnte {{er|sie|er/sie}} sich jedoch nur schwer einstellen.",
+      "praesens": "In vertrauten Abläufen arbeitet {{er|sie|er/sie}} sicher. Auf veränderte Situationen stellt {{er|sie|er/sie}} sich jedoch oft nur langsam ein.",
+      "praeteritum": "In vertrauten Abläufen arbeitete {{er|sie|er/sie}} sicher. Auf veränderte Situationen stellte {{er|sie|er/sie}} sich jedoch oft nur langsam ein.",
       "warum": "Die Kritik bleibt, bekommt aber eine Brücke zur Sicherheit im Vertrauten."
     },
 

@@ -19,7 +19,25 @@ Die neue Fassung folgt drei Regeln:
 
 **Wichtig für die Auswahl:** Jede Fähigkeit hat mehrere Varianten. Die Stärke in der Brücke muss auf die Person zutreffen. HR wählt die Variante, die stimmt, und passt sie bei Bedarf an. Varianten mit einem Entwicklungsschritt (zum Beispiel «hat sich spürbar verbessert») nur wählen, wenn das zutrifft.
 
-**Deine Rückmeldung:** Am einfachsten pro Zeile mit der Nummer, zum Beispiel «U-17: zu hart» oder «G-4: ok». Wir passen die Texte an und schalten sie erst nach deinem Okay frei.
+**Deine Rückmeldung:** Am einfachsten pro Zeile mit der Nummer, zum Beispiel «U-17: zu hart» oder «G-4: ok». Die Texte sind auf zeugnio.ch bereits aktiv, damit du sie direkt im Tool ausprobieren kannst. Wir passen sie nach deiner Rückmeldung an.
+
+## Grundlage: deine Unterlagen vom 7. Juli
+
+- **Häusermann, «Uncodierte, transparente Arbeitszeugnisse»:** Brückentechnik (positiv, negativ, positiv) und keine absoluten Negativaussagen. Darum steht bei Schwächen «nicht immer», «wiederholt» oder «häufig» und nicht «war nicht in der Lage».
+- **Notenskala_Formulierung:** Alle Codes der Noten 5 und 6 («bemüht», «versucht», «bestrebt», «nach Kräften», «im Wesentlichen», «verständnisvoll», «gab klare Anweisungen» usw.) sperrt der Test. Kein Baustein unter «gut» enthält sie.
+- **First-Merkblatt 2017:** wahr, wohlwollend, vollständig, klar. Die ganze Anstellungsdauer zählt, nicht ein einzelner Vorfall. Uncodiert ist Usanz.
+
+## Am Beispiel deines Testzeugnisses «Hans Musterli»
+
+Dein Testzeugnis vom 21. August enthält drei «ungenügend»-Sätze. So sehen sie neu aus:
+
+| Alt (im Testzeugnis) | Neu |
+|---|---|
+| Die Leistungen von Hans Musterli entsprachen nicht immer unseren Erwartungen. | Die Leistungen von Hans Musterli entsprachen nicht immer unseren Erwartungen, auch wenn er einzelne Aufgaben in guter Qualität erledigte. |
+| Das Verhalten von Hans Musterli gegenüber Vorgesetzten, anderen Mitarbeitenden, Kunden und Geschäftspartnern war angemessen. | Hans Musterli war Vorgesetzten, anderen Mitarbeitenden, Kunden und Geschäftspartnern gegenüber hilfsbereit. Sein Umgangston war jedoch nicht immer angemessen. |
+| Zu seinen Eigenschaften gehörte, dass er sich um ein gutes Verhältnis zu seinem Team bemühte. | Fachlich unterstützte er sein Team. Zu einer guten Zusammenarbeit trug er jedoch nicht immer bei. |
+
+Im selben Zeugnis steht danach der Schlusssatz «… danken ihm für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen». Neben drei «ungenügend» widerspricht er dem Rest. Der Schlusssatz wird separat gewählt und gehört nicht zu dieser Änderung. Ein Hinweis im Tool bei solchen Widersprüchen wäre ein möglicher nächster Schritt.
 
 ## Führung (nur Führungskräfte)
 
@@ -54,10 +72,10 @@ Die neue Fassung folgt drei Regeln:
 | Nr. | Stufe | Alt | Neu | Warum besser |
 |---|---|---|---|---|
 | G-5 | genügend 1 | Sie fördert die Arbeitsleistung ihrer Mitarbeitenden bewusst. Gleichzeitig unterstützt sie durch erreichbare und messbare Zielsetzungen. | Sie fördert die Arbeitsleistung ihrer Mitarbeitenden und unterstützt sie mit erreichbaren und messbaren Zielen. | Der alte Satz war unvollständig (wen unterstützt die Person?) und wirkte dadurch codiert. |
-| G-6 | genügend 3 | Sie kann die Mitarbeitenden motivieren und erteilt ausreichende Handlungsanweisungen. | Sie motiviert ihre Mitarbeitenden und gibt ihnen klare Handlungsanweisungen. | «ausreichende Handlungsanweisungen» wird als Abwertung gelesen; neu ist es ein klares Ja. |
+| G-6 | genügend 3 | Sie kann die Mitarbeitenden motivieren und erteilt ausreichende Handlungsanweisungen. | Sie motiviert ihre Mitarbeitenden und leitet sie verständlich an. | «ausreichende Handlungsanweisungen» wird als Abwertung gelesen, und «gab klare Anweisungen» gilt laut deiner Notenskala bei Führungskräften als Code. |
 | U-8 | ungenügend 1 | Sie fördert die Arbeitsleistung ihrer Mitarbeitenden. Gleichzeitig unterstützt sie durch geeignete Zielsetzungen. | Sie setzt ihren Mitarbeitenden klare Ziele. Die Leistung des Teams gezielt zu lenken und zu fördern, gelingt ihr jedoch nicht immer. | Alt klingt wie ein Lob und meint «ungenügend» nur durch Weglassen; neu ist die Lücke benannt. |
 | U-9 | ungenügend 2 | Mit Unterstützung gelingt es ihr, ihre Mitarbeitenden zu Leistungen zu motivieren. | Mit Unterstützung gelingt es ihr, ihre Mitarbeitenden zu motivieren. Aus eigener Kraft erreicht sie dies noch nicht in dem Mass, das ihre Führungsrolle erfordert. | Alt bleibt offen, was ohne Unterstützung geschieht; neu ist die Bewertung ausgesprochen. |
-| U-10 | ungenügend 3 | Sie kann die Mitarbeitenden teilweise nur schwer motivieren und erteilt manchmal unzureichende Handlungsanweisungen. | Sie ist für ihre Mitarbeitenden ansprechbar. Es fällt ihr jedoch schwer, sie zu motivieren, und ihre Handlungsanweisungen sind nicht immer klar genug. | Die Kritik bleibt gleich deutlich, bekommt aber eine Brücke zur Ansprechbarkeit. |
+| U-10 | ungenügend 3 | Sie kann die Mitarbeitenden teilweise nur schwer motivieren und erteilt manchmal unzureichende Handlungsanweisungen. | Sie ist für ihre Mitarbeitenden ansprechbar. Es fällt ihr jedoch häufig schwer, sie zu motivieren, und ihre Handlungsanweisungen sind nicht immer klar genug. | Die Kritik bleibt gleich deutlich, bekommt aber eine Brücke zur Ansprechbarkeit. |
 
 ### Aktives Change Management
 
@@ -102,7 +120,7 @@ Die neue Fassung folgt drei Regeln:
 | G-11 | genügend 3 | Mit der Initiative von Lena Muster und dem Engagement in ihrem Aufgabenbereich sind wir zufrieden. | Initiative und Engagement von Lena Muster entsprechen den Anforderungen ihres Aufgabenbereichs. | «wir sind zufrieden» ist die Zufriedenheitsformel und wird als Abwertung gelesen. |
 | U-21 | ungenügend 1 | Lena Muster zeigt Initiative und Fleiss in ausreichendem Masse. | Lena Muster erledigt die übertragenen Aufgaben. Eigeninitiative und Einsatz bleiben jedoch hinter unseren Erwartungen zurück. | Alt («in ausreichendem Masse») sagt wörtlich «genügend», steht aber bei «ungenügend». |
 | U-22 | ungenügend 2 | Lena Muster erledigt die Arbeiten mehrheitlich auftragsgemäss. | Lena Muster nimmt Aufträge bereitwillig an, erledigt sie jedoch nicht immer vollständig und wie vereinbart. | «mehrheitlich» ist ein Abschwächer mit Code-Wirkung; neu ist klar, was fehlt. |
-| U-23 | ungenügend 3 | Lena Muster fällt es teilweise schwer, Initiative zu entwickeln und sich für ihren Aufgabenbereich zu engagieren. | Klar umrissene Aufgaben erledigt Lena Muster selbständig. Es fällt ihr jedoch schwer, eigene Initiative zu entwickeln und sich darüber hinaus zu engagieren. | Die Kritik bleibt, «teilweise» fällt weg, und eine Brücke zur Selbständigkeit kommt dazu. |
+| U-23 | ungenügend 3 | Lena Muster fällt es teilweise schwer, Initiative zu entwickeln und sich für ihren Aufgabenbereich zu engagieren. | Klar umrissene Aufgaben erledigt Lena Muster selbständig. Es fällt ihr jedoch häufig schwer, eigene Initiative zu entwickeln und sich darüber hinaus zu engagieren. | Die Kritik bleibt, «teilweise» fällt weg, und eine Brücke zur Selbständigkeit kommt dazu. |
 
 ### Selbständigkeit nach Eintritt
 
@@ -125,7 +143,7 @@ Die neue Fassung folgt drei Regeln:
 | Nr. | Stufe | Alt | Neu | Warum besser |
 |---|---|---|---|---|
 | U-29 | ungenügend 1 | Aufgrund ihrer Mitarbeit leistet sie den erwarteten Beitrag in ihrem Team. | Sie arbeitet im Team mit. Ihr Beitrag zum gemeinsamen Ergebnis entspricht jedoch nicht immer den Anforderungen ihrer Funktion. | Alt («den erwarteten Beitrag») sagt wörtlich «genügend». |
-| U-30 | ungenügend 2 | Mit ihrem Einsatz leistet sie einen Beitrag im eigenen Verantwortungsbereich. | Mit ihrem Einsatz trägt sie zu den Ergebnissen im eigenen Verantwortungsbereich bei. Dieser Beitrag bleibt jedoch unter dem, was die Stelle erfordert. | Alt klingt neutral und meint «ungenügend» nur durch das fehlende «angemessen». |
+| U-30 | ungenügend 2 | Mit ihrem Einsatz leistet sie einen Beitrag im eigenen Verantwortungsbereich. | Mit ihrem Einsatz trägt sie zu den Ergebnissen im eigenen Verantwortungsbereich bei. Dieser Beitrag bleibt jedoch wiederholt unter dem, was die Stelle erfordert. | Alt klingt neutral und meint «ungenügend» nur durch das fehlende «angemessen». |
 | U-31 | ungenügend 3 | In ihrem Denken und Handeln berücksichtigt Lena Muster übergeordnete Zielsetzungen der gesamten Organisation zu wenig konsequent, was sich auf die Ergebnisse im eigenen Verantwortungsbereich auswirkt. | Lena Muster konzentriert sich auf die Aufgaben im eigenen Verantwortungsbereich. Übergeordnete Ziele der Organisation berücksichtigt sie dabei zu wenig konsequent, was sich auf ihre Ergebnisse auswirkt. | Die Kritik bleibt gleich, beginnt aber mit dem, was die Person tut (Brücke). |
 
 ### Berufserfahrung
@@ -255,7 +273,7 @@ Die neue Fassung folgt drei Regeln:
 | G-29 | genügend 3 | Die qualitativen und quantitativen Vorgaben erfüllt sie. Mit ihren Leistungen sind wir zufrieden. | Die qualitativen und quantitativen Vorgaben erfüllt sie. Ihre Leistungen entsprechen damit unseren Erwartungen. | «wir sind zufrieden» ist die Zufriedenheitsformel und wird als Abwertung gelesen. |
 | U-69 | ungenügend 1 | Dabei erreicht sie meist viele vereinbarte Ziele. | Dabei erreicht sie einen Teil der vereinbarten Ziele, jedoch nicht alle. | «meist viele» ist ein Codewort; neu ist das Ergebnis offen benannt. |
 | U-70 | ungenügend 2 | Dabei erreicht sie meist vereinbarte Ziele. | Dabei arbeitet sie auf die vereinbarten Ziele hin, erreicht sie jedoch nicht immer. | «meist» ist ein Codewort; neu ist klar, dass Ziele verfehlt werden. |
-| U-71 | ungenügend 3 | Die qualitativen und quantitativen Vorgaben erfüllt sie nicht immer. Mit ihren Leistungen sind wir meist zufrieden. | In einzelnen Bereichen erfüllt sie die qualitativen und quantitativen Vorgaben. Insgesamt entsprechen ihre Leistungen jedoch nicht unseren Erwartungen. | «meist zufrieden» ist ein Code; neu sind Teilerfolg und Gesamturteil offen benannt. |
+| U-71 | ungenügend 3 | Die qualitativen und quantitativen Vorgaben erfüllt sie nicht immer. Mit ihren Leistungen sind wir meist zufrieden. | In einzelnen Bereichen erfüllt sie die qualitativen und quantitativen Vorgaben. In anderen bleiben ihre Leistungen jedoch hinter unseren Erwartungen zurück. | «meist zufrieden» ist der Code, den Häusermann als Beispiel nennt; neu sind Teilerfolg und Lücke offen benannt, ohne absolutes Urteil. |
 
 ### Zufriedenheit mit Leistung
 
@@ -308,7 +326,7 @@ Die neue Fassung folgt drei Regeln:
 | G-37 | genügend 3 | Sie fügt sich ins Team ein und arbeitet mit den Anderen zusammen. | Sie arbeitet gut mit den anderen im Team zusammen und hilft aus, wenn es nötig ist. | «fügt sich ein» ist Code für Anpassung ohne eigenen Beitrag; zudem «anderen» klein. |
 | U-87 | ungenügend 1 | Zu ihren Eigenschaften gehört, dass sie sich um ein gutes Verhältnis zu ihrem Team bemüht. | Fachlich unterstützt sie ihr Team. Zu einer guten Zusammenarbeit trägt sie jedoch nicht immer bei. | «bemüht sich» ist das bekannteste Codewort überhaupt; neu ist die Schwäche offen und mit einer Stärke verbunden. |
 | U-88 | ungenügend 2 | Sie ordnet sich im Team ein. | Sie arbeitet im Team mit, die Zusammenarbeit mit ihr gestaltet sich jedoch nicht immer reibungslos. | «ordnet sich ein» ist Code für Unterordnung ohne eigenen Beitrag. |
-| U-89 | ungenügend 3 | Sie hat Schwierigkeiten, sich in ein Team einzuordnen. | Eigenständige Aufgaben erledigt sie gut. Die Arbeit im Team fällt ihr jedoch schwer, und sie stimmt sich zu wenig mit den anderen ab. | Die Kritik bleibt deutlich, bekommt aber eine Brücke; «einordnen» fällt weg. |
+| U-89 | ungenügend 3 | Sie hat Schwierigkeiten, sich in ein Team einzuordnen. | Eigenständige Aufgaben erledigt sie gut. Die Arbeit im Team fällt ihr jedoch wiederholt schwer, und sie stimmt sich zu wenig mit den anderen ab. | Die Kritik bleibt deutlich, bekommt aber eine Brücke; «einordnen» fällt weg. |
 
 ### Offenheit für Feedback
 
@@ -317,7 +335,7 @@ Die neue Fassung folgt drei Regeln:
 | G-38 | genügend 3 | Sie akzeptiert andere Meinungen und begründete Kritik und lässt sich auf die Bedürfnisse der Gesprächspartner ein. | Sie nimmt andere Meinungen und begründete Kritik an und geht auf die Bedürfnisse der Gesprächspartner ein. | «akzeptiert» wird im Zeugnis als «hinnehmen» gelesen. |
 | U-90 | ungenügend 1 | Ausserdem ist sie Anregungen gegenüber empfänglich und hört sich Vorschläge immer an. | Ausserdem hört sie sich Anregungen und Vorschläge an, setzt sie jedoch nicht immer um. | Alt klingt positiv und meint: hört zu, handelt nicht. |
 | U-91 | ungenügend 2 | Ausserdem hört sie sich Feedback und Vorschläge an. | Ausserdem nimmt sie Feedback entgegen, lässt es aber selten in ihre Arbeit einfliessen. | Alt klingt neutral und meint «ungenügend» nur durch Weglassen. |
-| U-92 | ungenügend 3 | Es ist für sie nicht einfach, andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen. | Sie vertritt ihre Standpunkte mit Überzeugung. Andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen, fällt ihr jedoch schwer. | Die Kritik bleibt, bekommt aber eine Brücke zur Überzeugungskraft. |
+| U-92 | ungenügend 3 | Es ist für sie nicht einfach, andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen. | Sie vertritt ihre Standpunkte mit Überzeugung. Andere Meinungen und begründete Kritik anzunehmen und sich auf die Bedürfnisse der Gesprächspartner einzustellen, fällt ihr jedoch oft schwer. | Die Kritik bleibt, bekommt aber eine Brücke zur Überzeugungskraft. |
 | U-93 | ungenügend 4 | Sie reflektiert eigene Handlungen kaum und setzt Anregungen nur zögerlich um. | Klare Anweisungen setzt sie um. Das eigene Handeln hinterfragt sie jedoch kaum, und Anregungen nimmt sie nur zögerlich auf. | Die Kritik bleibt, bekommt aber eine Brücke zur Umsetzung klarer Anweisungen. |
 
 ### Wissen teilen
@@ -346,7 +364,7 @@ Die neue Fassung folgt drei Regeln:
 |---|---|---|---|---|
 | U-101 | ungenügend 1 | Auch Veränderungen kann sie annehmen und vertraut Bewährtem. | Auch Veränderungen nimmt sie an, braucht jedoch länger als erwartet, um sich auf neue Gegebenheiten einzustellen. | «vertraut Bewährtem» ist Code für Unbeweglichkeit. |
 | U-102 | ungenügend 2 | Veränderungen kann sie annehmen und vertraut Bewährtem. | Veränderungen nimmt sie an. Am liebsten hält sie jedoch an Bewährtem fest und stellt sich nicht immer im erforderlichen Mass auf Neues ein. | «vertraut Bewährtem» ist Code; alt war zudem fast gleich wie Variante 1. |
-| U-103 | ungenügend 3 | Sie kann sich nur schwer auf veränderte Situationen einstellen. | In vertrauten Abläufen arbeitet sie sicher. Auf veränderte Situationen kann sie sich jedoch nur schwer einstellen. | Die Kritik bleibt, bekommt aber eine Brücke zur Sicherheit im Vertrauten. |
+| U-103 | ungenügend 3 | Sie kann sich nur schwer auf veränderte Situationen einstellen. | In vertrauten Abläufen arbeitet sie sicher. Auf veränderte Situationen stellt sie sich jedoch oft nur langsam ein. | Die Kritik bleibt, bekommt aber eine Brücke zur Sicherheit im Vertrauten. |
 
 ### Kundenorientierung
 

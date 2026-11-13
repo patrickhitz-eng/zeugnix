@@ -151,6 +151,13 @@ export const CODEWOERTER: Array<{ re: RegExp; warum: string }> = [
   { re: /\b(galt|gilt) als\b/i, warum: "Distanzierung" },
   { re: /keine unsicherheiten/i, warum: "Lob durch Verneinung" },
   { re: /massvoll/i, warum: "Abschwächer" },
+  // aus der Notenskala, die Christoph Senn am 7.7.2026 geschickt hat (Noten 5 und 6)
+  { re: /nach kräften/i, warum: "Notenskala: ungenügend" },
+  { re: /gelegenheit/i, warum: "Notenskala: «hatte Gelegenheit … kennenzulernen»" },
+  { re: /kennen ?zu ?lernen/i, warum: "Notenskala: mangelhaft" },
+  { re: /ohne schwierigkeiten/i, warum: "Notenskala: mangelhaft" },
+  { re: /verständnisvoll/i, warum: "Notenskala: «verständnisvoller Vorgesetzter»" },
+  { re: /(gab|gibt|erteilt|erteilte) (\S+ )?klare (handlungs)?anweisungen/i, warum: "Notenskala: «gab klare Anweisungen» bei Führungskräften" },
 ];
 
 /** Einfache Platzhalter, die lib/phrases/engine.ts ersetzt. */
@@ -297,12 +304,22 @@ commit;
 // ---------------------------------------------------------------------------
 
 /** Lesbare Fassung: weibliche Form, Beispielname. Pipes können so nicht vorkommen. */
-export function lesbar(text: string): string {
+export function lesbar(text: string, form: 0 | 1 = 1, vorname = "Lena", nachname = "Muster"): string {
   return text
-    .replace(/\{\{([^{}|]*)\|([^{}|]*)\|([^{}|]*)\}\}/g, (_m, _mask, fem) => fem)
-    .replace(/\{vorname\}/g, "Lena")
-    .replace(/\{nachname\}/g, "Muster");
+    .replace(/\{\{([^{}|]*)\|([^{}|]*)\|([^{}|]*)\}\}/g, (_m, mask, fem) => (form === 0 ? mask : fem))
+    .replace(/\{vorname\}/g, vorname)
+    .replace(/\{nachname\}/g, nachname);
 }
+
+/**
+ * Die drei «ungenügend»-Sätze aus Christophs Testzeugnis «Hans Musterli» (21.08.2026),
+ * erzeugt mit zeugnio im Präteritum. Erfundene Testperson, keine echten Personendaten.
+ */
+const MUSTERLI: string[] = [
+  "zufriedenheit_leistung|ungenuegend|3",
+  "verhalten_gegenueber_dritten|ungenuegend|1",
+  "teamfaehigkeit|ungenuegend|1",
+];
 
 const STUFE: Record<string, string> = { genuegend: "genügend", ungenuegend: "ungenügend" };
 
@@ -339,7 +356,35 @@ export function renderReview(aenderungen: Aenderung[], seed: SeedRow[]): string 
     "",
     "**Wichtig für die Auswahl:** Jede Fähigkeit hat mehrere Varianten. Die Stärke in der Brücke muss auf die Person zutreffen. HR wählt die Variante, die stimmt, und passt sie bei Bedarf an. Varianten mit einem Entwicklungsschritt (zum Beispiel «hat sich spürbar verbessert») nur wählen, wenn das zutrifft.",
     "",
-    "**Deine Rückmeldung:** Am einfachsten pro Zeile mit der Nummer, zum Beispiel «U-17: zu hart» oder «G-4: ok». Wir passen die Texte an und schalten sie erst nach deinem Okay frei.",
+    "**Deine Rückmeldung:** Am einfachsten pro Zeile mit der Nummer, zum Beispiel «U-17: zu hart» oder «G-4: ok». Die Texte sind auf zeugnio.ch bereits aktiv, damit du sie direkt im Tool ausprobieren kannst. Wir passen sie nach deiner Rückmeldung an.",
+    "",
+    "## Grundlage: deine Unterlagen vom 7. Juli",
+    "",
+    "- **Häusermann, «Uncodierte, transparente Arbeitszeugnisse»:** Brückentechnik (positiv, negativ, positiv) und keine absoluten Negativaussagen. Darum steht bei Schwächen «nicht immer», «wiederholt» oder «häufig» und nicht «war nicht in der Lage».",
+    "- **Notenskala_Formulierung:** Alle Codes der Noten 5 und 6 («bemüht», «versucht», «bestrebt», «nach Kräften», «im Wesentlichen», «verständnisvoll», «gab klare Anweisungen» usw.) sperrt der Test. Kein Baustein unter «gut» enthält sie.",
+    "- **First-Merkblatt 2017:** wahr, wohlwollend, vollständig, klar. Die ganze Anstellungsdauer zählt, nicht ein einzelner Vorfall. Uncodiert ist Usanz.",
+    "",
+  );
+
+  // Vorher/Nachher am Testzeugnis «Hans Musterli»
+  const seedIdx = new Map(seed.map((r) => [`${keyOf(r)}|${r.tempus}`, r]));
+  out.push(
+    "## Am Beispiel deines Testzeugnisses «Hans Musterli»",
+    "",
+    "Dein Testzeugnis vom 21. August enthält drei «ungenügend»-Sätze. So sehen sie neu aus:",
+    "",
+    "| Alt (im Testzeugnis) | Neu |",
+    "|---|---|",
+  );
+  for (const key of MUSTERLI) {
+    const alt = seedIdx.get(`${key}|praeteritum`);
+    const neu = byKey.get(key);
+    if (!alt || !neu) throw new Error(`Musterli-Beispiel: ${key} fehlt`);
+    out.push(`| ${lesbar(alt.text, 0, "Hans", "Musterli")} | ${lesbar(neu.praeteritum, 0, "Hans", "Musterli")} |`);
+  }
+  out.push(
+    "",
+    "Im selben Zeugnis steht danach der Schlusssatz «… danken ihm für die stets sehr gute Zusammenarbeit und die wertvollen Leistungen». Neben drei «ungenügend» widerspricht er dem Rest. Der Schlusssatz wird separat gewählt und gehört nicht zu dieser Änderung. Ein Hinweis im Tool bei solchen Widersprüchen wäre ein möglicher nächster Schritt.",
     "",
   );
 
