@@ -1,27 +1,33 @@
 /**
- * Gemeinsame Logik für Migration 037 (uncodierte Bausteine «genügend»/«ungenügend»).
+ * Gemeinsame Logik für die uncodierten Bausteine «genügend»/«ungenügend» (037 ff.).
  *
  * Eine Quelle, zwei Ausgaben:
  *   scripts/data/bausteine-037-uncodiert.json   ← hier werden die Texte gepflegt
- *     ├─ supabase/037_bausteine_ungenuegend.sql  (Migration, generiert)
- *     └─ docs/bausteine-ungenuegend-review.md    (Gegenüberstellung für die HR-Prüfung, generiert)
+ *     ├─ supabase/<NNN>_bausteine_korrekturen.sql (Folgemigration, nur was noch nicht eingespielt ist)
+ *     └─ docs/bausteine-ungenuegend-review.md    (Gegenüberstellung 009 → heute, für die HR-Prüfung)
  *
- * Erzeugen:  npx tsx scripts/build-bausteine-037.ts
+ * Eingespielte Migrationen (zuerst 037) stehen mit SHA-256 in
+ * scripts/data/bausteine-eingespielt.json und sind eingefroren.
+ *
+ * Erzeugen:  npm run bausteine:build
+ * Eintragen: npx tsx scripts/build-bausteine-037.ts --eingespielt <datei>
  * Prüfen:    npm run test:bausteine
  *
  * Der alte Text kommt aus supabase/009_seed_bausteine.sql. Der Seed enthält bereits
- * die Korrekturen aus 014 und 028 (siehe deren Kopf), entspricht also dem Stand,
- * der heute in der Produktion läuft.
+ * die Korrekturen aus 014 und 028 (siehe deren Kopf), entspricht also dem Stand
+ * vor 037.
  */
 
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { SKILLS } from "../lib/phrases/skills";
 
 export const ROOT = path.join(__dirname, "..");
-export const SEED_PATH = path.join(ROOT, "supabase", "009_seed_bausteine.sql");
+export const SUPABASE_DIR = path.join(ROOT, "supabase");
+export const SEED_PATH = path.join(SUPABASE_DIR, "009_seed_bausteine.sql");
 export const DATA_PATH = path.join(ROOT, "scripts", "data", "bausteine-037-uncodiert.json");
-export const SQL_PATH = path.join(ROOT, "supabase", "037_bausteine_ungenuegend.sql");
+export const EINGESPIELT_PATH = path.join(ROOT, "scripts", "data", "bausteine-eingespielt.json");
 export const REVIEW_PATH = path.join(ROOT, "docs", "bausteine-ungenuegend-review.md");
 
 export type Rating = "ungenuegend" | "genuegend" | "gut" | "sehr_gut";
@@ -180,77 +186,182 @@ export function tokens(text: string): { gender: string[]; simple: string[] } {
 }
 
 // ---------------------------------------------------------------------------
-// Ausgabe 1: Migration
+// Ausgabe 1: Migrationen
 // ---------------------------------------------------------------------------
+//
+// 037 ist am 13.11.2026 in Supabase-Prod eingespielt und damit eingefroren. Jede
+// spätere Korrektur der Texte wird zu einer eigenen Folgemigration:
+//
+//   Soll-Stand  = 009 + scripts/data/bausteine-037-uncodiert.json
+//   Ist-Stand   = 009 + alle Migrationen in scripts/data/bausteine-eingespielt.json
+//   offen       = Soll − Ist  →  supabase/<NNN>_bausteine_korrekturen.sql
+//
+// Ist eine Folgemigration eingespielt, trägt `--eingespielt <datei>` sie mit ihrem
+// SHA-256 in bausteine-eingespielt.json ein. Ab dann gilt sie als Ist-Stand, und der
+// Test schlägt an, sobald jemand sie nachträglich ändert.
 
 const sq = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
-interface Zeile {
-  a: Aenderung;
+/** Zeile einer Bausteine-Migration: ein Baustein in einem Tempus. */
+export interface MigrationsZeile {
+  category: string;
+  subcategory: string;
+  employeeType: string;
+  rating: Rating;
+  variant: number;
   tempus: Tempus;
-  alt: SeedRow;
-  neu: string;
+  text: string;
 }
 
-function zeilen(aenderungen: Aenderung[], seed: SeedRow[]): Zeile[] {
-  const index = new Map(seed.map((r) => [`${keyOf(r)}|${r.tempus}`, r]));
-  const out: Zeile[] = [];
+export interface Eingespielt {
+  datei: string;
+  sha256: string;
+  eingespielt: string; // Datum, an dem die Migration in Supabase-Prod lief
+}
+
+/** Markiert Migrationen, die dieses Skript erzeugt hat (auch 037). */
+export const GENERATOR_MARKER = /^-- GENERIERT von scripts\/build-bausteine-037\.ts/m;
+
+/** SHA-256 über den Inhalt mit LF-Zeilenenden (Git kann unter Windows CRLF auschecken). */
+export function sha256Datei(file: string): string {
+  const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+  return createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+export function loadEingespielt(file = EINGESPIELT_PATH): Eingespielt[] {
+  if (!existsSync(file)) return [];
+  return (JSON.parse(readFileSync(file, "utf8")) as { migrationen: Eingespielt[] }).migrationen;
+}
+
+const VALUES_ROW = new RegExp(
+  `\\(${SQL_STRING}, ${SQL_STRING}, ${SQL_STRING}, ${SQL_STRING}, (\\d+), ${SQL_STRING},\\s*${SQL_STRING}\\)`,
+  "g",
+);
+
+/** Liest die Zeilen aus dem INSERT einer generierten Bausteine-Migration zurück. */
+export function parseMigration(file: string): MigrationsZeile[] {
+  const sql = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+  const start = sql.indexOf("values\n");
+  const end = sql.indexOf(";\n", start);
+  if (start < 0 || end < 0) throw new Error(`${path.basename(file)}: kein INSERT … values gefunden`);
+  const un = (s: string) => s.replace(/''/g, "'");
+  return [...sql.slice(start, end).matchAll(VALUES_ROW)].map((m) => ({
+    category: un(m[1]),
+    subcategory: un(m[2]),
+    employeeType: un(m[3]),
+    rating: un(m[4]) as Rating,
+    variant: Number(m[5]),
+    tempus: un(m[6]) as Tempus,
+    text: un(m[7]),
+  }));
+}
+
+const zKey = (r: { category: string; rating: string; variant: number; tempus: string }) =>
+  `${r.category}|${r.rating}|${r.variant}|${r.tempus}`;
+
+/** Text pro Baustein nach 009 und allen eingespielten Bausteine-Migrationen. */
+export function istStand(seed: SeedRow[], eingespielt = loadEingespielt()): Map<string, string> {
+  const stand = new Map(seed.map((r) => [zKey(r), r.text]));
+  for (const e of eingespielt) {
+    for (const z of parseMigration(path.join(SUPABASE_DIR, e.datei))) stand.set(zKey(z), z.text);
+  }
+  return stand;
+}
+
+/** Text pro Baustein, wie ihn die JSON-Quelle verlangt (009 plus Änderungen). */
+export function sollStand(seed: SeedRow[], aenderungen: Aenderung[]): Map<string, string> {
+  const stand = new Map(seed.map((r) => [zKey(r), r.text]));
   for (const a of aenderungen) {
-    for (const tempus of ["praesens", "praeteritum"] as const) {
-      const alt = index.get(`${a.key}|${tempus}`);
-      if (!alt) throw new Error(`${a.key} (${tempus}) fehlt in 009_seed_bausteine.sql`);
-      out.push({ a, tempus, alt, neu: a[tempus] });
+    for (const t of ["praesens", "praeteritum"] as const) {
+      const k = `${a.key}|${t}`;
+      if (!stand.has(k)) throw new Error(`${a.key} (${t}) fehlt in 009_seed_bausteine.sql`);
+      stand.set(k, a[t]);
     }
   }
-  return out;
+  return stand;
 }
 
-export function renderSql(aenderungen: Aenderung[], seed: SeedRow[]): string {
-  const z = zeilen(aenderungen, seed);
-  const nG = aenderungen.filter((a) => a.rating === "genuegend").length;
-  const nU = aenderungen.filter((a) => a.rating === "ungenuegend").length;
+/** Bausteine, deren Soll-Text noch nicht eingespielt ist, in Seed-Reihenfolge. */
+export function offeneZeilen(seed: SeedRow[], aenderungen: Aenderung[], eingespielt = loadEingespielt()): MigrationsZeile[] {
+  const ist = istStand(seed, eingespielt);
+  const soll = sollStand(seed, aenderungen);
+  return seed
+    .filter((r) => soll.get(zKey(r)) !== ist.get(zKey(r)))
+    .map((r) => ({
+      category: r.category,
+      subcategory: r.subcategory,
+      employeeType: r.employeeType,
+      rating: r.rating,
+      variant: r.variant,
+      tempus: r.tempus,
+      text: soll.get(zKey(r))!,
+    }));
+}
 
-  const values = z
+/** Generierte Bausteine-Migrationen, die noch nicht als eingespielt eingetragen sind. */
+export function offeneDateien(eingespielt = loadEingespielt()): string[] {
+  const bekannt = new Set(eingespielt.map((e) => e.datei));
+  return readdirSync(SUPABASE_DIR)
+    .filter((f) => /^\d{3}_.*\.sql$/.test(f) && !bekannt.has(f))
+    .filter((f) => GENERATOR_MARKER.test(readFileSync(path.join(SUPABASE_DIR, f), "utf8")))
+    .sort();
+}
+
+/** Nächste freie Migrationsnummer unter 900 (900 ff. sind Handskripte für nine). */
+export function naechsteNummer(): string {
+  const nummern = readdirSync(SUPABASE_DIR)
+    .map((f) => /^(\d{3})_/.exec(f)?.[1])
+    .filter((n): n is string => !!n)
+    .map(Number)
+    .filter((n) => n < 900);
+  return String(Math.max(0, ...nummern) + 1).padStart(3, "0");
+}
+
+/** SQL einer Folgemigration: dieselbe Mechanik wie 037 (Temp-Tabelle, UPDATE, Prüfblock). */
+export function renderFolgemigration(datei: string, zeilen: MigrationsZeile[]): string {
+  const nummer = datei.slice(0, 3);
+  const tmp = `_bausteine_${nummer}`;
+  const anzahlBausteine = new Set(zeilen.map((z) => `${z.category}|${z.rating}|${z.variant}`)).size;
+  const values = zeilen
     .map(
-      ({ alt, tempus, neu }) =>
-        `  (${sq(alt.category)}, ${sq(alt.subcategory)}, ${sq(alt.employeeType)}, ${sq(alt.rating)}, ${alt.variant}, ${sq(tempus)},\n   ${sq(neu)})`,
+      (z) =>
+        `  (${sq(z.category)}, ${sq(z.subcategory)}, ${sq(z.employeeType)}, ${sq(z.rating)}, ${z.variant}, ${sq(z.tempus)},\n   ${sq(z.text)})`,
     )
     .join(",\n");
+  const liste = [...new Set(zeilen.map((z) => `--   ${z.category} / ${z.rating} / Variante ${z.variant}`))].join("\n");
 
   const match = `p.category = n.category and p.subcategory = n.subcategory
    and p.employee_type::text = n.employee_type and p.gender::text = 'd'
    and p.rating::text = n.rating and p.variant = n.variant and p.tempus::text = n.tempus`;
 
-  return `-- 037_bausteine_ungenuegend.sql
+  return `-- ${datei}
 -- GENERIERT von scripts/build-bausteine-037.ts aus scripts/data/bausteine-037-uncodiert.json.
--- Nicht von Hand ändern: Texte in der JSON-Datei pflegen und neu erzeugen.
+-- Nicht von Hand ändern: Texte in der JSON-Datei pflegen und neu erzeugen
+-- (npm run bausteine:build).
 --
--- Uncodierte Satzbausteine für «genügend» und «ungenügend» (Marktstart Schritt 19,
--- Must-have E für den Outreach ab 1.12.2026). Die bisherigen Texte waren teils
--- Zeugniscode («bemüht», «meist», «im Rahmen seiner Möglichkeiten» …) oder sagten
--- wörtlich «genügend», obwohl sie bei «ungenügend» standen. Neu wird eine Schwäche
--- offen benannt und mit einer echten Stärke oder einem Entwicklungsschritt verbunden
--- (Brückentechnik). Gegenüberstellung alt/neu: docs/bausteine-ungenuegend-review.md.
+-- Folgemigration zu 037: Korrekturen an den Satzbausteinen, die seit der letzten
+-- eingespielten Bausteine-Migration in der JSON-Quelle geändert wurden.
+-- Gegenüberstellung alt/neu: docs/bausteine-ungenuegend-review.md.
 --
--- Umfang: ${aenderungen.length} Bausteine (${nG} «genügend», ${nU} «ungenügend»), je Präsens
--- und Präteritum, also ${z.length} Zeilen. Nicht aufgeführte Bausteine bleiben unverändert.
--- Kategorien, Varianten und Platzhalter bleiben gleich, die Engine braucht keine Änderung.
+-- Umfang: ${anzahlBausteine} Bausteine, ${zeilen.length} Zeilen (Präsens/Präteritum):
+${liste}
 --
--- Nur Daten, kein Schema: Die Migration berührt den Schemastopp vor dem Umzug nicht.
--- Bereits erzeugte Zeugnisse (certificates.generated_text, versiegelte Texte) bleiben
+-- Nur Daten, kein Schema. Bereits erzeugte und versiegelte Zeugnisse bleiben
 -- unverändert; die neuen Texte gelten für neu erzeugte Zeugnisse.
 --
 -- Supabase: von Hand im SQL-Editor (Projekt "zeugnix") ausführen.
--- nine: läuft mit scripts/migrate.mjs nach 009 automatisch mit.
+-- nine: läuft mit scripts/migrate.mjs automatisch mit.
+-- Danach eintragen, damit die Datei eingefroren ist und nicht erneut erzeugt wird:
+--   npx tsx scripts/build-bausteine-037.ts --eingespielt ${datei}
 --
 -- Idempotent: Das UPDATE trifft nur Zeilen, deren Text noch nicht der neue ist.
--- Erster Lauf: ${z.length} Treffer. Jeder weitere Lauf: 0 Treffer.
+-- Erster Lauf: ${zeilen.length} Treffer. Jeder weitere Lauf: 0 Treffer.
 -- Am Schluss prüft ein DO-Block, dass jede Zeile genau einmal mit dem neuen Text
 -- existiert. Fehlt eine, bricht die Migration ab und die Transaktion ändert nichts.
 
 begin;
 
-create temp table _bausteine_037 (
+create temp table ${tmp} (
   category      text not null,
   subcategory   text not null,
   employee_type text not null,
@@ -260,12 +371,12 @@ create temp table _bausteine_037 (
   text          text not null
 ) on commit drop;
 
-insert into _bausteine_037 (category, subcategory, employee_type, rating, variant, tempus, text) values
+insert into ${tmp} (category, subcategory, employee_type, rating, variant, tempus, text) values
 ${values};
 
 update public.phrase_blocks p
    set text = n.text
-  from _bausteine_037 n
+  from ${tmp} n
  where ${match}
    and p.text is distinct from n.text;
 
@@ -275,23 +386,23 @@ declare
   doppelt int;
 begin
   select count(*) into fehlt
-    from _bausteine_037 n
+    from ${tmp} n
    where not exists (
      select 1 from public.phrase_blocks p
       where ${match.replace(/\n/g, "\n      ")}
         and p.text = n.text);
   if fehlt > 0 then
-    raise exception '037: % von ${z.length} Bausteinen nicht gefunden. Abbruch, nichts geändert.', fehlt;
+    raise exception '${nummer}: % von ${zeilen.length} Bausteinen nicht gefunden. Abbruch, nichts geändert.', fehlt;
   end if;
 
   select count(*) into doppelt
     from (select 1
-            from _bausteine_037 n
+            from ${tmp} n
             join public.phrase_blocks p on ${match.replace(/\n/g, "\n                                       ")}
            group by n.category, n.subcategory, n.employee_type, n.rating, n.variant, n.tempus
           having count(*) > 1) d;
   if doppelt > 0 then
-    raise exception '037: % Bausteine existieren mehrfach. Abbruch, nichts geändert.', doppelt;
+    raise exception '${nummer}: % Bausteine existieren mehrfach. Abbruch, nichts geändert.', doppelt;
   end if;
 end $$;
 
