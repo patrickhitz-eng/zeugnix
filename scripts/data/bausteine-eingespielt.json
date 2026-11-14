@@ -1,0 +1,10 @@
+{
+  "_info": "Bausteine-Migrationen, die in Supabase-Prod eingespielt sind. Eingefroren: Der Test vergleicht den SHA-256 (über LF-Zeilenenden). Eintragen mit `npx tsx scripts/build-bausteine-037.ts --eingespielt <datei>`.",
+  "migrationen": [
+    {
+      "datei": "037_bausteine_ungenuegend.sql",
+      "sha256": "43dbb7d58684873937f0561daf5b9975e716d09203cbfcdca7436fa976a478c8",
+      "eingespielt": "2026-11-13"
+    }
+  ]
+}

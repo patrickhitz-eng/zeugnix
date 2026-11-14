@@ -12,20 +12,30 @@
  *   5. Kein «ß», keine doppelten Leerzeichen, jeder Text endet mit einem Punkt.
  *   6. Kein neuer Text ist gleich einem Text der Stufen «gut»/«sehr gut» derselben
  *      Fähigkeit, und kein Präsens-Text ist gleich dem Präteritum-Text.
- *   7. Migration und Review-Datei sind aus der aktuellen JSON-Quelle erzeugt.
+ *   7. Eingespielte Migrationen (037 …) sind unverändert (SHA-256). Eine offene
+ *      Folgemigration passt zur JSON-Quelle, und 009 + eingespielt + offen ergibt
+ *      genau den Soll-Stand. Die Review-Datei ist aktuell.
  */
 
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import {
   CODEWOERTER,
   PLATZHALTER,
   REVIEW_PATH,
-  SQL_PATH,
+  SUPABASE_DIR,
+  istStand,
   keyOf,
   loadAenderungen,
+  loadEingespielt,
+  offeneDateien,
+  offeneZeilen,
+  parseMigration,
   parseSeed,
+  renderFolgemigration,
   renderReview,
-  renderSql,
+  sha256Datei,
+  sollStand,
   tokens,
   type SeedRow,
 } from "./bausteine-037-lib";
@@ -124,17 +134,47 @@ for (const a of aenderungen) {
   ok(`${a.key}: nicht gleich «gut»/«sehr gut»`, !oben.has(`${a.category}|praesens|${a.praesens}`));
 }
 
-console.log("\n7. Generierte Dateien sind aktuell");
+console.log("\n7. Eingespielte Migrationen eingefroren, offene aktuell");
 const norm = (s: string) => s.replace(/\r\n/g, "\n");
-ok(
-  "supabase/037_bausteine_ungenuegend.sql passt zur JSON-Quelle",
-  norm(readFileSync(SQL_PATH, "utf8")) === renderSql(aenderungen, seed),
-  "neu erzeugen: npx tsx scripts/build-bausteine-037.ts",
-);
+const eingespielt = loadEingespielt();
+ok("037 ist als eingespielt eingetragen", eingespielt[0]?.datei === "037_bausteine_ungenuegend.sql");
+for (const e of eingespielt) {
+  const file = path.join(SUPABASE_DIR, e.datei);
+  ok(`${e.datei} existiert`, existsSync(file));
+  if (!existsSync(file)) continue;
+  ok(
+    `${e.datei} unverändert seit dem Einspielen (${e.eingespielt})`,
+    sha256Datei(file) === e.sha256,
+    "Eine eingespielte Migration darf sich nicht ändern. Korrekturen gehören in eine Folgemigration (npm run bausteine:build).",
+  );
+}
+ok("037 enthält 292 Zeilen", parseMigration(path.join(SUPABASE_DIR, "037_bausteine_ungenuegend.sql")).length === 292);
+
+// Die Kette 009 + eingespielt + offen muss genau den Soll-Stand der JSON-Quelle ergeben.
+const offen = offeneZeilen(seed, aenderungen, eingespielt);
+const dateien = offeneDateien(eingespielt);
+ok("höchstens eine offene Bausteine-Migration", dateien.length <= 1, dateien.join(", "));
+if (offen.length === 0) {
+  ok("keine offene Folgemigration, wenn nichts offen ist", dateien.length === 0, `veraltet: ${dateien.join(", ")} (npm run bausteine:build löscht sie)`);
+} else {
+  ok("offene Änderungen haben eine Folgemigration", dateien.length === 1, "neu erzeugen: npm run bausteine:build");
+  if (dateien.length === 1) {
+    const datei = dateien[0];
+    ok(
+      `supabase/${datei} passt zur JSON-Quelle`,
+      norm(readFileSync(path.join(SUPABASE_DIR, datei), "utf8")) === renderFolgemigration(datei, offen),
+      "neu erzeugen: npm run bausteine:build",
+    );
+    const kette = istStand(seed, [...eingespielt, { datei, sha256: "", eingespielt: "offen" }]);
+    const soll = sollStand(seed, aenderungen);
+    const abweichend = [...soll].filter(([k, t]) => kette.get(k) !== t).map(([k]) => k);
+    ok("009 + eingespielt + offen ergibt den Soll-Stand", abweichend.length === 0, abweichend.slice(0, 5).join(", "));
+  }
+}
 ok(
   "docs/bausteine-ungenuegend-review.md passt zur JSON-Quelle",
   norm(readFileSync(REVIEW_PATH, "utf8")) === renderReview(aenderungen, seed),
-  "neu erzeugen: npx tsx scripts/build-bausteine-037.ts",
+  "neu erzeugen: npm run bausteine:build",
 );
 
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen`);
