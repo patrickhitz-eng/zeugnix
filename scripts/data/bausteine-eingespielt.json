@@ -3,7 +3,7 @@
   "migrationen": [
     {
       "datei": "037_bausteine_ungenuegend.sql",
-      "sha256": "43dbb7d58684873937f0561daf5b9975e716d09203cbfcdca7436fa976a478c8",
+      "sha256": "18374ec5dee4c2a065d1a3427bbb00a6ea22d8a6130f8d1cb5d25589969759ce",
       "eingespielt": "2026-11-13"
     }
   ]
