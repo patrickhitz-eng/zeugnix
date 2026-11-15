@@ -25,9 +25,33 @@
 -- Am Schluss prüft ein DO-Block, dass jede Zeile genau einmal mit dem neuen Text
 -- existiert. Fehlt eine, bricht die Migration ab und die Transaktion ändert nichts.
 
+-- Nachtrag 15.11.2026: Die Arbeitstabelle war zuerst temporär. Auf advisori01 hat nine
+-- dem Datenbank-Benutzer das Recht TEMPORARY entzogen (siehe 901_nine_rechte.sql), dort
+-- brach die Migration darum ab. Sie ist jetzt eine normale Tabelle, die in derselben
+-- Transaktion entsteht und wieder verschwindet. Die Wirkung ist dieselbe; in Supabase-Prod
+-- (13.11. mit der temporären Fassung eingespielt) ist nichts nachzuholen.
+--
+-- Nachtrag 15.11.2026, zweiter Punkt: Eine frisch aus dem Repository aufgebaute Datenbank
+-- (advisori01, jede Testinstanz) hat jeden Präteritum-Baustein doppelt. 009 bringt ihn in
+-- der heutigen Fassung schon mit, 015 fügt dieselben 427 Zeilen nochmals ein. In Supabase-
+-- Prod lief 009 damals ohne Präteritum, dort gibt es keine Doppel (gemessen 15.11.: 902
+-- Zeilen, 0 doppelte Gruppen). Die Prüfung am Schluss bräche auf einer frischen Datenbank
+-- darum mit «existieren mehrfach» ab. Der erste Schritt entfernt exakte Doppel (gleicher
+-- Schlüssel UND gleicher Text, die älteste Zeile bleibt). In Prod trifft er nichts. Kein
+-- Fremdschlüssel zeigt auf phrase_blocks; Zeugnisse speichern ihren Text selbst.
+
 begin;
 
-create temp table _bausteine_037 (
+delete from public.phrase_blocks p
+ using (select id,
+               row_number() over (
+                 partition by category, subcategory, employee_type, gender, rating, variant, tempus, text
+                 order by created_at, id::text) as nr
+          from public.phrase_blocks) d
+ where p.id = d.id
+   and d.nr > 1;
+
+create table public._bausteine_037 (
   category      text not null,
   subcategory   text not null,
   employee_type text not null,
@@ -35,9 +59,9 @@ create temp table _bausteine_037 (
   variant       int  not null,
   tempus        text not null,
   text          text not null
-) on commit drop;
+);
 
-insert into _bausteine_037 (category, subcategory, employee_type, rating, variant, tempus, text) values
+insert into public._bausteine_037 (category, subcategory, employee_type, rating, variant, tempus, text) values
   ('vorbild', 'fuehrung', 'fuehrungskraft', 'genuegend', 1, 'praesens',
    '{vorname} {nachname} erfüllt die Anforderungen an {{seine|ihre|seine/ihre}} Vorbildrolle als Führungskraft und handelt glaubwürdig und integer.'),
   ('vorbild', 'fuehrung', 'fuehrungskraft', 'genuegend', 1, 'praeteritum',
@@ -625,7 +649,7 @@ insert into _bausteine_037 (category, subcategory, employee_type, rating, varian
 
 update public.phrase_blocks p
    set text = n.text
-  from _bausteine_037 n
+  from public._bausteine_037 n
  where p.category = n.category and p.subcategory = n.subcategory
    and p.employee_type::text = n.employee_type and p.gender::text = 'd'
    and p.rating::text = n.rating and p.variant = n.variant and p.tempus::text = n.tempus
@@ -637,7 +661,7 @@ declare
   doppelt int;
 begin
   select count(*) into fehlt
-    from _bausteine_037 n
+    from public._bausteine_037 n
    where not exists (
      select 1 from public.phrase_blocks p
       where p.category = n.category and p.subcategory = n.subcategory
@@ -650,7 +674,7 @@ begin
 
   select count(*) into doppelt
     from (select 1
-            from _bausteine_037 n
+            from public._bausteine_037 n
             join public.phrase_blocks p on p.category = n.category and p.subcategory = n.subcategory
                                           and p.employee_type::text = n.employee_type and p.gender::text = 'd'
                                           and p.rating::text = n.rating and p.variant = n.variant and p.tempus::text = n.tempus
@@ -660,5 +684,7 @@ begin
     raise exception '037: % Bausteine existieren mehrfach. Abbruch, nichts geändert.', doppelt;
   end if;
 end $$;
+
+drop table public._bausteine_037;
 
 commit;

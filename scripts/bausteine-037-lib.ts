@@ -320,7 +320,7 @@ export function naechsteNummer(): string {
 /** SQL einer Folgemigration: dieselbe Mechanik wie 037 (Temp-Tabelle, UPDATE, Prüfblock). */
 export function renderFolgemigration(datei: string, zeilen: MigrationsZeile[]): string {
   const nummer = datei.slice(0, 3);
-  const tmp = `_bausteine_${nummer}`;
+  const tmp = `public._bausteine_${nummer}`;
   const anzahlBausteine = new Set(zeilen.map((z) => `${z.category}|${z.rating}|${z.variant}`)).size;
   const values = zeilen
     .map(
@@ -361,7 +361,10 @@ ${liste}
 
 begin;
 
-create temp table ${tmp} (
+-- Arbeitstabelle als normale Tabelle, nicht als temporäre: Auf advisori01 hat nine
+-- dem Datenbank-Benutzer das Recht TEMPORARY entzogen (siehe 901_nine_rechte.sql).
+-- Sie entsteht und verschwindet in derselben Transaktion, ausserhalb ist sie nie sichtbar.
+create table ${tmp} (
   category      text not null,
   subcategory   text not null,
   employee_type text not null,
@@ -369,7 +372,7 @@ create temp table ${tmp} (
   variant       int  not null,
   tempus        text not null,
   text          text not null
-) on commit drop;
+);
 
 insert into ${tmp} (category, subcategory, employee_type, rating, variant, tempus, text) values
 ${values};
@@ -405,6 +408,8 @@ begin
     raise exception '${nummer}: % Bausteine existieren mehrfach. Abbruch, nichts geändert.', doppelt;
   end if;
 end $$;
+
+drop table ${tmp};
 
 commit;
 `;
