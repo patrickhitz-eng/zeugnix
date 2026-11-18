@@ -61,8 +61,8 @@ entscheiden, läuft sie im Juli 2027 aus.
 | `resend._domainkey` | TXT | DKIM-Schlüssel von Resend, voller Wert unten | 3600 | ja. **Ohne ihn kommen keine Anmeldemails an** |
 | `_vercel` | TXT | `vc-domain-verify=zeugnio.ch,f3a6e670919930ccc526` | 60 | ja |
 | `_vercel` | TXT | `vc-domain-verify=www.zeugnio.ch,01ea6ff70b4bb504056a` | 60 | ja |
-| `*` | A | Vercel-Pool wie am Apex | 1800 | **nein** |
-| `_domainconnect` | CNAME | `_domainconnect.vercel-dns.com` | 3600 | **nein** |
+| `*` | A | Vercel-Pool wie am Apex (im Dashboard: `ALIAS` → `cname.vercel-dns-017.com`) | 1800 | **nein** |
+| `_domainconnect` | CNAME | `_domainconnect.vercel-dns.com` (im Dashboard nicht sichtbar) | 3600 | **nein** |
 | `@` | NS, SOA | Vercel | 86 400 / 3600 | nein, setzt Infomaniak selbst |
 
 Nicht vorhanden: AAAA, TXT am Apex (also kein SPF), `_dmarc`, DNSSEC.
@@ -74,6 +74,14 @@ p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDJeihRhf2+jGX9hTdj2F42A0tQJHw+OMCA+zH/Xo
 ```
 
 ### Warum vier A-Einträge am Apex
+
+Im Vercel-Dashboard steht am Apex kein A-Eintrag, sondern ein `ALIAS` auf
+`cname.vercel-dns-017.com`, gesperrt und von Vercel verwaltet. Am Apex ist ein CNAME im
+DNS nicht erlaubt, weil dort schon SOA und NS stehen. `ALIAS` ist Vercels Umweg: Der
+Nameserver löst das Ziel selbst auf und antwortet mit dessen A-Adressen. Bei einem anderen
+Anbieter trägt man darum die Adressen ein, die das Ziel liefert. `cname.vercel-dns-017.com`
+liefert direkt bei seinem Nameserver denselben Pool, abwechselnd `.1` und `.65` (18.11.,
+achtmal abgefragt).
 
 Vercel beantwortet den Apex nicht mit festen Werten. Jede Antwort enthält zwei von vier
 Adressen, zufällig gemischt (17.11. zehnmal abgefragt). Wer heute `zeugnio.ch` aufruft,
@@ -109,7 +117,7 @@ also über das Fenster hinaus.
 
 | # | Schritt | Prüfung |
 |---|---|---|
-| 0 | Vercel, oben links das Team **«advisori GmbH»** wählen, dann **Domains → `zeugnio.ch` → DNS Records** mit der Tabelle oben vergleichen. Per DNS findet man nur Namen, nach denen man fragt. Das Dashboard zeigt alle | keine Zeile im Dashboard, die oben fehlt |
+| 0 | Vercel, oben links das Team **«advisori GmbH»** wählen, dann **Domains → `zeugnio.ch` → DNS Records** mit der Tabelle oben vergleichen. Per DNS findet man nur Namen, nach denen man fragt. Das Dashboard zeigt alle | keine Zeile im Dashboard, die oben fehlt. **Erledigt 18.11.:** 13 Zeilen, alle in der Tabelle |
 | 1 | Im Infomaniak-Manager `zeugnio.ch` hinzufügen und die DNS-Zone anlegen. Lässt der Manager die Zone erst nach dem Transfer zu, gilt die Reihenfolge 0.1a, 0.1d, 0.1b, 0.1c aus `cutover-reihenfolge.md` | Manager zeigt die Zone und ihre zwei Nameserver |
 | 2 | **Vorgaben entfernen.** Eine neu angelegte Zone kann Einträge von Infomaniak enthalten, zum Beispiel eine Parkseite, MX, SPF oder `autoconfig`. Alles löschen, was nicht in der Tabelle oben steht | Zone enthält nur die Tabelle |
 | 3 | Die Einträge aus der Tabelle eintragen, mit der TTL aus der letzten Spalte (wo nichts steht, die Vorgabe von Infomaniak) | — |
