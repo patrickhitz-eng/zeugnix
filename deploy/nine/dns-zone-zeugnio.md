@@ -24,7 +24,7 @@
 
 - **Gekauft über Vercel** am 24.07.2026 (Vercel-Beleg, zusammen mit `zeugnio.com`).
   Verwaltet wird sie im Vercel-Team **«advisori GmbH»** (Kennung `advisori-gmb-h`). Dort
-  geschehen Schritt 0, 5 und 8.
+  gibt es den Transfer-Code (A1).
 - **Registrar laut Registry:** Key-Systems GmbH. Über Key-Systems registriert Vercel
   `.ch`-Domains. Bei `.com` ist es Name.com.
 - **Das Projekt «zeugnix»** liegt in einem anderen Team, «patrickhitz-eng's projects». Es
@@ -113,24 +113,71 @@ also über das Fenster hinaus.
   jede Stelle ausstellen. Das ist lockerer als heute, behindert aber nichts. Das Skript
   meldet es als Hinweis, nicht als Fehler.
 
-## Ablauf
+## Ablauf: Transfer zuerst (Stand 18.11.)
+
+Im Infomaniak-Manager lässt sich keine Zone für eine fremde Domain anlegen, nur ein Transfer
+(Silvan, 18.11., CHF 5.40). Darum gilt die Reihenfolge 0.1a, 0.1d, 0.1b, 0.1c: erst
+übertragen, dann die Zone füllen, dann die Nameserver umstellen. Dabei geht es um drei
+verschiedene Dinge:
+
+- **Registrar:** bei wem die Domain registriert ist und bezahlt wird. Heute Vercel, nach
+  Teil A Infomaniak.
+- **Nameserver:** welche Server die Registry für `zeugnio.ch` nennt. Heute die von Vercel.
+- **Zone:** die Einträge auf diesen Servern.
+
+Der Transfer wechselt nur den Registrar. Bleiben die Nameserver dabei bei Vercel, merkt
+niemand etwas davon. Erst Teil C schaltet auf die neue Zone um.
+
+**Schritt 0, erledigt 18.11.:** Im Vercel-Dashboard (Team «advisori GmbH» → Domains →
+`zeugnio.ch` → DNS Records) stehen 13 Zeilen, alle in der Tabelle oben.
+
+### Teil A: Domain übertragen (0.1d)
 
 | # | Schritt | Prüfung |
 |---|---|---|
-| 0 | Vercel, oben links das Team **«advisori GmbH»** wählen, dann **Domains → `zeugnio.ch` → DNS Records** mit der Tabelle oben vergleichen. Per DNS findet man nur Namen, nach denen man fragt. Das Dashboard zeigt alle | keine Zeile im Dashboard, die oben fehlt. **Erledigt 18.11.:** 13 Zeilen, alle in der Tabelle |
-| 1 | Im Infomaniak-Manager `zeugnio.ch` hinzufügen und die DNS-Zone anlegen. Lässt der Manager die Zone erst nach dem Transfer zu, gilt die Reihenfolge 0.1a, 0.1d, 0.1b, 0.1c aus `cutover-reihenfolge.md` | Manager zeigt die Zone und ihre zwei Nameserver |
-| 2 | **Vorgaben entfernen.** Eine neu angelegte Zone kann Einträge von Infomaniak enthalten, zum Beispiel eine Parkseite, MX, SPF oder `autoconfig`. Alles löschen, was nicht in der Tabelle oben steht | Zone enthält nur die Tabelle |
-| 3 | Die Einträge aus der Tabelle eintragen, mit der TTL aus der letzten Spalte (wo nichts steht, die Vorgabe von Infomaniak) | — |
-| 4 | Prüfskript laufen lassen (Befehl unten). `-Neu` ist der erste Nameserver, den der Manager nennt | Skript meldet **BEREIT** |
-| 5 | Vercel, Team «advisori GmbH» → Domains → `zeugnio.ch` → Nameservers: die zwei von Infomaniak eintragen. Das Skript zeigt sie am Schluss an | — |
-| 6 | **24 Stunden nichts ändern**, weder bei Vercel noch bei Infomaniak. Danach prüfen: `Resolve-DnsName zeugnio.ch -Type NS -Server 1.1.1.1` zeigt Infomaniak, `zeugnio.ch` lädt, ein Anmeldelink kommt an | alles drei erfüllt |
-| 7 | F1 (`docs/dns-spf-dmarc.md`) direkt bei Infomaniak: M365-Bestätigung, MX, `autodiscover`, SPF, DKIM, DMARC | wie in F1 beschrieben |
-| 8 | Transfer der Domain (0.1d) mit dem Transfer-Code aus Vercel (Team «advisori GmbH»), spätestens vor 6.4 | RDAP bei `rdap.nic.ch` zeigt den neuen Registrar |
+| A1 | Vercel, Team «advisori GmbH» → Domains → `zeugnio.ch`: Transfer-Code (Auth-Code) anzeigen lassen. **Die Domain in Vercel nicht entfernen.** Dieser Eintrag trägt die Zone, über die `zeugnio.ch` läuft, bis Teil C fertig ist | Code liegt vor |
+| A2 | Infomaniak → Domain übertragen → `zeugnio.ch`, Code eingeben, bezahlen. Konto und Inhaber: advisori GmbH. **Fragt das Formular nach DNS oder Nameservern: die bestehenden behalten** (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`). Bietet es nur «DNS von Infomaniak» an: abbrechen. Sonst zeigt `zeugnio.ch` sofort auf eine leere Zone, und Seite und Anmeldemails sind weg | — |
+| A3 | Prüfen mit den zwei Befehlen unten: Registrar ist Infomaniak, die Nameserver sind weiter die von Vercel, und Vercel beantwortet die Zone noch. `zeugnio.ch` lädt im Browser | alles erfüllt |
 
-**Zeitplan:** Wechsel bis **Do 19.11.** Dann endet die Parallelzeit am Fr 20.11., F1 kann
-ab Freitag laufen, und am Di 24.11. gilt überall TTL 300. Steht die Zone bis Fr 20.11.
-nicht, gilt der Ausweg: TTL am Apex bei Vercel auf 300 senken, das Fenster mit Vercel-DNS
-fahren und die Zone nach dem Umzug, aber vor 6.4 wegziehen.
+Nicht geprüft ist, was Vercel nach dem Transfer mit der Zone macht. Erwartet ist, dass
+Vercel die Domain als fremd registrierte Domain mit Vercel-Nameservern weiterführt und die
+Zone weiter beantwortet, wie bei jeder Domain, die anderswo gekauft wurde und auf Vercel
+zeigt. Darum gleich A3 prüfen und Teil B direkt anschliessen. Antwortet Vercel nicht mehr,
+Teil B und C sofort durchziehen, ohne zu warten.
+
+```powershell
+$r = Invoke-RestMethod https://rdap.nic.ch/domain/zeugnio.ch; $r.entities.vcardArray[1] | Where-Object { $_[0] -eq 'org' } | ForEach-Object { 'Registrar: ' + $_[3] }; $r.nameservers.ldhName | ForEach-Object { 'Nameserver: ' + $_ }
+```
+
+```powershell
+Resolve-DnsName zeugnio.ch -Type A -Server ns1.vercel-dns.com
+```
+
+Vor dem Transfer (18.11.) zeigt der erste Befehl `Registrar: Key-Systems GmbH` und die zwei
+Vercel-Nameserver. Der zweite zeigt zwei Adressen aus dem Pool.
+
+### Teil B: Zone bei Infomaniak füllen (0.1b)
+
+| # | Schritt | Prüfung |
+|---|---|---|
+| B1 | Infomaniak → `zeugnio.ch` → DNS-Zone. **Vorgaben entfernen:** Eine neue Zone kann Einträge von Infomaniak enthalten, zum Beispiel eine Parkseite, MX, SPF oder `autoconfig`. Alles löschen, was nicht in der Tabelle oben steht | Zone enthält nur die Tabelle |
+| B2 | Die Einträge aus der Tabelle eintragen, mit der TTL aus der letzten Spalte (wo nichts steht, die Vorgabe von Infomaniak) | — |
+| B3 | Prüfskript laufen lassen (Befehl unten). `-Neu` ist der erste Nameserver, den Infomaniak für die Zone nennt | Skript meldet **BEREIT** |
+
+### Teil C: Nameserver umstellen (0.1c)
+
+| # | Schritt | Prüfung |
+|---|---|---|
+| C1 | **Infomaniak** → `zeugnio.ch` → Nameserver auf die von Infomaniak umstellen. Nach dem Transfer geht das bei Infomaniak, nicht mehr bei Vercel | — |
+| C2 | **24 Stunden nichts ändern**, weder bei Vercel noch bei Infomaniak. Danach prüfen: `Resolve-DnsName zeugnio.ch -Type NS -Server 1.1.1.1` zeigt Infomaniak, `zeugnio.ch` lädt, ein Anmeldelink kommt an | alles drei erfüllt |
+| C3 | F1 (`docs/dns-spf-dmarc.md`) direkt bei Infomaniak: M365-Bestätigung, MX, `autodiscover`, SPF, DKIM, DMARC | wie in F1 beschrieben |
+| C4 | Die Domain bleibt im Vercel-Team «advisori GmbH» stehen, bis 6.4. Das Projekt braucht sie, solange Vercel `zeugnio.ch` ausliefert. Die `_vercel`-TXT dazu stehen jetzt in der Infomaniak-Zone | — |
+
+**Zeitplan:** Teil A bis C am **Do 19.11.** in einem Zug, weil ein `.ch`-Transfer mit Code
+meist schnell durch ist. Dann endet die Parallelzeit am Fr 20.11., F1 kann ab Freitag laufen,
+und am Di 24.11. gilt überall TTL 300. Steht das bis Fr 20.11. nicht, gilt der Ausweg: TTL
+am Apex bei Vercel auf 300 senken, das Fenster mit Vercel-DNS fahren und alles Übrige nach
+dem Umzug, aber vor 6.4 erledigen.
 
 ## Prüfskript
 

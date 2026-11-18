@@ -348,7 +348,8 @@ sie zeigen. Ob der Registrar-Wechsel vor oder nach dem Nameserver-Wechsel kommt,
 | 0.1d | Domain mit dem Transfer-Code aus Vercel zu Infomaniak übertragen, automatische Verlängerung und Zwei-Faktor-Anmeldung an | RDAP bei `rdap.nic.ch` zeigt das neue Registrierungsereignis |
 
 Lässt Infomaniak die Zone erst nach dem Transfer anlegen, gilt die Reihenfolge 0.1a, 0.1d
-(Nameserver bleiben bei Vercel), 0.1b, 0.1c.
+(Nameserver bleiben bei Vercel), 0.1b, 0.1c. **So ist es (Silvan, 18.11.):** Der Manager bietet
+für `zeugnio.ch` nur den Transfer an (CHF 5.40). Ablauf in Teilen A–C in `dns-zone-zeugnio.md`.
 
 **`zeugnix.ch` gehört mit dazu.** Die Altdomain hat eine eigene Zone (Nameserver
 `ch.pro.io`, `nl.pro.io`, `p.dnh.net`) und zeigt mit A `216.150.1.1` auf Vercel, das per 301
