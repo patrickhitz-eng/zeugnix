@@ -21,7 +21,7 @@
 | `www` | **CNAME** auf `f7ce91cbe36539da.vercel-dns-016.com`, TTL 60 | Muss zum A-Record auf 5.148.171.221 werden; nine erwartet A-Records für beide Namen |
 | HSTS | **`max-age=63072000; includeSubDomains`**, live auf Apex und `www` (`next.config.mjs:30`) | Zwei Jahre Browser-Gedächtnis. Im Fenster ohne gültiges Zertifikat gibt es **kein „Trotzdem fortfahren"** |
 | HSTS-`preload` | **nicht gesetzt**, bewusst (`next.config.mjs:27-28`) | Rettet uns: der Pin steckt nur in Browsern, die wirklich da waren — Senken wirkt also |
-| CAA | **keine** | Let's Encrypt ist erlaubt, kein Blocker |
+| CAA | **keine**. **Korrektur 17.11.:** drei Einträge, `issue` für `letsencrypt.org`, `pki.goog` und `sectigo.com` (Windows kann CAA nicht abfragen; gemessen mit Rohabfrage, Cloudflare und Google) | Let's Encrypt ist erlaubt, kein Blocker |
 | Antwortende Region | `x-vercel-id: fra1` (Edge Frankfurt), `X-Vercel-Cache: HIT` | Sagt nur etwas über den Cache-Knoten; die Funktionsregion ist davon unberührt und bleibt zu prüfen |
 
 ---
@@ -300,7 +300,7 @@ Fenster ganz wegnehmen könnte.
 | # | Schritt | Warum nicht früher |
 |---|---|---|
 | 6.0 | **Datenschutzerklärung umstellen:** `RECIPIENTS` in `app/legal/privacy/page.tsx` ändern. Vercel fällt weg, Supabase bleibt nur für die Anmeldung, neu kommt nine (Zürich-Altstetten, Sicherungen Rümlang, Notfall-Support aus Kanada). Das Stand-Datum nachführen. Kunden mit Auftragsbearbeitungsvertrag den Tag des Umzugs per E-Mail melden (AVV § 6) | Die Erklärung muss den Ist-Zustand beschreiben; vor dem Fenster stimmt die neue Fassung noch nicht |
-| 6.1 | CAA-Eintrag setzen (`issue "letsencrypt.org"`) | vorher würde er die Ausstellung behindern, wenn er falsch sitzt |
+| 6.1 | CAA auf `0 issue "letsencrypt.org"` reduzieren. Seit 17.11. bekannt: Vercel liefert drei CAA-Einträge, sie ziehen in 0.1 unverändert mit; `pki.goog` und `sectigo.com` braucht nur Vercel | vorher würde ein falscher Eintrag die Ausstellung behindern |
 | 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload` | erst wenn das Zertifikat sicher erneuert wird |
 | 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu DKIM von mailomat eintragen und dessen `include` im Apex-SPF ergänzen. SPF und DMARC für Microsoft 365 setzt schon F1 (`docs/dns-spf-dmarc.md`). Danach die Resend-Einträge (`resend._domainkey`, `send`) entfernen. In `RECIPIENTS` Resend durch mailomat.swiss ersetzen (mailXpert GmbH, Zürich) | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
 | 6.4 | Vercel und Supabase stilllegen. **Vorher** `zeugnix.ch` auf advisori01 umleiten (siehe «Entscheid zur DNS-Zone») | erst nach einer Frist, in der der Rückweg offen bleibt; ohne die Umleitung wären alte Links und QR-Codes auf `zeugnix.ch` tot |
@@ -328,13 +328,22 @@ Registrar selbst (das wäre Vercel), nine (Abhängigkeit 4) und Hostpoint (gleic
 Grund für ein drittes Konto). Kontoinhaber bei Infomaniak: advisori, Domaininhaber
 advisori GmbH (Marktstart-Schritt 14).
 
+**Bestätigt 18.11.:** Der Kauf lief über Vercel (Beleg vom 24.07.2026, zusammen mit
+`zeugnio.com`). Die Domain liegt im Vercel-Team **«advisori GmbH»** (`advisori-gmb-h`). Dort
+geschehen 0.1a (Abgleich), 0.1c (Nameserver) und 0.1d (Transfer-Code). Registrar laut
+Registry ist die Key-Systems GmbH, über die Vercel `.ch` registriert. Das Projekt «zeugnix»
+liegt im Team «patrickhitz-eng's projects» und benutzt die Domain mit `_vercel`-Bestätigung.
+Darum erscheint `zeugnio.ch` in der Domainliste von Patricks Team nicht. **`zeugnio.com`**
+liegt im selben Team (Registrar Name.com, läuft bis 24.07.2027) und zeigt auf kein
+Deployment. Vor 6.4 entscheiden: übertragen oder auslaufen lassen.
+
 **Eine Regel trägt alles:** Die neue Zone steht vollständig, **bevor** die Nameserver auf
 sie zeigen. Ob der Registrar-Wechsel vor oder nach dem Nameserver-Wechsel kommt, ist egal.
 
 | # | Schritt | Gate |
 |---|---|---|
-| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird. Seit 11.11. zusätzlich `test` A `5.148.171.221` (Testname der Vollprobe): mitnehmen, solange es den vhost `test.zeugnio.ch` gibt. **Nach F1** (`docs/dns-spf-dmarc.md`) kommen dazu: TXT `MS=ms…` (M365-Bestätigung), MX auf Microsoft **statt** AWS, CNAME `autodiscover`, Apex-TXT SPF, CNAME `selector1._domainkey` und `selector2._domainkey`, TXT `_dmarc`. Ein `_dmarc` gibt es bei `zeugnio.ch` vor F1 nicht (das `p=none` gehört zu `zeugnix.ch`) | Liste vollständig, mit dem Vercel-Dashboard abgeglichen |
-| 0.1b | Bei Infomaniak die Zone mit genau diesen Einträgen anlegen, TTL der Apex-A-Records gleich auf 300 (ersetzt 0.2) | Abfrage direkt beim Infomaniak-Nameserver liefert dieselben Antworten wie Vercel |
+| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird. Seit 11.11. zusätzlich `test` A `5.148.171.221` (Testname der Vollprobe): mitnehmen, solange es den vhost `test.zeugnio.ch` gibt. **Nach F1** (`docs/dns-spf-dmarc.md`) kommen dazu: TXT `MS=ms…` (M365-Bestätigung), MX auf Microsoft **statt** AWS, CNAME `autodiscover`, Apex-TXT SPF, CNAME `selector1._domainkey` und `selector2._domainkey`, TXT `_dmarc`. Ein `_dmarc` gibt es bei `zeugnio.ch` vor F1 nicht (das `p=none` gehört zu `zeugnix.ch`). **Stand 17.11.:** vollständige Liste mit Werten und TTL in `dns-zone-zeugnio.md`, gemessen direkt bei Vercels Nameservern. Neu dabei: vier Apex-Adressen aus einem Pool, drei CAA, zwei `_vercel`-TXT | Liste vollständig, mit dem Vercel-Dashboard abgeglichen |
+| 0.1b | Bei Infomaniak die Zone mit genau diesen Einträgen anlegen, TTL der Apex-A-Records gleich auf 300 (ersetzt 0.2) | `zone-vergleich.ps1` meldet «BEREIT» (fragt Infomaniak und Vercel direkt) |
 | 0.1c | Nameserver auf Infomaniak umstellen. **Kein DNSSEC aktiv** (kein DS-Eintrag, gemessen 3.11.), der Wechsel braucht also keinen Schlüsseltausch | `NS zeugnio.ch` zeigt Infomaniak, Seite und Anmeldemail laufen |
 | 0.1d | Domain mit dem Transfer-Code aus Vercel zu Infomaniak übertragen, automatische Verlängerung und Zwei-Faktor-Anmeldung an | RDAP bei `rdap.nic.ch` zeigt das neue Registrierungsereignis |
 
@@ -345,4 +354,7 @@ Lässt Infomaniak die Zone erst nach dem Transfer anlegen, gilt die Reihenfolge 
 `ch.pro.io`, `nl.pro.io`, `p.dnh.net`) und zeigt mit A `216.150.1.1` auf Vercel, das per 301
 auf `www.zeugnio.ch` weiterleitet. Ältere Links und QR-Codes nutzen sie. Bevor Vercel in 6.4
 abgeschaltet wird, muss `zeugnix.ch` auf advisori01 zeigen und dort weiterleiten
-(vhost-Alias oder eigener Redirect-vhost). Wer die Zone von `zeugnix.ch` verwaltet, ist offen.
+(vhost-Alias oder eigener Redirect-vhost). **Verwalter seit 18.11. bekannt:** Registrar und
+DNS ist die **Metanet AG** (RDAP, registriert 27.04.2026; SOA `ch.pro.io`). Dieselben
+Nameserver haben `lohnli.ch`, `headhunter.li`, `revisionsassistent.ch` und `notfallbox.org`,
+also vermutlich Patricks Metanet-Konto. Den Eintrag ändert darum Patrick.
