@@ -2,10 +2,15 @@
 // Motor des Modells. Schutz gegen Fälscher ist nicht die Hürde beim Anmelden,
 // sondern die Anzeige «Aussteller bestätigt / nicht bestätigt» auf /verify.
 // Schliessen ginge über `false`: Start-Knöpfe führen dann zur Kontaktseite, der
-// Anmeldelink geht nur an bestehende Konten, neue Kunden legt zeugnio im
-// Supabase-Dashboard an (Authentication → Users → Invite). Serverseitig sperrt
-// erst die Dashboard-Einstellung «Allow new users to sign up» – dieser Schalter
-// steuert nur die Oberfläche.
+// Anmeldelink geht nur an bestehende Konten.
+// Mit Supabase Auth (ZEUGNIO_AUTH=supabase) legt zeugnio neue Kunden im
+// Supabase-Dashboard an (Authentication → Users → Invite); serverseitig sperrt
+// erst die Dashboard-Einstellung «Allow new users to sign up».
+// Mit der eigenen Anmeldung (ZEUGNIO_AUTH=eigen) wirkt dieser Schalter auch
+// serverseitig: auth_request_login und auth.open_session (906) legen bei
+// «false» niemanden an. Ein neues Konto entsteht dann mit einer Zeile in
+// auth.users (psql auf advisori01, Adresse klein geschrieben); der Trigger
+// on_auth_user_created legt das Profil an.
 const signupOpen = true;
 
 export const siteConfig = {

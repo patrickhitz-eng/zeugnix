@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { deleteCompanyLogos } from "@/lib/uploads/delete-company-logos";
 import { deletionErrorStatus } from "@/lib/loeschen/rpc-error";
 import { logError } from "@/lib/log";
@@ -21,9 +22,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const body = (await req.json().catch(() => null)) as { confirmName?: unknown } | null;

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import Link from "next/link";
 
 export const metadata = { title: "Übersicht" };
@@ -6,9 +7,7 @@ export const metadata = { title: "Übersicht" };
 export default async function DashboardPage() {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   // Stats laden
   const { data: companies } = await supabase

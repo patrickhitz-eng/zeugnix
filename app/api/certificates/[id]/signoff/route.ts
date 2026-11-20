@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
@@ -29,9 +30,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const limited = await rateLimit(`signoff:${user.id}`, SIGNOFF_LIMIT, SIGNOFF_WINDOW_MS);

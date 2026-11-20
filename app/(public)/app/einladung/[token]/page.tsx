@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { Logo } from "@/components/ui/logo";
 import { SignOutButton } from "@/components/app/sign-out-button";
 import { TeamInvitationAccept } from "@/components/forms/team-invitation-accept";
@@ -21,9 +22,7 @@ export const metadata = { title: "Einladung ins Team" };
 export default async function TeamInvitationPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/app/einladung/${token}`)}`);
 
   const { data: inv } = await createServiceClient()

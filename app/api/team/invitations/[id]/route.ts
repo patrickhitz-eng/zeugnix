@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { isUuid } from "@/lib/team/invitations";
 
 /**
@@ -17,9 +18,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!isUuid(id)) return NextResponse.json({ error: "Ungültige Einladung." }, { status: 400 });
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const { data, error } = await supabase

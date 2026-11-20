@@ -201,6 +201,107 @@ export function buildManagerInvitationEmail(props: ManagerInvitationProps): {
   return { subject, html, text };
 }
 
+// ============================================================================
+// Anmelde-Mail der eigenen Anmeldung (Cutover B): Link + Code, sonst nichts.
+// Keine Personendaten ausser der Empfängeradresse, die Resend ohnehin kennt.
+// ============================================================================
+interface LoginEmailProps {
+  linkUrl: string;
+  code: string;
+  validMinutes: number;
+}
+
+export function buildLoginEmail(props: LoginEmailProps): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const { linkUrl, code, validMinutes } = props;
+  // Der Code steht bewusst nicht im Betreff: Betreffzeilen landen in
+  // Versandprotokollen (Resend) und in Sperrbildschirm-Vorschauen.
+  const subject = "Ihr Anmelde-Code für zeugnio.ch";
+
+  const text = [
+    "Guten Tag,",
+    "",
+    "Sie können sich auf zeugnio.ch auf zwei Arten anmelden:",
+    "",
+    `1. Code auf der Anmeldeseite eingeben: ${code}`,
+    "",
+    "2. Oder diesen Link öffnen und dort auf «Anmelden» klicken:",
+    linkUrl,
+    "",
+    `Code und Link gelten ${validMinutes} Minuten und nur einmal. Angemeldet ist`,
+    "das Gerät, auf dem Sie den Code eingeben oder den Link öffnen.",
+    "",
+    "Mit freundlichen Grüssen",
+    "zeugnio.ch",
+    "",
+    "—",
+    "Falls Sie diese Anmeldung nicht angefordert haben, ignorieren Sie diese Mail.",
+    "Ohne Code oder Link meldet sich niemand an.",
+  ].join("\n");
+
+  const p = "margin:16px 0;font-size:14.5px;line-height:1.65;color:#3a3f46;";
+  const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1d22;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f5f7;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:8px;border:1px solid #e4e6ea;">
+        <tr>
+          <td style="padding:28px 32px 20px 32px;border-bottom:1px solid #e4e6ea;font-size:16px;font-weight:600;color:#1a1d22;">
+            zeugnio<span style="color:#0f7a6b;">.ch</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:32px;">
+            <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:500;line-height:1.3;color:#1a1d22;">
+              Anmelden bei zeugnio.ch
+            </h1>
+            <p style="${p}">Guten Tag,</p>
+            <p style="${p}">geben Sie diesen Code auf der Anmeldeseite ein:</p>
+            <p style="margin:20px 0;font-size:30px;letter-spacing:8px;font-weight:600;color:#1a1d22;font-family:'SF Mono',Menlo,Consolas,monospace;">
+              ${escapeHtml(code)}
+            </p>
+            <p style="${p}">Oder öffnen Sie den Link und klicken Sie dort auf «Anmelden»:</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0 28px 0;">
+              <tr>
+                <td style="border-radius:6px;background:#0f7a6b;">
+                  <a href="${escapeHtml(linkUrl)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:500;color:#ffffff;text-decoration:none;">
+                    Zur Anmeldung →
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="${p}">Code und Link gelten ${validMinutes} Minuten und nur einmal.
+              Angemeldet ist das Gerät, auf dem Sie den Code eingeben oder den Link öffnen.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 32px 28px 32px;border-top:1px solid #e4e6ea;font-size:11.5px;line-height:1.55;color:#8a8f96;">
+            Falls Sie diese Anmeldung nicht angefordert haben, ignorieren Sie diese Mail.
+            Ohne Code oder Link meldet sich niemand an.
+            <br><br>
+            zeugnio.ch — Arbeitszeugnisse erstellen, absichern, prüfen.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  return { subject, html, text };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

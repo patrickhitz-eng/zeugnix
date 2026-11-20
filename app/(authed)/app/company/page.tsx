@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { getCompanyPermissions } from "@/lib/auth/ownership";
 import { CompanyForm } from "@/components/forms/company-form";
 import {
@@ -14,9 +15,7 @@ export default async function CompanyPage() {
 
   // Ein-Klick-Vorschlag für die Domain-Bestätigung: die Domain der (per
   // Magic-Link bestätigten) Anmelde-Adresse, ausser es ist eine Freemail-Domain.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   const loginDomain = emailDomain(user?.email);
   const loginIsFreeMail = isFreeMailDomain(loginDomain);
   const suggestedDomain = loginDomain && !loginIsFreeMail ? loginDomain : null;

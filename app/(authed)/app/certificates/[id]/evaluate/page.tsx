@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { notFound, redirect } from "next/navigation";
 import { ManagerEvaluationForm } from "@/components/forms/manager-evaluation-form";
 import { SKILLS } from "@/lib/phrases/skills";
@@ -15,9 +16,7 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const { data: cert } = await supabase

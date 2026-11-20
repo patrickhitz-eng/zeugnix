@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import {
   normalizeDomain,
@@ -31,9 +32,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!(await userHasCompanyPermission(supabase, id, user.id, "admin")))
@@ -155,9 +154,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   if (!(await userHasCompanyPermission(supabase, id, user.id, "admin")))
