@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { RETENTION } from "@/lib/retention";
 
 /*
  * «Häufige Fragen» auf der Startseite, direkt vor dem Schluss-CTA.
@@ -20,11 +21,17 @@ import type { ReactNode } from "react";
  *  - Satzbausteine:   app/legal/privacy Abschnitt 3, app/api/certificates/[id]/text
  *  - Echtheit:        lib/pdf/certificate.tsx (QR), app/verify (Hinweis zur Verifikation)
  *  - Ändern:          app/api/certificates/[id]/revoke, components/app/certificate-manage.tsx
- *  - Empfänger:       RECIPIENTS in app/legal/privacy/page.tsx. KEINE Aussage
+ *  - Wer sieht was:   app/legal/privacy Abschnitt 3 («Versiegelung»: was die
+ *                     Prüfung zeigt), app/(public)/app/signoffs/[token]
+ *                     (Unterzeichnende sehen den Zeugnistext)
+ *  - Empfänger/Orte:  RECIPIENTS in app/legal/privacy/page.tsx (Frankfurt,
+ *                     Irland, weltweites Netz, USA und Singapur). KEINE Aussage
  *                     «Daten in der Schweiz», solange Vercel und Supabase laufen.
  *  - Preise:          components/sections/pricing.tsx, company-package.tsx,
  *                     app/legal/terms Ziffer 4 (kein Streichpreis, PBV Art. 16)
- *  - Export/Löschen:  app/(authed)/app/daten, app/api/companies/[id]/export,
+ *  - Export/Löschen:  app/(authed)/app/daten, app/api/companies/[id]/export
+ *                     (ZIP nur mit ausgestellten Zeugnissen, Entwürfe nur im CSV),
+ *                     lib/retention.ts (registerYears),
  *                     app/api/companies/[id]/delete, app/api/account/delete
  */
 
@@ -89,8 +96,8 @@ const faqs: Faq[] = [
       <>
         Ein finalisiertes Zeugnis ist versiegelt und lässt sich nicht mehr
         bearbeiten. Sie erstellen dann ein neues Zeugnis. Das alte kann
-        widerrufen werden, wer im Team versiegeln darf: Die Prüfung zeigt es
-        danach dauerhaft als widerrufen an.
+        widerrufen, wer im Team versiegeln darf. Die Prüfung zeigt es danach
+        dauerhaft als widerrufen an.
       </>
     ),
   },
@@ -98,12 +105,15 @@ const faqs: Faq[] = [
     q: "Wer sieht die Daten, und wo werden sie verarbeitet?",
     a: (
       <>
-        Zeugnisdaten sehen die Personen Ihres Teams mit Zugriff und die
-        eingeladene Führungskraft. Als Dienstleister setzen wir Vercel
-        (Website), Supabase (Datenbank, Anmeldung, Logos) und Resend (E-Mails)
-        ein. Datenbank und Server-Funktionen laufen in Frankfurt, Seiten liefert
-        Vercel über ein weltweites Netz aus, und einzelne Protokolle können in
-        den USA bearbeitet werden. Alle Einzelheiten stehen in der{" "}
+        Zeugnisdaten sehen die Personen Ihres Teams mit Zugriff, die eingeladene
+        Führungskraft und die Unterzeichnenden. Wer ein ausgestelltes Zeugnis
+        prüft, sieht Status, Name, Arbeitgeber, Titel, Datum und
+        Unterzeichnende. Als Dienstleister setzen wir Vercel (Website), Supabase
+        (Datenbank, Anmeldung, Logos) und Resend (E-Mails) ein. Datenbank und
+        Server-Funktionen laufen in Frankfurt, E-Mails gehen über Irland. Seiten
+        liefert Vercel über ein weltweites Netz aus. Betriebsprotokolle, Support
+        und E-Mail-Metadaten können ausserhalb der EU bearbeitet werden,
+        namentlich in den USA und in Singapur. Alle Einzelheiten stehen in der{" "}
         <Link href="/legal/privacy" className={linkClass}>
           Datenschutzerklärung
         </Link>
@@ -132,10 +142,11 @@ const faqs: Faq[] = [
     a: (
       <>
         Ja, auf der Seite «Daten» in der App. Je nach Rolle laden Sie dort alle
-        Zeugnisse einer Firma als ZIP herunter (als PDF und als Word-Datei) und
-        löschen Mitarbeitende, Firmen oder Ihr eigenes Konto. Ausgestellte
-        Zeugnisse bleiben danach prüfbar: zeugnio behält dafür nur Prüfwert,
-        Status, Arbeitgeber und Datum, keine Namen und keinen Text.
+        ausgestellten Zeugnisse einer Firma als ZIP herunter (als PDF und als
+        Word-Datei, dazu Stammdaten als CSV) und löschen Mitarbeitende, Firmen
+        oder Ihr eigenes Konto. Ausgestellte Zeugnisse bleiben danach{" "}
+        {RETENTION.registerYears} Jahre prüfbar: zeugnio behält dafür nur
+        Prüfwert, Status, Arbeitgeber und Datum, keine Namen und keinen Text.
       </>
     ),
   },
@@ -179,8 +190,8 @@ export function FaqSection() {
               {faqs.map((f) => (
                 <li key={f.q} className="border-b border-ink-200">
                   <details className="group">
-                    <summary className="flex cursor-pointer list-none items-start justify-between gap-6 rounded-md py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petrol-600 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 [&::-webkit-details-marker]:hidden">
-                      <span className="text-[15.5px] font-medium leading-snug tracking-tight text-ink-900 transition-colors group-hover:text-petrol-700 motion-reduce:transition-none sm:text-[16px]">
+                    <summary className="group/q flex cursor-pointer list-none items-start justify-between gap-6 rounded-md py-5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-petrol-600 focus-visible:ring-offset-2 focus-visible:ring-offset-ink-50 [&::-webkit-details-marker]:hidden">
+                      <span className="text-[15.5px] font-medium leading-snug tracking-tight text-ink-900 transition-colors group-hover/q:text-petrol-700 motion-reduce:transition-none sm:text-[16px]">
                         {f.q}
                       </span>
                       <PlusMinus />
