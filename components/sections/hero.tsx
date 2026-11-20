@@ -29,11 +29,21 @@ export function Hero() {
         <div className="lg:col-span-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-petrol-100 bg-petrol-50 px-3 py-1.5">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-petrol-400 opacity-60" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-petrol-400 opacity-60 motion-reduce:animate-none" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-petrol-600" />
             </span>
+            {/*
+             * Badge und Untertitel in Alltagssprache für HR in KMU. Der Hash
+             * macht nachträgliche Änderungen ERKENNBAR, er verhindert sie
+             * nicht: darum «prüfbar» und «entspricht dem Original», nie
+             * «fälschungssicher» oder «rechtssicher» (UWG Art. 3 Abs. 1 lit. b).
+             * Belege: /verify meldet «verifiziert» nur bei Treffer in der
+             * Datenbank, sonst «Nicht in Datenbank» mit dem Hinweis, das
+             * Zeugnis könne verändert worden sein (verify-uploader.tsx).
+             * «kostenlos» stützt sich auf die Preisseite (Erstellung CHF 0).
+             */}
             <span className="text-[12px] font-medium text-petrol-700">
-              Schweizer Zeugnispraxis · Hash-verifiziert
+              Schweizer Zeugnispraxis · Echtheit prüfbar
             </span>
           </div>
 
@@ -46,9 +56,9 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-[16.5px] leading-relaxed text-ink-600">
-            Erstellen Sie Schweizer Arbeitszeugnisse kostenlos, sichern Sie
-            diese mit einem kryptografischen Hash ab und machen Sie Zeugnisse
-            später überprüfbar und verständlich.
+            Ihre Führungskraft beurteilt, zeugnio formuliert daraus das Zeugnis.
+            Die Erstellung ist kostenlos, und wer das Zeugnis später prüft,
+            sieht sofort, ob es noch dem Original entspricht.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
