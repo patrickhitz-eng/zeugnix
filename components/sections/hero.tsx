@@ -5,7 +5,7 @@ import { siteConfig } from "@/lib/site-config";
 
 const trustBadges = [
   "Nach Schweizer Zeugnispraxis",
-  "Hash-basierte Echtheitsprüfung",
+  "Original online prüfbar",
   "Klartext-Zeugnisanalyse",
   "Für KMU, HR & Recruiter",
   "Kostenlos erstellen",
@@ -35,15 +35,21 @@ export function Hero() {
             {/*
              * Badge und Untertitel in Alltagssprache für HR in KMU. Der Hash
              * macht nachträgliche Änderungen ERKENNBAR, er verhindert sie
-             * nicht: darum «prüfbar» und «entspricht dem Original», nie
-             * «fälschungssicher» oder «rechtssicher» (UWG Art. 3 Abs. 1 lit. b).
-             * Belege: /verify meldet «verifiziert» nur bei Treffer in der
-             * Datenbank, sonst «Nicht in Datenbank» mit dem Hinweis, das
-             * Zeugnis könne verändert worden sein (verify-uploader.tsx).
-             * «kostenlos» stützt sich auf die Preisseite (Erstellung CHF 0).
+             * nicht: darum «Änderungen erkennbar» und «registriertes Original»,
+             * nie «fälschungssicher», «rechtssicher» oder «Echtheit» (UWG
+             * Art. 3 Abs. 1 lit. b). «Echtheit» meint beim Zeugnis auch die
+             * Herkunft vom Arbeitgeber. Die belegt das Siegel nicht: Ein
+             * einzelnes Konto kann eine Firma unter freiem Namen anlegen, selbst
+             * beurteilen und finalisieren (verify-uploader.tsx, Kommentar beim
+             * Ergebnis «verified»). /verify meldet darum «Registriert und
+             * unverändert», ohne Treffer «Nicht in Datenbank» mit drei
+             * möglichen Gründen. Die Prüfung braucht das PDF, darum kein
+             * «sofort» und keine Zusage für Scans oder Papier.
+             * «kostenlos» hängt nur an der Erstellung (Preisseite CHF 0); die
+             * Prüfung kostet nach der Beta CHF 19.90, darum ein eigener Satz.
              */}
             <span className="text-[12px] font-medium text-petrol-700">
-              Schweizer Zeugnispraxis · Echtheit prüfbar
+              Schweizer Zeugnispraxis · Änderungen erkennbar
             </span>
           </div>
 
@@ -56,9 +62,10 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-[16.5px] leading-relaxed text-ink-600">
-            Ihre Führungskraft beurteilt, zeugnio formuliert daraus das Zeugnis.
-            Die Erstellung ist kostenlos, und wer das Zeugnis später prüft,
-            sieht sofort, ob es noch dem Original entspricht.
+            Die Führungskraft beurteilt, zeugnio formuliert daraus das Zeugnis.
+            Die Erstellung ist kostenlos. Wer das PDF später auf zeugnio.ch
+            hochlädt, sieht, ob es unverändert einem registrierten Original
+            entspricht.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
