@@ -31,8 +31,12 @@ type PilotLogo = {
  * Pilot-Logos. Ein Logo kommt NUR mit schriftlicher Zustimmung des Piloten
  * hierher (E-Mail genügt, ablegen). Ohne Zustimmung verletzt ein Logo
  * Marken- und Lauterkeitsrecht.
+ * Logo sofort entfernen, wenn die Firma zeugnio nicht mehr nutzt (etwa nach
+ * dem Pilotende am 31.3.2027 ohne Folgevertrag) oder die Zustimmung
+ * widerruft. Sonst behauptet die Seite eine Nutzung, die es nicht mehr gibt.
  * Dateien nach public/logos/, am besten als SVG oder als PNG mit
- * transparentem Hintergrund. Die Graustufen setzt die Komponente selbst.
+ * transparentem Hintergrund. Die Graustufen setzt die Komponente selbst (nur aufs Bild, damit der
+ * Fokusring des Links petrol-600 bleibt).
  *
  * Beispiel (erfunden):
  *   { name: "Muster AG", src: "/logos/muster-ag.svg", width: 160, height: 40 },
@@ -43,16 +47,23 @@ const PILOT_LOGOS: PilotLogo[] = [];
  * Erst nach dem Umzug zu nine einschalten (deploy/nine/cutover-reihenfolge.md,
  * Phase 5 und 6). Heute laufen Vercel (Funktionen in Frankfurt, Middleware
  * weltweit) und Supabase (Frankfurt): Die Aussage wäre vorher falsch.
- * Auch nach dem Umzug bleibt Supabase laut Schritt 6.0 für die Anmeldung im
- * Spiel. Den Wortlaut von SWISS_HOSTING_TEXT darum beim Einschalten gegen
- * RECIPIENTS in app/legal/privacy/page.tsx prüfen.
+ * Auch nach dem Umzug bleibt Supabase laut Schritt 6.0 für die Anmeldung
+ * zuständig (Konten, E-Mail-Adressen, Sitzungen in Frankfurt). Darum nennt
+ * der Text diese Einschränkung ausdrücklich. Ein Satz wie «Ihre Daten bleiben
+ * in der Schweiz» wäre irreführend, solange das so ist.
+ * Die Einschränkung erst streichen, wenn Supabase Auth abgelöst ist (Cutover B,
+ * eigene Anmeldung) und RECIPIENTS in app/legal/privacy/page.tsx Supabase
+ * nicht mehr nennt. Beim Einschalten den Text in jedem Fall gegen RECIPIENTS
+ * prüfen.
  */
 const SHOW_SWISS_HOSTING: boolean = false;
 const SWISS_HOSTING_TEXT =
-  "Anwendung und Datenbank laufen auf Servern in der Schweiz";
+  "Anwendung und Zeugnisdaten laufen auf Servern in der Schweiz, die Anmeldung über Supabase in Frankfurt";
 
 /* Kleine Zeile über den Logos. Solange die Firmen Piloten sind, sagt
- * «Im Pilotbetrieb bei» genau das; später z. B. «Im Einsatz bei». */
+ * «Im Pilotbetrieb bei» genau das; später z. B. «Im Einsatz bei».
+ * Vor diesem Wechsel jedes Logo einzeln bestätigen: laufender Vertrag, und
+ * die Zustimmung gilt weiter. */
 const LOGO_HEADING = "Im Pilotbetrieb bei";
 
 export function TrustStrip() {
@@ -81,13 +92,13 @@ export function TrustStrip() {
                     alt={logo.name}
                     width={logo.width}
                     height={logo.height}
-                    className="h-7 w-auto max-w-[140px] object-contain sm:h-8"
+                    className="h-7 w-auto max-w-[140px] object-contain grayscale sm:h-8"
                   />
                 );
                 return (
                   <li
                     key={logo.name}
-                    className="opacity-60 grayscale transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100 motion-reduce:transition-none"
+                    className="opacity-60 transition-opacity duration-200 focus-within:opacity-100 hover:opacity-100 motion-reduce:transition-none"
                   >
                     {logo.href ? (
                       <a
