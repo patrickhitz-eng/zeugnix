@@ -29,7 +29,10 @@ const steps: Step[] = [
   },
   {
     title: "Führungskraft einladen",
-    body: "E-Mail-Einladung per Magic Link oder Einmal-Code. Kein vollständiger Account nötig – nur das Beurteilungsformular.",
+    // Die Führungskraft bekommt einen persönlichen, befristeten Token-Link
+    // (app/api/certificates/[id]/invite, Mail in lib/email/templates.ts). Einen
+    // Einmal-Code gibt es nur beim Login für HR, darum hier nicht erwähnen.
+    body: "E-Mail-Einladung mit persönlichem Link. Kein Account nötig – nur das Beurteilungsformular.",
     url: "zeugnio.ch/app/certificates",
     screen: <ScreenEinladen />,
   },
@@ -395,25 +398,24 @@ function ScreenEinladen() {
         <Field label="Name der Führungskraft" value="Marco Beispiel" />
         <Field label="E-Mail" value="marco.beispiel@muster.ch" />
       </div>
+      {/* Vorschau der Einladung, Wortlaut nach buildManagerInvitationEmail */}
       <div className="mt-4 text-[11px] font-medium text-ink-600">
-        Anmeldung für die Führungskraft
+        Vorschau der E-Mail
       </div>
-      <div className="mt-1 grid gap-2 sm:grid-cols-2">
-        <div className="rounded-md border-2 border-petrol-600 bg-white p-3">
-          <div className="text-[12.5px] font-medium text-ink-900">
-            Magic Link
-          </div>
-          <div className="mt-0.5 text-[11px] text-ink-500">
-            Ein Klick in der E-Mail genügt
-          </div>
+      <div className="mt-1 rounded-md border border-ink-200 bg-white p-3">
+        <div className="truncate text-[12.5px] font-medium text-ink-900">
+          Beurteilung erbeten: Arbeitszeugnis (Muster AG)
         </div>
-        <div className="rounded-md border border-ink-200 bg-white p-3">
-          <div className="text-[12.5px] font-medium text-ink-900">
-            Einmal-Code
-          </div>
-          <div className="mt-0.5 text-[11px] text-ink-500">
-            Falls Links gefiltert werden
-          </div>
+        <p className="mt-1 text-[11.5px] leading-relaxed text-ink-600">
+          Sie müssen keinen Account erstellen und keinen Text formulieren.
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="rounded bg-petrol-700 px-2.5 py-1 text-[11px] font-medium text-white">
+            Beurteilung starten
+          </span>
+          <span className="text-[10.5px] text-ink-500">
+            Persönlicher Link, zeitlich befristet
+          </span>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4">
