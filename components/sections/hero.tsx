@@ -5,7 +5,7 @@ import { siteConfig } from "@/lib/site-config";
 
 const trustBadges = [
   "Nach Schweizer Zeugnispraxis",
-  "Hash-basierte Echtheitsprüfung",
+  "Original online prüfbar",
   "Klartext-Zeugnisanalyse",
   "Für KMU, HR & Recruiter",
   "Kostenlos erstellen",
@@ -29,11 +29,27 @@ export function Hero() {
         <div className="lg:col-span-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-petrol-100 bg-petrol-50 px-3 py-1.5">
             <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-petrol-400 opacity-60" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-petrol-400 opacity-60 motion-reduce:animate-none" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-petrol-600" />
             </span>
+            {/*
+             * Badge und Untertitel in Alltagssprache für HR in KMU. Der Hash
+             * macht nachträgliche Änderungen ERKENNBAR, er verhindert sie
+             * nicht: darum «Änderungen erkennbar» und «registriertes Original»,
+             * nie «fälschungssicher», «rechtssicher» oder «Echtheit» (UWG
+             * Art. 3 Abs. 1 lit. b). «Echtheit» meint beim Zeugnis auch die
+             * Herkunft vom Arbeitgeber. Die belegt das Siegel nicht: Ein
+             * einzelnes Konto kann eine Firma unter freiem Namen anlegen, selbst
+             * beurteilen und finalisieren (verify-uploader.tsx, Kommentar beim
+             * Ergebnis «verified»). /verify meldet darum «Registriert und
+             * unverändert», ohne Treffer «Nicht in Datenbank» mit drei
+             * möglichen Gründen. Die Prüfung braucht das PDF, darum kein
+             * «sofort» und keine Zusage für Scans oder Papier.
+             * «kostenlos» hängt nur an der Erstellung (Preisseite CHF 0); die
+             * Prüfung kostet nach der Beta CHF 19.90, darum ein eigener Satz.
+             */}
             <span className="text-[12px] font-medium text-petrol-700">
-              Schweizer Zeugnispraxis · Hash-verifiziert
+              Schweizer Zeugnispraxis · Änderungen erkennbar
             </span>
           </div>
 
@@ -46,9 +62,10 @@ export function Hero() {
           </h1>
 
           <p className="mt-6 max-w-xl text-[16.5px] leading-relaxed text-ink-600">
-            Erstellen Sie Schweizer Arbeitszeugnisse kostenlos, sichern Sie
-            diese mit einem kryptografischen Hash ab und machen Sie Zeugnisse
-            später überprüfbar und verständlich.
+            Die Führungskraft beurteilt, zeugnio formuliert daraus das Zeugnis.
+            Die Erstellung ist kostenlos. Wer das PDF später auf zeugnio.ch
+            hochlädt, sieht, ob es unverändert einem registrierten Original
+            entspricht.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
