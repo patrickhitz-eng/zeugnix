@@ -81,7 +81,9 @@ export function VerifySection() {
     <section className="border-b border-ink-200 bg-ink-50/40 py-24">
       <div className="container-zx">
         <div className="grid items-start gap-14 lg:grid-cols-12">
-          <div className="lg:col-span-5">
+          {/* Der Bildschirm rechts ist deutlich höher als der Text: der Text
+              bleibt darum auf dem Desktop beim Scrollen stehen. */}
+          <div className="lg:sticky lg:top-28 lg:col-span-5">
             <div className="eyebrow">Echtheit & Klartext</div>
             <h2 className="headline-display mt-3 text-[32px] leading-[1.15] sm:text-[40px]">
               Echtheit prüfen.
