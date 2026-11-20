@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { RETENTION } from "@/lib/retention";
-import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
+import { ALLES_SCHWEIZ, ANMELDUNG, AUSLANDZUGRIFF_NINE, MAIL } from "@/lib/legal/hosting-phase";
 
 /*
  * «Häufige Fragen» auf der Startseite, direkt vor dem Schluss-CTA.
@@ -25,7 +25,7 @@ import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
  *  - Wer sieht was:   app/legal/privacy Abschnitt 3 («Versiegelung»: was die
  *                     Prüfung zeigt), app/(public)/app/signoffs/[token]
  *                     (Unterzeichnende sehen den Zeugnistext)
- *  - Empfänger/Orte:  HOSTING_PHASE in lib/legal/hosting-phase.ts schaltet
+ *  - Empfänger/Orte:  ANMELDUNG, MAIL, AUSLANDZUGRIFF_NINE in lib/legal/hosting-phase.ts schalten
  *                     Datenschutz, diese Antwort und den Vertrauensstreifen
  *                     gemeinsam. RECIPIENTS in app/legal/privacy/page.tsx (seit dem Umzug:
  *                     nine in Zürich, Notfallzugriff aus Kanada, Supabase-
@@ -42,6 +42,38 @@ import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
  */
 
 type Faq = { q: string; a: ReactNode };
+
+/*
+ * Antwort «wo werden die Daten verarbeitet», zusammengesetzt aus den drei
+ * Schaltern in lib/legal/hosting-phase.ts. Muss zu RECIPIENTS in
+ * app/legal/privacy/page.tsx passen.
+ */
+function whereText(): string {
+  const ownLogin = ANMELDUNG === "nine";
+  const parts: string[] = [
+    `Anwendung, ${ownLogin ? "Anmeldung, " : ""}Datenbank und Firmenlogos liegen auf einem Server von nine.ch in Zürich, die Sicherungen in einem zweiten Rechenzentrum im Kanton Zürich.`,
+  ];
+  if (AUSLANDZUGRIFF_NINE === "moeglich") {
+    parts.push(
+      "Im Notfall kann nine auch aus Kanada auf den Server zugreifen, und für Netz- und DDoS-Schutz führt nine Cloudflare (USA) als Unterauftragsbearbeiter.",
+    );
+  }
+  if (!ownLogin) {
+    parts.push(
+      "Die Anmeldung läuft vorerst über Supabase in Frankfurt; dort liegen die E-Mail-Adressen der Benutzerkonten und die Anmeldesitzungen. Betriebsprotokolle und Support von Supabase können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur.",
+    );
+  }
+  parts.push(
+    MAIL === "resend"
+      ? "E-Mails wie Anmeldecodes und Einladungen verschickt Resend über Irland; Versandprotokolle und Metadaten speichert Resend in den USA."
+      : "E-Mails wie Anmeldecodes und Einladungen verschickt mailomat.swiss aus der Schweiz.",
+  );
+  if (ALLES_SCHWEIZ) {
+    parts.push("Für den Betrieb von zeugnio setzen wir keine Anbieter ausserhalb der Schweiz ein.");
+  }
+  parts.push("Eine zugestellte E-Mail liegt danach beim Mailanbieter der Empfängerin oder des Empfängers.");
+  return parts.join(" ");
+}
 
 const linkClass =
   "font-medium text-petrol-700 underline decoration-petrol-300 underline-offset-2 hover:decoration-petrol-700";
@@ -115,31 +147,7 @@ const faqs: Faq[] = [
         Führungskraft und die Unterzeichnenden. Wer ein ausgestelltes Zeugnis
         prüft, sieht Status, Name, Arbeitgeber, Titel, Datum und
         Unterzeichnende.{" "}
-        {HOSTING_PHASE === "schweiz" ? (
-          <>
-            Anwendung, Anmeldung, Datenbank und Firmenlogos liegen auf einem
-            Server von nine.ch in Zürich, die Sicherungen in einem zweiten
-            Rechenzentrum im Kanton Zürich. E-Mails wie Anmeldecodes und
-            Einladungen verschickt mailomat.swiss aus der Schweiz. Für den
-            Betrieb von zeugnio setzen wir keine Anbieter ausserhalb der Schweiz
-            ein. Eine zugestellte E-Mail liegt danach beim Mailanbieter der
-            Empfängerin oder des Empfängers.
-          </>
-        ) : (
-          <>
-            Anwendung, Datenbank und Firmenlogos liegen auf einem Server von
-            nine.ch in Zürich, die Sicherungen in einem zweiten Rechenzentrum im
-            Kanton Zürich. Im Notfall kann nine auch aus Kanada auf den Server
-            zugreifen, und für Netz- und DDoS-Schutz führt nine Cloudflare (USA)
-            als Unterauftragsbearbeiter. Die Anmeldung läuft vorerst über
-            Supabase in Frankfurt; dort liegen die E-Mail-Adressen der
-            Benutzerkonten und die Anmeldesitzungen. E-Mails wie Anmeldelinks und
-            Einladungen verschickt Resend über Irland. Betriebsprotokolle,
-            Support und E-Mail-Metadaten dieser beiden Anbieter können
-            ausserhalb der EU bearbeitet werden, namentlich in den USA und in
-            Singapur.
-          </>
-        )}{" "}
+        {whereText()}{" "}
         Alle Einzelheiten stehen in der{" "}
         <Link href="/legal/privacy" className={linkClass}>
           Datenschutzerklärung

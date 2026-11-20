@@ -2,7 +2,7 @@ import { LegalContent } from "@/components/marketing/legal-content";
 import { companyInfo } from "@/lib/legal/company-info";
 import { siteConfig } from "@/lib/site-config";
 import { RETENTION } from "@/lib/retention";
-import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
+import { ALLES_SCHWEIZ, ANMELDUNG, AUSLANDZUGRIFF_NINE, MAIL } from "@/lib/legal/hosting-phase";
 
 export const metadata = { title: "Datenschutz" };
 
@@ -25,75 +25,87 @@ export const metadata = { title: "Datenschutz" };
 const UPDATED = "26. November 2026";
 
 /**
- * Empfänger von Personendaten (Abschnitt 5). Welche Liste gilt, entscheidet
- * HOSTING_PHASE in lib/legal/hosting-phase.ts (dort die Bedingungen für den
- * Wechsel). Jede Liste muss mit Anhang 3 des Auftragsbearbeitungsvertrags
- * übereinstimmen.
+ * Empfänger von Personendaten (Abschnitt 5). Die Liste setzt sich aus den
+ * drei Schaltern in lib/legal/hosting-phase.ts zusammen (dort die
+ * Bedingungen fürs Umlegen). Sie muss mit Anhang 3 des
+ * Auftragsbearbeitungsvertrags übereinstimmen.
  *
  * basis = null heisst: Der Anbieter bearbeitet die Daten nur in der Schweiz,
  * es gibt keine Bekanntgabe ins Ausland.
  *
  * Standorte Altstetten (Server) und Rümlang (Sicherungen): von Silvan am
  * 20.11.2026 bestätigt. Die Kopie der Daten bei Supabase wird nach dem Umzug
- * gelöscht (Entscheid Silvan 20.11.2026); darum nennt keine Liste sie.
+ * gelöscht (Entscheid Silvan 20.11.2026); darum nennt kein Eintrag sie.
+ *
+ * Cloudflare: nines AVV (Anhang 3, Abschnitt B) sieht Cloudflare nur bei
+ * Buchung vor; der Hub verlangt die Nennung (standards/datenschutz.md).
+ * Solange der Auslandzugriff «moeglich» ist, steht es mit Vorbehalt drin,
+ * danach ausdrücklich verneint.
  */
 type Recipient = { name: string; task: string; location: string; basis: string | null };
 
-/**
- * Endzustand: nur Schweizer Anbieter. Cloudflare wird ausdrücklich verneint,
- * weil der Hub die Nennung verlangt (standards/datenschutz.md) und nines AVV
- * Cloudflare nur bei Buchung vorsieht.
- */
-const RECIPIENTS_SCHWEIZ: Recipient[] = [
-  {
-    name: "Nine Internet Solutions AG, Zürich",
-    task: "Hosting der Anwendung, der Anmeldung, der Datenbank und der Firmenlogos auf einem verwalteten Server",
-    location:
-      "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). Den Zugriff von Gesellschaften der nine-Gruppe ausserhalb der Schweiz haben wir ausgeschlossen. Dienste, für die nine Unterauftragsbearbeiter ausserhalb der Schweiz beizieht (etwa Cloudflare), nutzen wir nicht",
-    basis: null,
-  },
-  {
-    name: "mailXpert GmbH, Zürich (mailomat.swiss)",
-    task: "Versand von E-Mails (Anmeldecodes, Einladungen, Freigaben)",
-    location: "Versand und Protokolle in der Schweiz",
-    basis: null,
-  },
+const NINE_ABROAD = AUSLANDZUGRIFF_NINE === "moeglich";
+const OWN_LOGIN = ANMELDUNG === "nine";
+
+const NINE: Recipient = {
+  name: "Nine Internet Solutions AG, Zürich",
+  task: `Hosting der Anwendung, ${OWN_LOGIN ? "der Anmeldung, " : ""}der Datenbank und der Firmenlogos auf einem verwalteten Server`,
+  location:
+    "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). " +
+    (NINE_ABROAD
+      ? "Für Notfälle und Wartung ausserhalb der Bürozeiten kann die Tochtergesellschaft Nine Internet Solutions Ltd. aus Kanada auf den Server zugreifen; sie speichert dort keine Daten. Für Netz- und DDoS-Schutz führt nine zudem Cloudflare, Inc. (USA) als Unterauftragsbearbeiter, soweit dieser Dienst eingesetzt wird"
+      : "Den Zugriff von Gesellschaften der nine-Gruppe ausserhalb der Schweiz haben wir ausgeschlossen. Dienste, für die nine Unterauftragsbearbeiter ausserhalb der Schweiz beizieht (etwa Cloudflare), nutzen wir nicht"),
+  basis: NINE_ABROAD
+    ? "für den Zugriff aus Kanada die Feststellung des Bundesrats, dass Kanada einen angemessenen Datenschutz gewährleistet (Anhang 1 der Datenschutzverordnung); für Cloudflare die Garantien im Auftragsbearbeitungsvertrag von nine (Standardvertragsklauseln, soweit anwendbar)"
+    : null,
+};
+
+const SUPABASE: Recipient = {
+  name: "Supabase Pte. Ltd, Singapur (Supabase-Gruppe, USA)",
+  task: "Anmeldung: Benutzerkonten mit E-Mail-Adresse, Anmeldesitzungen und Einmal-Codes",
+  location:
+    "Anmeldung in Frankfurt (Deutschland). Betriebsprotokolle und Support können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur",
+  basis: "Standardvertragsklauseln der EU-Kommission mit Schweizer Ergänzung",
+};
+
+const RESEND: Recipient = {
+  name: "Resend (Plus Five Five, Inc.), USA",
+  task: "Versand von E-Mails (Anmeldelinks und -codes, Einladungen, Freigaben) und Empfang von E-Mails an Adressen @zeugnio.ch",
+  location:
+    "Versand und Empfang über Amazon Web Services in Irland. Kontodaten, Versandprotokolle und Metadaten speichert Resend in den USA, Protokolle während 30 Tagen",
+  basis: "Standardvertragsklauseln der EU-Kommission mit Bestimmungen für Bekanntgaben aus der Schweiz",
+};
+
+const MAILOMAT: Recipient = {
+  name: "mailXpert GmbH, Zürich (mailomat.swiss)",
+  task: "Versand von E-Mails (Anmeldecodes, Einladungen, Freigaben)",
+  location: "Versand und Protokolle in der Schweiz",
+  basis: null,
+};
+
+const RECIPIENTS: Recipient[] = [
+  NINE,
+  ...(OWN_LOGIN ? [] : [SUPABASE]),
+  MAIL === "resend" ? RESEND : MAILOMAT,
 ];
 
-/**
- * Übergang nach dem Umzug zu nine (Cutover A): Supabase nur noch für die
- * Anmeldung, Resend bis zum Mailwechsel (6.3). Cloudflare mit Vorbehalt, siehe
- * oben.
- */
-const RECIPIENTS_UEBERGANG: Recipient[] = [
-  {
-    name: "Nine Internet Solutions AG, Zürich",
-    task: "Hosting der Anwendung, der Datenbank und der Firmenlogos auf einem verwalteten Server",
-    location:
-      "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). Für Notfälle und Wartung ausserhalb der Bürozeiten kann die Tochtergesellschaft Nine Internet Solutions Ltd. aus Kanada auf den Server zugreifen; sie speichert dort keine Daten. Für Netz- und DDoS-Schutz führt nine zudem Cloudflare, Inc. (USA) als Unterauftragsbearbeiter, soweit dieser Dienst eingesetzt wird",
-    basis:
-      "für den Zugriff aus Kanada die Feststellung des Bundesrats, dass Kanada einen angemessenen Datenschutz gewährleistet (Anhang 1 der Datenschutzverordnung); für Cloudflare die Garantien im Auftragsbearbeitungsvertrag von nine (Standardvertragsklauseln, soweit anwendbar)",
-  },
-  {
-    name: "Supabase Pte. Ltd, Singapur (Supabase-Gruppe, USA)",
-    task: "Anmeldung: Benutzerkonten mit E-Mail-Adresse, Anmeldesitzungen und Einmal-Codes",
-    location:
-      "Anmeldung in Frankfurt (Deutschland). Betriebsprotokolle und Support können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur",
-    basis: "Standardvertragsklauseln der EU-Kommission mit Schweizer Ergänzung",
-  },
-  {
-    name: "Resend (Plus Five Five, Inc.), USA",
-    task: "Versand von E-Mails (Anmeldelinks, Einladungen, Freigaben) und Empfang von E-Mails an Adressen @zeugnio.ch",
-    location:
-      "Versand und Empfang über Amazon Web Services in Irland. Kontodaten, Versandprotokolle und Metadaten speichert Resend in den USA, Protokolle während 30 Tagen",
-    basis: "Standardvertragsklauseln der EU-Kommission mit Bestimmungen für Bekanntgaben aus der Schweiz",
-  },
+/** Staaten ausserhalb der Schweiz, in die der Dienst Personendaten bekanntgibt (Art. 19 Abs. 4 DSG). */
+const ABROAD_STATES: string[] = [
+  ...(OWN_LOGIN ? [] : ["Deutschland"]),
+  ...(MAIL === "resend" ? ["Irland"] : []),
+  ...(NINE_ABROAD ? ["Kanada"] : []),
+  ...(!OWN_LOGIN || MAIL === "resend" || NINE_ABROAD ? ["die USA"] : []),
+  ...(OWN_LOGIN ? [] : ["Singapur"]),
 ];
+
+function joinDe(items: string[]): string {
+  return items.length < 2 ? (items[0] ?? "") : `${items.slice(0, -1).join(", ")} und ${items[items.length - 1]}`;
+}
 
 /**
  * Nicht Teil des Dienstes, aber Empfänger: unsere eigene Korrespondenz. Kein
  * Unterauftragsbearbeiter für Zeugnisdaten, gehört darum NICHT in Anhang 3
- * des Auftragsbearbeitungsvertrags. Gilt in beiden Phasen.
+ * des Auftragsbearbeitungsvertrags. Gilt in jedem Zustand.
  */
 const CORRESPONDENCE: Recipient = {
   name: "Microsoft Ireland Operations Ltd, Irland (Microsoft-Gruppe, USA)",
@@ -103,9 +115,6 @@ const CORRESPONDENCE: Recipient = {
   basis:
     "Standardvertragsklauseln der EU-Kommission und die Zertifizierung von Microsoft im Data Privacy Framework (EU-US und Swiss-US)",
 };
-
-const SWISS_ONLY = HOSTING_PHASE === "schweiz";
-const RECIPIENTS = SWISS_ONLY ? RECIPIENTS_SCHWEIZ : RECIPIENTS_UEBERGANG;
 
 function RecipientItem({ r }: { r: Recipient }) {
   return (
@@ -272,9 +281,9 @@ export default function Page() {
           body: (
             <>
               <p>
-                {SWISS_ONLY
+                {ALLES_SCHWEIZ
                   ? "Die Anwendung, die Anmeldung, die Datenbank mit den Konto- und Zeugnisdaten, die Firmenlogos und der E-Mail-Versand laufen bei Anbietern in der Schweiz."
-                  : "Die Anwendung, die Datenbank mit den Konto- und Zeugnisdaten und die Firmenlogos liegen auf einem Server in der Schweiz."}{" "}
+                  : `Die Anwendung, ${OWN_LOGIN ? "die Anmeldung, " : ""}die Datenbank mit den Konto- und Zeugnisdaten und die Firmenlogos liegen auf einem Server in der Schweiz.`}{" "}
                 Für den Betrieb von {siteConfig.name} setzen wir folgende
                 Dienstleister als Auftragsbearbeiter ein. Jeder ist über seinen
                 Datenbearbeitungsvertrag an uns gebunden.
@@ -289,9 +298,11 @@ export default function Page() {
                 <RecipientItem r={CORRESPONDENCE} />
               </ul>
               <p>
-                {SWISS_ONLY
-                  ? `Für den Betrieb von ${siteConfig.name} geben wir damit keine Personendaten ins Ausland bekannt. Schreiben Sie uns eine E-Mail, kann Microsoft sie auch in der EU und in den USA bearbeiten.`
-                  : "Personendaten können damit in folgende Staaten gelangen: Deutschland, Irland und weitere Staaten der EU, Kanada, die USA und Singapur."}
+                {ABROAD_STATES.length === 0
+                  ? `Für den Betrieb von ${siteConfig.name} geben wir damit keine Personendaten ins Ausland bekannt.`
+                  : `Für den Betrieb von ${siteConfig.name} können Personendaten damit in folgende Staaten gelangen: ${joinDe(ABROAD_STATES)}.`}{" "}
+                Schreiben Sie uns eine E-Mail, kann Microsoft sie auch in der EU
+                und in den USA bearbeiten.
               </p>
               <p>
                 Eine E-Mail, die wir zustellen, liegt danach beim Mailanbieter
