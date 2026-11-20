@@ -1,6 +1,5 @@
 import { Hero } from "@/components/sections/hero";
 import { ProblemSection } from "@/components/sections/problem";
-import { SolutionSection } from "@/components/sections/solution";
 import { WorkflowSection } from "@/components/sections/workflow";
 import { VerifySection } from "@/components/sections/verify";
 import { AudienceSection } from "@/components/sections/audience";
@@ -12,8 +11,7 @@ export default function HomePage() {
     <>
       <Hero />
       <ProblemSection />
-      <SolutionSection />
-      <WorkflowSection />
+      <WorkflowSection withSolution />
       <VerifySection />
       <AudienceSection />
       <PricingSection />

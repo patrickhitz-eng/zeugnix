@@ -55,7 +55,17 @@ const steps: Step[] = [
 
 const nr = (i: number) => String(i + 1).padStart(2, "0");
 
-export function WorkflowSection() {
+/**
+ * `withSolution`: Auf der Startseite ist die frühere dunkle Sektion «Die
+ * Lösung» in diesen Abschnitt aufgegangen (Kopf und Zitat). Ihre vier Karten
+ * zeigt jetzt der Stepper, zusammen mit «Echtheit prüfen». Die anderen Seiten
+ * nutzen den schlichten Kopf, weil dort «Die Lösung» zum Teil noch davor steht.
+ */
+export function WorkflowSection({
+  withSolution = false,
+}: {
+  withSolution?: boolean;
+}) {
   const [active, setActive] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -79,26 +89,65 @@ export function WorkflowSection() {
   return (
     <section className="border-b border-ink-200 bg-white py-24">
       <div className="container-zx">
-        {/* Kopf */}
-        <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
-          <div className="lg:col-span-6">
-            <div className="eyebrow">So entsteht ein Zeugnis</div>
-            <h2 className="headline-display mt-3 text-[32px] leading-[1.15] sm:text-[40px]">
-              Vom Beurteilungsformular zum verifizierten PDF.
-            </h2>
+        {withSolution ? (
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-6">
+              <div className="eyebrow">Die Lösung</div>
+              <h2 className="headline-display mt-3 text-[32px] leading-[1.15] sm:text-[40px]">
+                Ein Zeugnis. Ein Hash.
+                <br />
+                <span className="font-display italic text-petrol-700">
+                  Eine verständliche Auswertung.
+                </span>
+              </h2>
+            </div>
+            <div className="space-y-4 text-[15px] leading-relaxed text-ink-600 lg:col-span-5 lg:col-start-8">
+              <p>
+                Bisher wurden Arbeitszeugnisse geschrieben, abgelegt und
+                weitergeleitet. Neu werden sie strukturiert erstellt,
+                kryptografisch abgesichert, später verifiziert und inhaltlich
+                analysiert.
+              </p>
+              <p>
+                Führungskräfte sollen nicht das Zeugnis schreiben. Sie sollen
+                strukturiert beurteilen. Die Plattform erstellt daraus einen
+                einheitlichen Zeugnistext nach Schweizer Zeugnispraxis.
+              </p>
+            </div>
           </div>
-          <p className="text-[15px] leading-relaxed text-ink-600 lg:col-span-5 lg:col-start-8">
-            Führungskräfte sollen nicht das Zeugnis schreiben. Sie sollen
-            strukturiert beurteilen. Die Plattform erstellt daraus einen
-            einheitlichen Zeugnistext nach Schweizer Zeugnispraxis.
-          </p>
-        </div>
+        ) : (
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-end">
+            <div className="lg:col-span-6">
+              <div className="eyebrow">So entsteht ein Zeugnis</div>
+              <h2
+                id="workflow-heading"
+                className="headline-display mt-3 text-[32px] leading-[1.15] sm:text-[40px]"
+              >
+                Vom Beurteilungsformular zum verifizierten PDF.
+              </h2>
+            </div>
+            <p className="text-[15px] leading-relaxed text-ink-600 lg:col-span-5 lg:col-start-8">
+              Führungskräfte sollen nicht das Zeugnis schreiben. Sie sollen
+              strukturiert beurteilen. Die Plattform erstellt daraus einen
+              einheitlichen Zeugnistext nach Schweizer Zeugnispraxis.
+            </p>
+          </div>
+        )}
 
         {/* Schritte */}
+        {withSolution && (
+          <h3
+            id="workflow-heading"
+            className="mt-14 text-[11px] font-medium uppercase tracking-wider text-ink-500"
+          >
+            So entsteht ein Zeugnis: vom Beurteilungsformular zum verifizierten
+            PDF
+          </h3>
+        )}
         <div
           role="tablist"
-          aria-label="Schritte zum Arbeitszeugnis"
-          className="mt-12 grid grid-cols-5 gap-2 sm:gap-4"
+          aria-labelledby="workflow-heading"
+          className={`${withSolution ? "mt-4" : "mt-12"} grid grid-cols-5 gap-2 sm:gap-4`}
         >
           {steps.map((s, i) => {
             const selected = i === active;
@@ -139,7 +188,9 @@ export function WorkflowSection() {
                   </span>
                   <span
                     className={`hidden text-[13.5px] font-medium leading-snug tracking-tight transition-colors lg:block ${
-                      selected ? "text-ink-900" : "text-ink-500 group-hover:text-ink-800"
+                      selected
+                        ? "text-ink-900"
+                        : "text-ink-500 group-hover:text-ink-800"
                     }`}
                   >
                     {s.title}
@@ -165,7 +216,9 @@ export function WorkflowSection() {
             <h3 className="mt-2 font-display text-[24px] font-light leading-tight tracking-tight text-ink-900">
               {step.title}
             </h3>
-            <p className="mt-3 text-[14.5px] leading-relaxed text-ink-600">{step.body}</p>
+            <p className="mt-3 text-[14.5px] leading-relaxed text-ink-600">
+              {step.body}
+            </p>
 
             <div className="mt-6 flex gap-2">
               <button
@@ -178,7 +231,9 @@ export function WorkflowSection() {
               </button>
               <button
                 type="button"
-                onClick={() => setActive(Math.min(steps.length - 1, active + 1))}
+                onClick={() =>
+                  setActive(Math.min(steps.length - 1, active + 1))
+                }
                 disabled={active === steps.length - 1}
                 className="btn-primary px-3 py-2 text-[13px] disabled:cursor-not-allowed disabled:opacity-40"
               >
@@ -189,12 +244,22 @@ export function WorkflowSection() {
 
           <div className="min-w-0 lg:col-span-8">
             <BrowserFrame url={step.url}>
-              <div key={active} className="animate-fade-in motion-reduce:animate-none">
+              <div
+                key={active}
+                className="animate-fade-in motion-reduce:animate-none"
+              >
                 {step.screen}
               </div>
             </BrowserFrame>
           </div>
         </div>
+
+        {withSolution && (
+          <p className="mx-auto mt-14 max-w-2xl text-center font-display text-[19px] italic leading-relaxed text-ink-700">
+            «Wir machen aus dem klassischen Arbeitszeugnis ein überprüfbares,
+            verständliches und digitales Vertrauensdokument.»
+          </p>
+        )}
       </div>
     </section>
   );
@@ -205,7 +270,10 @@ export function WorkflowSection() {
 function BrowserFrame({ url, children }: { url: string; children: ReactNode }) {
   return (
     <div className="rounded-2xl border border-ink-200 bg-white p-2 shadow-2xl shadow-ink-900/[0.06]">
-      <div aria-hidden="true" className="flex items-center gap-2 border-b border-ink-100 px-3 py-2.5">
+      <div
+        aria-hidden="true"
+        className="flex items-center gap-2 border-b border-ink-100 px-3 py-2.5"
+      >
         <div className="flex gap-1.5">
           <div className="h-2.5 w-2.5 rounded-full bg-ink-200" />
           <div className="h-2.5 w-2.5 rounded-full bg-ink-200" />
@@ -223,13 +291,25 @@ function BrowserFrame({ url, children }: { url: string; children: ReactNode }) {
 function ScreenTitle({ kicker, title }: { kicker: string; title: string }) {
   return (
     <>
-      <div className="text-[11px] font-medium uppercase tracking-wider text-petrol-700">{kicker}</div>
-      <div className="mt-1.5 font-display text-[20px] font-light tracking-tight text-ink-900">{title}</div>
+      <div className="text-[11px] font-medium uppercase tracking-wider text-petrol-700">
+        {kicker}
+      </div>
+      <div className="mt-1.5 font-display text-[20px] font-light tracking-tight text-ink-900">
+        {title}
+      </div>
     </>
   );
 }
 
-function Field({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
+function Field({
+  label,
+  value,
+  wide,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) {
   return (
     <div className={wide ? "sm:col-span-2" : ""}>
       <div className="text-[11px] font-medium text-ink-600">{label}</div>
@@ -263,7 +343,10 @@ function Check() {
 function ScreenProjekt() {
   return (
     <div>
-      <ScreenTitle kicker="Neues Zeugnis" title="Mitarbeiterdaten und Zeugnistyp" />
+      <ScreenTitle
+        kicker="Neues Zeugnis"
+        title="Mitarbeiterdaten und Zeugnistyp"
+      />
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <Field label="Vorname und Name" value="Anna Muster" />
         <Field label="Funktion" value="Sachbearbeiterin Treuhand" />
@@ -291,7 +374,9 @@ function ScreenProjekt() {
           </span>
           Firmenlogo Muster AG hinterlegt
         </div>
-        <span className="rounded-md bg-ink-900 px-3 py-1.5 text-[12px] font-medium text-white">Weiter</span>
+        <span className="rounded-md bg-ink-900 px-3 py-1.5 text-[12px] font-medium text-white">
+          Weiter
+        </span>
       </div>
     </div>
   );
@@ -302,20 +387,33 @@ function ScreenProjekt() {
 function ScreenEinladen() {
   return (
     <div>
-      <ScreenTitle kicker="Zeugnis für Anna Muster" title="Führungskraft einladen" />
+      <ScreenTitle
+        kicker="Zeugnis für Anna Muster"
+        title="Führungskraft einladen"
+      />
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <Field label="Name der Führungskraft" value="Marco Beispiel" />
         <Field label="E-Mail" value="marco.beispiel@muster.ch" />
       </div>
-      <div className="mt-4 text-[11px] font-medium text-ink-600">Anmeldung für die Führungskraft</div>
+      <div className="mt-4 text-[11px] font-medium text-ink-600">
+        Anmeldung für die Führungskraft
+      </div>
       <div className="mt-1 grid gap-2 sm:grid-cols-2">
         <div className="rounded-md border-2 border-petrol-600 bg-white p-3">
-          <div className="text-[12.5px] font-medium text-ink-900">Magic Link</div>
-          <div className="mt-0.5 text-[11px] text-ink-500">Ein Klick in der E-Mail genügt</div>
+          <div className="text-[12.5px] font-medium text-ink-900">
+            Magic Link
+          </div>
+          <div className="mt-0.5 text-[11px] text-ink-500">
+            Ein Klick in der E-Mail genügt
+          </div>
         </div>
         <div className="rounded-md border border-ink-200 bg-white p-3">
-          <div className="text-[12.5px] font-medium text-ink-900">Einmal-Code</div>
-          <div className="mt-0.5 text-[11px] text-ink-500">Falls Links gefiltert werden</div>
+          <div className="text-[12.5px] font-medium text-ink-900">
+            Einmal-Code
+          </div>
+          <div className="mt-0.5 text-[11px] text-ink-500">
+            Falls Links gefiltert werden
+          </div>
         </div>
       </div>
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4">
@@ -344,10 +442,16 @@ const kategorien: [string, number][] = [
 function ScreenBeurteilen() {
   return (
     <div>
-      <ScreenTitle kicker="Beurteilung für Anna Muster" title="Wie beurteilen Sie die Leistung?" />
+      <ScreenTitle
+        kicker="Beurteilung für Anna Muster"
+        title="Wie beurteilen Sie die Leistung?"
+      />
       <div className="mt-5 space-y-3">
         {kategorien.map(([name, wahl]) => (
-          <div key={name} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            key={name}
+            className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between"
+          >
             <div className="text-[12.5px] font-medium text-ink-800">{name}</div>
             <div className="grid w-full grid-cols-4 gap-0.5 sm:w-auto sm:gap-1">
               {skala.map((s, i) => (
@@ -367,9 +471,12 @@ function ScreenBeurteilen() {
         ))}
       </div>
       <div className="mt-4">
-        <div className="text-[11px] font-medium text-ink-600">Besondere Leistungen (optional)</div>
+        <div className="text-[11px] font-medium text-ink-600">
+          Besondere Leistungen (optional)
+        </div>
         <div className="mt-1 rounded-md border border-ink-200 bg-white px-3 py-2 text-[12.5px] leading-relaxed text-ink-700">
-          Hat die Umstellung auf die neue Buchhaltungssoftware im Team begleitet.
+          Hat die Umstellung auf die neue Buchhaltungssoftware im Team
+          begleitet.
         </div>
       </div>
     </div>
@@ -429,7 +536,10 @@ function ScreenFinalisieren() {
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <ScreenTitle kicker="Finalisiert" title="Arbeitszeugnis Anna Muster.pdf" />
+        <ScreenTitle
+          kicker="Finalisiert"
+          title="Arbeitszeugnis Anna Muster.pdf"
+        />
         <span className="inline-flex items-center gap-1.5 rounded-full bg-petrol-700 px-2.5 py-1 text-[11px] font-medium text-white">
           <Check />
           Verifiziert · SHA-256
@@ -455,7 +565,11 @@ function ScreenFinalisieren() {
         </div>
       </div>
       <div className="mt-4 grid gap-2 text-[12px] text-ink-700 sm:grid-cols-3">
-        {["Hash berechnet", "Im PDF verankert", "In der Datenbank registriert"].map((t) => (
+        {[
+          "Hash berechnet",
+          "Im PDF verankert",
+          "In der Datenbank registriert",
+        ].map((t) => (
           <div key={t} className="flex items-center gap-1.5">
             <span className="text-petrol-600">
               <Check />
@@ -470,9 +584,15 @@ function ScreenFinalisieren() {
 
 /* Dekoratives Muster, kein echter QR-Code. */
 function QrMock() {
-  const cells = "1110111010100101011101011100110100101011110110101001110101101011".split("");
+  const cells =
+    "1110111010100101011101011100110100101011110110101001110101101011".split(
+      "",
+    );
   return (
-    <div aria-hidden="true" className="grid h-14 w-14 flex-shrink-0 grid-cols-8 gap-px rounded bg-white p-1 ring-1 ring-ink-200">
+    <div
+      aria-hidden="true"
+      className="grid h-14 w-14 flex-shrink-0 grid-cols-8 gap-px rounded bg-white p-1 ring-1 ring-ink-200"
+    >
       {cells.map((c, i) => (
         <div key={i} className={c === "1" ? "bg-ink-900" : "bg-white"} />
       ))}
