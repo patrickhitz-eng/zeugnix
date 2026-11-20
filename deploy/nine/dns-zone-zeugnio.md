@@ -139,6 +139,12 @@ niemand etwas davon. Erst Teil C schaltet auf die neue Zone um.
 | A2 | Infomaniak → Domain übertragen → `zeugnio.ch`, Code eingeben, bezahlen. Konto und Inhaber: advisori GmbH. **Fragt das Formular nach DNS oder Nameservern: die bestehenden behalten** (`ns1.vercel-dns.com`, `ns2.vercel-dns.com`). Bietet es nur «DNS von Infomaniak» an: abbrechen. Sonst zeigt `zeugnio.ch` sofort auf eine leere Zone, und Seite und Anmeldemails sind weg | — |
 | A3 | Prüfen mit den zwei Befehlen unten: Registrar ist Infomaniak, die Nameserver sind weiter die von Vercel, und Vercel beantwortet die Zone noch. `zeugnio.ch` lädt im Browser | alles erfüllt |
 
+> **Gelernt am 20.11. (so ist es passiert):**
+> - **Der Transfer setzt die Nameserver selbst.** Infomaniak hat ungefragt `nsany1/nsany2.infomaniak.com` eingetragen. Diese Server liefern nur eine Parkzone aus: kein A, kein MX, `v=spf1 -all` und `_dmarc` `p=reject`. Das heisst: Seite weg, und jede Mail von `zeugnio.ch` wird abgewiesen. Gleich nach dem Transfer im Manager unter **Domain → DNS-Server bearbeiten** prüfen und auf `ns1/ns2.vercel-dns.com` zurückstellen.
+> - **Die Registry veröffentlicht verzögert.** RDAP zeigt die Datenbank, also jede Änderung sofort. Die Zone, die `a.nic.ch` ausliefert, kommt erst eine Weile später. Am 20.11. zeigte RDAP um 11:01 wieder Vercel, `a.nic.ch` veröffentlichte gegen 11:20 trotzdem noch `nsany`. Zurückstellen kann einen Ausfall also verkürzen, aber nicht sicher verhindern. Ob es geklappt hat, zeigt nur `nslookup -norecurse -type=NS zeugnio.ch a.nic.ch`, nicht RDAP.
+> - **Die Zone liegt auf `ns11/ns12.infomaniak.ch`,** nicht auf `nsany`. Für B3 also `-Neu ns11.infomaniak.ch`, und für C1 genau diese zwei Namen eintragen.
+> - **Eingabe bei Infomaniak:** Der DKIM-Eintrag geht nur über den Typ «DKIM», nicht über TXT; Ergebnis ist derselbe TXT-Wert. Die Vorgabe-TTL ist 3600, die 300 also bei jedem Eintrag von Hand setzen.
+
 Nicht geprüft ist, was Vercel nach dem Transfer mit der Zone macht. Erwartet ist, dass
 Vercel die Domain als fremd registrierte Domain mit Vercel-Nameservern weiterführt und die
 Zone weiter beantwortet, wie bei jeder Domain, die anderswo gekauft wurde und auf Vercel

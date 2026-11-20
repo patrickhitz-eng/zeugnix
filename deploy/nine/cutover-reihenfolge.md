@@ -218,6 +218,16 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - Der DNS-Eintrag `test` steht in der Vercel-Zone und muss mit zu Infomaniak (0.1a).
 - Nach dem Umzug entscheiden: `test.zeugnio.ch` als Testumgebung behalten oder vhost und DNS-Eintrag entfernen.
 - **Als Nächstes:** Vollprobe 3.1. Vorher klären, ob sie mit gesetztem `DATA_API_URL` läuft. Leer schreibt sie in die Live-Datenbank bei Supabase und prüft den Weg über PostgREST nicht.
+  **Geklärt:** Seit dem 12.11. meldet `/api/health` auf `test.zeugnio.ch` `datenquelle: eigene`. Die Testadresse liest und schreibt also schon über PostgREST in `nmd_zeugnio` auf advisori01 (Journal 12.11., am 20.11. nachgemessen). Die Sätze «`DATA_API_URL` bleibt bis 5.5 leer» weiter oben sind damit überholt; 5.5 bleibt der Schritt, in dem die echten Daten dazukommen.
+
+**Stand 20.11.: 0.1 fast fertig, 3.2 erledigt** (Journal 20.11., Ablauf in `dns-zone-zeugnio.md`).
+- **0.1d Transfer:** erledigt. Registrar laut RDAP Infomaniak Network SA.
+- **Vorfall:** Der Transfer hat die Nameserver ungefragt auf `nsany1/nsany2.infomaniak.com` gesetzt. Diese Server liefern nur Infomaniaks Parkzone aus (kein A, `v=spf1 -all`, `_dmarc p=reject`). Silvan hat sofort auf Vercel zurückgestellt. Die .ch-Registry veröffentlicht ihre Zone aber verzögert: Gegen 11:20 kam die Delegation auf `nsany` trotzdem heraus. Ab da lieferten Google und Cloudflare für `zeugnio.ch` keine Adresse mehr, bis die nächste Veröffentlichung auf `ns11/ns12` zeigt.
+- **0.1b Zone:** bei Infomaniak gefüllt. Sie liegt auf **`ns11/ns12.infomaniak.ch`**, nicht auf `nsany`. `zone-vergleich.ps1 -Neu ns11.infomaniak.ch` meldet BEREIT (Apex-TTL 300, DKIM gleich). Rest: CAA `pli.goog` statt `pki.goog`, nur ein Hinweis.
+- **0.1c Nameserver:** in der Registry seit ca. 11:20 `ns11/ns12.infomaniak.ch`. 24 Stunden Ruhe ab dem Moment, in dem .ch die Delegation veröffentlicht.
+- **0.2 TTL:** in der neuen Zone 300 s (Apex, `www`, `test`). Wirkt, sobald die Delegation durch ist.
+- **3.2 Restore-Übung:** bestanden. Frische Sicherung `zeugnio-2026-11-20T10-28-36-restore-uebung` (73 KB), `restore-test.sh zeugnio`: entschlüsselt, ohne Fehler eingespielt, 24 Tabellen, `restore-check.sql` ok, 6 s. Beweist die Kette mit Testdaten; mit echten Daten prüft sie 5.4.
+- **Offen bleibt:** keine Zweitkopie der Sicherungen (Bucket B3). Das blockiert den Umzug nicht, wohl aber den Betrieb danach.
 
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
