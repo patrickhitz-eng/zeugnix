@@ -84,7 +84,7 @@ const WARNING_PHRASES: Array<{ pattern: string; warning: string }> = [
   {
     pattern: "im grossen und ganzen",
     warning:
-      "'Im grossen und ganzen' ist eine relativierende Formulierung mit kritischem Beigeschmack.",
+      "'Im Grossen und Ganzen' ist eine relativierende Formulierung mit kritischem Beigeschmack.",
   },
   {
     pattern: "lernten wir als",

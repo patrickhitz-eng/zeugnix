@@ -8,8 +8,9 @@
 //     Schlussformel, fünf Kategorie-Balken, «Auffälligkeiten», Hinweis zur
 //     Heuristik). Die Werte passen zur Engine in lib/phrases/analyze.ts
 //     (gut = 4.5, Balken sehr_gut 95 % / gut 75 %, Warntext wörtlich).
-// Bewusst weggelassen: das Badge «Kryptografisch signiert», weil der
-// Signaturschlüssel in Prod noch fehlt; die Preise, weil sie im
+// Bewusst weggelassen: das Badge «Kryptografisch signiert», weil es nur bei
+// gültiger Ed25519-Signatur im PDF erscheint (signatureValid) und nicht jedes
+// Zeugnis eine trägt; die Preise, weil sie im
 // Preise-Abschnitt (pricing.tsx) stehen. Die Klartext-Auswertung erscheint in
 // der App nur mit ?tier=analyse oder ?tier=premium, darum der Hinweis in der
 // Bildunterschrift. Alle Namen und der Hash sind erfunden.
@@ -21,8 +22,10 @@
 
 const ITEMS = [
   // Wortlaut der App: «Registriert und unverändert», «Kopf-/Unterschriftsdaten
-  // weichen ab», «Widerrufen», «Nicht in Datenbank» (verify-uploader.tsx).
-  "Ergebnis: registriert und unverändert, abweichend, widerrufen oder nicht in der Datenbank",
+  // weichen ab», «Widerrufen», «Nicht in Datenbank», «Keine Echtheitsmarker»
+  // (verify-uploader.tsx). Alle fünf Zustände genannt, damit die Liste nicht
+  // mehr verspricht, als die Prüfung unterscheidet.
+  "Ergebnis: registriert und unverändert, Kopf- oder Unterschriftsdaten abweichend, widerrufen, nicht in der Datenbank oder ohne Echtheitsmarker",
   "Score-Karte für Fachleistung, Verhalten, Schlussformel",
   "Hinweise auf Auffälligkeiten und potenzielle Negativcodes",
 ];
@@ -111,7 +114,13 @@ export function VerifySection() {
           </div>
 
           {/* Mock-UI: Ergebnis der Verify-Seite nach dem Hochladen */}
-          <figure className="min-w-0 lg:col-span-7">
+          <figure className="flex min-w-0 flex-col lg:col-span-7">
+            {/* Im DOM zuerst, damit Screenreader vor dem Mock hören, dass alles
+                erfunden ist; optisch bleibt die Bildunterschrift unten. */}
+            <figcaption className="order-last mt-3 px-1 text-[12px] leading-relaxed text-ink-500">
+              Beispielansicht mit erfundenen Angaben. Die Klartext-Auswertung
+              gehört zur Zeugnisanalyse und zur Premium-Prüfung.
+            </figcaption>
             <div className="rounded-2xl border border-ink-200 bg-white p-2 shadow-2xl shadow-ink-900/[0.06]">
               {/* Faux Browser Bar */}
               <div className="flex items-center gap-2 border-b border-ink-100 px-3 py-2.5">
@@ -179,7 +188,9 @@ export function VerifySection() {
                           sind hash-gesichert
                         </span>
                       </div>
-                      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                      {/* lg (1024 px): Spalte nur ~180 px, die Domain-Pille
+                          würde umbrechen, darum dort einspaltig. */}
+                      <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                         {REGISTERED.map((f) => (
                           <div key={f.label}>
                             <dt className="text-[10.5px] text-ink-500">
@@ -203,9 +214,22 @@ export function VerifySection() {
                       <div className="text-[10px] font-medium uppercase tracking-wider text-ink-500">
                         SHA-256 Hash
                       </div>
-                      <div className="mt-1 break-all font-mono text-[10.5px] text-ink-700">
+                      <div
+                        className="mt-1 break-all font-mono text-[10.5px] text-ink-700"
+                        aria-hidden="true"
+                      >
                         {SAMPLE_HASH}
                       </div>
+                      <span className="sr-only">64-stelliger Beispielwert</span>
+                    </div>
+
+                    {/* Wortlaut wie in verify-uploader.tsx: die App zeigt diese
+                        Einschränkung im Zustand «verified» immer an. */}
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900">
+                      <strong>Hinweis:</strong> Die Verifikation bestätigt die
+                      Identität des Inhalts mit dem registrierten Original. Sie
+                      bestätigt nicht die materielle Richtigkeit der Aussagen im
+                      Zeugnis.
                     </div>
                   </div>
                 </div>
@@ -281,14 +305,14 @@ export function VerifySection() {
                             !
                           </span>
                           <span>
-                            «Im grossen und ganzen» ist eine relativierende
+                            «Im Grossen und Ganzen» ist eine relativierende
                             Formulierung mit kritischem Beigeschmack.
                           </span>
                         </li>
                       </ul>
                     </div>
 
-                    <p className="text-[10.5px] leading-relaxed text-ink-400">
+                    <p className="text-[10.5px] leading-relaxed text-ink-500">
                       Die Analyse ist eine heuristische Einschätzung der
                       Formulierungen und ersetzt keine rechtliche Beratung.
                     </p>
@@ -296,10 +320,6 @@ export function VerifySection() {
                 </div>
               </div>
             </div>
-            <figcaption className="mt-3 px-1 text-[12px] leading-relaxed text-ink-500">
-              Beispielansicht mit erfundenen Angaben. Die Klartext-Auswertung
-              gehört zur Zeugnisanalyse und zur Premium-Prüfung.
-            </figcaption>
           </figure>
         </div>
       </div>
