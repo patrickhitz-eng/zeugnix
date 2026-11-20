@@ -1,6 +1,7 @@
 import { LegalContent } from "@/components/marketing/legal-content";
 import { companyInfo } from "@/lib/legal/company-info";
 import { siteConfig } from "@/lib/site-config";
+import { RETENTION } from "@/lib/retention";
 
 export const metadata = { title: "Datenschutz" };
 
@@ -197,8 +198,11 @@ export default function Page() {
               </li>
               <li>
                 Den Registereintrag eines finalisierten Zeugnisses bewahren wir
-                auch danach auf, damit das Zeugnis prüfbar bleibt. Die Dauer
-                vereinbaren wir mit dem Arbeitgeber.
+                auch danach auf, damit das Zeugnis prüfbar bleibt, und zwar{" "}
+                {RETENTION.registerYears} Jahre ab Ausstellung. Er enthält nur
+                Prüfwerte, Status, Daten, Arbeitgeber und Dokumenttitel, keine
+                Angaben zur Mitarbeiterin oder zum Mitarbeiter und keinen
+                Zeugnistext.
               </li>
               <li>
                 Einladungs- und Freigabelinks laufen nach 14 Tagen ab.
