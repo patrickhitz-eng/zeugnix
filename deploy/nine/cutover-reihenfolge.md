@@ -222,7 +222,7 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 
 **Stand 20.11. abends: Cutover A durch.** `zeugnio.ch` und `www.zeugnio.ch` laufen seit **16:48** von advisori01 (Journal 20.11.). Phase 4 und 5.1–5.9 am selben Nachmittag nach Drehbuch (PR #89), Integritätsprüfung bestanden (Hash, `canonical_content`; Signaturen waren in der Produktion keine vorhanden), Zertifikat von Let's Encrypt für beide Namen. Supabase ist seit 16:27 gegen Schreiben gesperrt und bleibt es bis 5.10. Kit-Crontab läuft.
 - **Sa 21.11. ab ca. 12:00:** C2 prüfen (keine Resolver mehr mit Vercels NS), dann **5.10** (Supabase-Kopie löschen, Freigabe Silvan), dann **6.0** (PR #88 mergen und auf advisori01 deployen: `~/kit/deploy.sh zeugnio main`; Vercel baut `main` zwar weiter, liefert aber nichts mehr aus ausser `zeugnix.ch`).
-- **Ab Mo 23.11.:** F1 (SPF/DMARC), CAA `pki.goog`, 6.2 HSTS hoch. Offen: B3, `logrotate.conf`, `zeugnix.ch` vor 6.4 umleiten.
+- **Ab Mo 23.11.:** F1 (SPF/DMARC), CAA `pki.goog`, 6.2 HSTS hoch. Offen: B3, `zeugnix.ch` vor 6.4 umleiten.
 
 **Stand 20.11.: 0.1 fast fertig, 3.2 erledigt** (Journal 20.11., Ablauf in `dns-zone-zeugnio.md`).
 - **0.1d Transfer:** erledigt. Registrar laut RDAP Infomaniak Network SA.
