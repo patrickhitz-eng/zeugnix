@@ -314,7 +314,8 @@ Fenster ganz wegnehmen könnte.
 | 6.1 | CAA auf `0 issue "letsencrypt.org"` reduzieren. Seit 17.11. bekannt: Vercel liefert drei CAA-Einträge, sie ziehen in 0.1 unverändert mit; `pki.goog` und `sectigo.com` braucht nur Vercel | vorher würde ein falscher Eintrag die Ausstellung behindern |
 | 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload` | erst wenn das Zertifikat sicher erneuert wird |
 | 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu DKIM von mailomat eintragen und dessen `include` im Apex-SPF ergänzen. SPF und DMARC für Microsoft 365 setzt schon F1 (`docs/dns-spf-dmarc.md`). Danach die Resend-Einträge (`resend._domainkey`, `send`) entfernen. In `RECIPIENTS` Resend durch mailomat.swiss ersetzen (mailXpert GmbH, Zürich) | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
-| 6.4 | Vercel und Supabase stilllegen. **Vorher** `zeugnix.ch` auf advisori01 umleiten (siehe «Entscheid zur DNS-Zone») | erst nach einer Frist, in der der Rückweg offen bleibt; ohne die Umleitung wären alte Links und QR-Codes auf `zeugnix.ch` tot |
+| 6.0a | **Supabase-Kopie löschen, am Umzugstag** (Entscheid Silvan 20.11.): alle Tabellen im Schema `public` leeren und den Bucket `company-logos` löschen, sobald 5.8 und die Integritätsprüfung grün sind, vor dem Merge der neuen Erklärung (PR #88). Supabase Auth bleibt bis Cutover B. Ablauf im Drehbuch (PR #89). **Punkt ohne Rückkehr:** danach ist der Rückweg auf Vercel+Supabase zu, darum einzeln im Chat freigeben | die neue Erklärung nennt keine Kopie mehr; nach den ersten Schreibzugriffen auf advisori01 ginge der Rückweg ohnehin nur noch mit Datenverlust |
+| 6.4 | Vercel stilllegen, Supabase auf die Anmeldung beschränken (die Daten sind seit 6.0a weg). **Vorher** `zeugnix.ch` auf advisori01 umleiten (siehe «Entscheid zur DNS-Zone») | ohne die Umleitung wären alte Links und QR-Codes auf `zeugnix.ch` tot |
 
 ---
 
@@ -326,6 +327,7 @@ Fenster ganz wegnehmen könnte.
 | Phase 2.3 | PG 16 reaktivieren lassen — **gilt nur, solange nichts auf die 17 geschrieben wurde** |
 | Phase 5.5 | `.env` zurück, `pm2 restart`, Supabase `read_only` aufheben. Die Rücknahmezeilen gehören ins Runbook, nicht ins Gedächtnis |
 | Phase 5.6/5.7 | A-Records zurück auf Vercels zwei IPs, `www` zurück auf den CNAME. Wirkt nach einer TTL |
+| ab 6.0a | **kein Rückweg mehr** zu Vercel+Supabase: die Supabase-Daten sind gelöscht. Fehler werden auf advisori01 behoben; Notnagel ist der verschlüsselte Auszug vom Fenstermorgen (Restore wie in 3.2) |
 | Abbruchkriterien | Zertifikat nicht in 20 min · `/verify` nicht 200 · echte QR-URL tot · PDF > 30 s · Login bricht · Fehlerrate > 1 % über 10 min |
 
 ---
