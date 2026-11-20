@@ -1,6 +1,7 @@
 import { LegalContent } from "@/components/marketing/legal-content";
 import { companyInfo } from "@/lib/legal/company-info";
 import { siteConfig } from "@/lib/site-config";
+import { RETENTION } from "@/lib/retention";
 
 export const metadata = { title: "Datenschutz" };
 
@@ -41,7 +42,7 @@ export default function Page() {
   return (
     <LegalContent
       title="Datenschutzerklärung"
-      updated="13. November 2026"
+      updated="20. November 2026"
       intro={
         <>
           Diese Erklärung informiert nach dem Schweizer Datenschutzgesetz (DSG)
@@ -187,8 +188,9 @@ export default function Page() {
           body: (
             <ul className="list-disc space-y-1.5 pl-5">
               <li>
-                Kontodaten, bis das Konto gelöscht wird. Die Löschung nehmen wir
-                auf Anfrage vor.
+                Kontodaten, bis das Konto gelöscht wird. Sie löschen Ihr Konto
+                jederzeit selbst in der App unter «Daten» oder verlangen die
+                Löschung bei uns.
               </li>
               <li>
                 Zeugnisdaten, solange der Arbeitgeber {siteConfig.name} nutzt.
@@ -196,8 +198,11 @@ export default function Page() {
               </li>
               <li>
                 Den Registereintrag eines finalisierten Zeugnisses bewahren wir
-                auch danach auf, damit das Zeugnis prüfbar bleibt. Die Dauer
-                vereinbaren wir mit dem Arbeitgeber.
+                auch danach auf, damit das Zeugnis prüfbar bleibt, und zwar{" "}
+                {RETENTION.registerYears} Jahre ab Ausstellung. Er enthält nur
+                Prüfwerte, Status, Daten, Arbeitgeber und Dokumenttitel, keine
+                Angaben zur Mitarbeiterin oder zum Mitarbeiter und keinen
+                Zeugnistext.
               </li>
               <li>
                 Einladungs- und Freigabelinks laufen nach 14 Tagen ab.

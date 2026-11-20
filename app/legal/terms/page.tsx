@@ -117,9 +117,14 @@ export default function Page() {
           heading: "9. Kündigung",
           body: (
             <p>
-              Sie können Ihr Konto jederzeit ohne Angabe von Gründen löschen
-              lassen. Wir behalten uns vor, Konten bei Verstoss gegen diese
-              AGB zu sperren oder zu löschen.
+              Sie können Ihr Konto jederzeit ohne Angabe von Gründen löschen,
+              selbst in der App unter «Daten» oder auf Anfrage bei uns. Ist
+              Ihr Konto die letzte Admin-Person einer Organisation, bestimmen
+              Sie vorher eine andere Admin-Person oder löschen die
+              Organisation. Ausgestellte Zeugnisse bleiben danach prüfbar,
+              wie in der Datenschutzerklärung beschrieben. Wir behalten uns
+              vor, Konten bei Verstoss gegen diese AGB zu sperren oder zu
+              löschen.
             </p>
           ),
         },
