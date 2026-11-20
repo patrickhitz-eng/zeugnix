@@ -65,6 +65,9 @@ function eq(name: string, actual: unknown, expected: unknown) {
 // ---------------------------------------------------------------------------
 // 1. Regressionssperre: Werte aus dem Stand VOR dem Token-Refactor
 // ---------------------------------------------------------------------------
+// Bewusst nachgezogen am 20.11.2026 (Zeugnis einseitig): Briefkopf, Titel-
+// abstand, Zeilenhöhe 1.4, Unterschriftsfläche 48pt, Hash-Block. Gemessen mit
+// scripts/render-sample-certificate.ts --kapazitaet (vorher 6, jetzt 12/13 Sätze).
 console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
 {
   const s = buildPdfStyles(DEFAULT_THEME) as any;
@@ -75,17 +78,17 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     paddingHorizontal: 60,
     fontFamily: "Inter",
     fontSize: 10.5,
-    lineHeight: 1.5,
+    lineHeight: 1.4,
     color: "#1a1d22",
   });
   eq("letterhead", s.letterhead, {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    paddingBottom: 9,
+    paddingBottom: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: "#d4d8dd",
-    marginBottom: 16,
+    marginBottom: 10,
   });
   eq("logo", s.logo, { maxWidth: 140, maxHeight: 42, objectFit: "contain" });
   eq("companyNameNoLogo", s.companyNameNoLogo, {
@@ -97,7 +100,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     fontSize: 8,
     color: "#6b7178",
     lineHeight: 1.3,
-    width: 200,
+    width: 240,
   });
   eq("letterheadCompanyName", s.letterheadCompanyName, {
     fontFamily: "Inter-Bold",
@@ -114,15 +117,15 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     // Eigene Zeilenhöhe: der Titel ist einzeilig und brauchte den Durchschuss
     // des Fliesstexts nicht, den er vorher über lineHeight.page erbte.
     lineHeight: 1.2,
-    marginTop: 12,
-    marginBottom: 18,
+    marginTop: 4,
+    marginBottom: 14,
     letterSpacing: 0.5,
   });
   eq("bodyParagraph", s.bodyParagraph, {
     fontSize: 10.5,
-    lineHeight: 1.5,
+    lineHeight: 1.4,
     textAlign: "justify",
-    marginBottom: 9,
+    marginBottom: 8,
   });
   eq("bullet", s.bullet, { fontSize: 10.5, marginLeft: 14, marginBottom: 3 });
   // Unsichtbar (weiss auf Papierweiss), aber als Fliesstext mit echter
@@ -134,20 +137,20 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     color: "#0f7a6b",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 14,
+    marginBottom: 6,
   });
-  eq("signatures", s.signatures, { flexDirection: "row", marginTop: 4 });
+  eq("signatures", s.signatures, { flexDirection: "row", marginTop: 2 });
   // Freiraum zum Unterschreiben von Hand – vorher Inline-Literale in
   // lib/pdf/certificate.tsx, die der Word-Export nicht kannte.
   eq("signatureHandwrittenSpace", s.signatureHandwrittenSpace, {
-    marginTop: 20,
-    height: 72,
+    marginTop: 6,
+    minHeight: 48,
   });
-  eq("hashBlockAfterHandwritten", s.hashBlockAfterHandwritten, { marginTop: 9 });
+  eq("hashBlockAfterHandwritten", s.hashBlockAfterHandwritten, { marginTop: 8 });
   eq("signatureCell", s.signatureCell, {
     flex: 1,
-    paddingTop: 6,
+    paddingTop: 5,
     borderTopWidth: 0.6,
     borderTopColor: "#1a1d22",
     fontSize: 10,
@@ -171,8 +174,8 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     fontFamily: "Inter-Bold",
   });
   eq("hashBlock", s.hashBlock, {
-    marginTop: 16,
-    paddingTop: 9,
+    marginTop: 12,
+    paddingTop: 8,
     borderTopWidth: 0.5,
     borderTopColor: "#d4d8dd",
     flexDirection: "row",
@@ -182,7 +185,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     paddingRight: 16,
     fontSize: 7.5,
     color: "#6b7178",
-    lineHeight: 1.5,
+    lineHeight: 1.4,
   });
   eq("hashLabel", s.hashLabel, {
     fontFamily: "Inter-Bold",
