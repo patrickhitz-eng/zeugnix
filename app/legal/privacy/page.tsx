@@ -167,6 +167,16 @@ export default function Page() {
                 Wir setzen folgende Dienstleister als Auftragsbearbeiter ein.
                 Jeder ist über seinen Datenbearbeitungsvertrag an uns gebunden.
               </p>
+              {/* Übergangshinweis seit 20.11.2026, am Umzugstag mit PR #88 entfernen. */}
+              <p>
+                <strong className="font-medium text-ink-800">Geplanter Umzug:</strong>{" "}
+                Ende November 2026 ziehen die Anwendung, die Datenbank mit den
+                Konto- und Zeugnisdaten und die Firmenlogos auf einen Server der
+                Nine Internet Solutions AG in Zürich (Schweiz) um. Die Anmeldung
+                läuft vorerst weiter über Supabase in Frankfurt. Am Tag des
+                Umzugs passen wir diese Liste an. Bis dahin gilt die folgende
+                Aufstellung.
+              </p>
               <ul className="list-disc space-y-1.5 pl-5">
                 {RECIPIENTS.map((r) => (
                   <li key={r.name}>

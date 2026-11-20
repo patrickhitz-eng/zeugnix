@@ -27,6 +27,8 @@ import { RETENTION } from "@/lib/retention";
  *  - Empfänger/Orte:  RECIPIENTS in app/legal/privacy/page.tsx (Frankfurt,
  *                     Irland, weltweites Netz, USA und Singapur). KEINE Aussage
  *                     «Daten in der Schweiz», solange Vercel und Supabase laufen.
+ *                     Erlaubt bis dahin nur die Ankündigung «Ende November
+ *                     2026 ziehen … um» (seit 20.11.2026, PR #88 ersetzt sie).
  *  - Preise:          components/sections/pricing.tsx, company-package.tsx,
  *                     app/legal/terms Ziffer 4 (kein Streichpreis, PBV Art. 16)
  *  - Export/Löschen:  app/(authed)/app/daten, app/api/companies/[id]/export
@@ -113,7 +115,10 @@ const faqs: Faq[] = [
         Server-Funktionen laufen in Frankfurt, E-Mails gehen über Irland. Seiten
         liefert Vercel über ein weltweites Netz aus. Betriebsprotokolle, Support
         und E-Mail-Metadaten können ausserhalb der EU bearbeitet werden,
-        namentlich in den USA und in Singapur. Alle Einzelheiten stehen in der{" "}
+        namentlich in den USA und in Singapur. Ende November 2026 ziehen
+        Anwendung, Datenbank und Firmenlogos auf einen Server von nine.ch in
+        Zürich um; die Anmeldung läuft vorerst weiter über Supabase in
+        Frankfurt. Alle Einzelheiten stehen in der{" "}
         <Link href="/legal/privacy" className={linkClass}>
           Datenschutzerklärung
         </Link>
