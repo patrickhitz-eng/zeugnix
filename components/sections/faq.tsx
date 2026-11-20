@@ -24,9 +24,12 @@ import { RETENTION } from "@/lib/retention";
  *  - Wer sieht was:   app/legal/privacy Abschnitt 3 («Versiegelung»: was die
  *                     Prüfung zeigt), app/(public)/app/signoffs/[token]
  *                     (Unterzeichnende sehen den Zeugnistext)
- *  - Empfänger/Orte:  RECIPIENTS in app/legal/privacy/page.tsx (Frankfurt,
- *                     Irland, weltweites Netz, USA und Singapur). KEINE Aussage
- *                     «Daten in der Schweiz», solange Vercel und Supabase laufen.
+ *  - Empfänger/Orte:  RECIPIENTS in app/legal/privacy/page.tsx (seit dem Umzug:
+ *                     nine in Zürich, Notfallzugriff aus Kanada, Supabase-
+ *                     Anmeldung in Frankfurt, Resend über Irland, USA und
+ *                     Singapur). Erlaubt: «gespeichert in der Schweiz». KEINE
+ *                     Aussage «alles/nur in der Schweiz» oder «verlässt die
+ *                     Schweiz nie», solange Supabase Auth und Resend laufen.
  *  - Preise:          components/sections/pricing.tsx, company-package.tsx,
  *                     app/legal/terms Ziffer 4 (kein Streichpreis, PBV Art. 16)
  *  - Export/Löschen:  app/(authed)/app/daten, app/api/companies/[id]/export
@@ -108,11 +111,14 @@ const faqs: Faq[] = [
         Zeugnisdaten sehen die Personen Ihres Teams mit Zugriff, die eingeladene
         Führungskraft und die Unterzeichnenden. Wer ein ausgestelltes Zeugnis
         prüft, sieht Status, Name, Arbeitgeber, Titel, Datum und
-        Unterzeichnende. Als Dienstleister setzen wir Vercel (Website), Supabase
-        (Datenbank, Anmeldung, Logos) und Resend (E-Mails) ein. Datenbank und
-        Server-Funktionen laufen in Frankfurt, E-Mails gehen über Irland. Seiten
-        liefert Vercel über ein weltweites Netz aus. Betriebsprotokolle, Support
-        und E-Mail-Metadaten können ausserhalb der EU bearbeitet werden,
+        Unterzeichnende. Anwendung, Datenbank und Firmenlogos liegen auf einem
+        Server von nine.ch in Zürich, die Sicherungen in einem zweiten
+        Rechenzentrum im Kanton Zürich. Im Notfall kann nine auch aus Kanada auf
+        den Server zugreifen. Die Anmeldung läuft vorerst über Supabase in
+        Frankfurt; dort liegen die E-Mail-Adressen der Benutzerkonten und die
+        Anmeldesitzungen. E-Mails wie Anmeldelinks und Einladungen verschickt
+        Resend über Irland. Betriebsprotokolle, Support und E-Mail-Metadaten
+        dieser beiden Anbieter können ausserhalb der EU bearbeitet werden,
         namentlich in den USA und in Singapur. Alle Einzelheiten stehen in der{" "}
         <Link href="/legal/privacy" className={linkClass}>
           Datenschutzerklärung

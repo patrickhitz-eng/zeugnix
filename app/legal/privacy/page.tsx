@@ -10,23 +10,36 @@ export const metadata = { title: "Datenschutz" };
 // Auftragsbearbeitungsvertrags müssen dieselben Anbieter nennen.
 
 /**
- * Empfänger von Personendaten (Abschnitt 5), Stand vor dem Umzug zu nine.
- * Beim Umzug fällt Vercel weg und Supabase bleibt nur für die Anmeldung;
- * mit dem Mailwechsel ersetzt mailomat.swiss Resend.
+ * Stand-Datum der Erklärung. ⚠ Geplanter Umzugstag (Cutover A, Fenster
+ * Do 26.11.2026). BEIM MERGE auf den Tag setzen, an dem zeugnio.ch wirklich
+ * von advisori01 ausgeliefert wird (cutover-reihenfolge.md 6.0). Verschiebt
+ * sich das Fenster, wandert dieses Datum mit.
+ */
+const UPDATED = "26. November 2026";
+
+/**
+ * Empfänger von Personendaten (Abschnitt 5), Stand nach dem Umzug zu nine
+ * (Cutover A). Vercel ist weg, Supabase bleibt nur für die Anmeldung, bis
+ * Cutover B die eigene Anmeldung bringt. Mit dem Mailwechsel (6.3) ersetzt
+ * mailomat.swiss (mailXpert GmbH, Zürich) Resend. Die Liste muss mit Anhang 3
+ * des Auftragsbearbeitungsvertrags übereinstimmen, und der Vertrauensstreifen
+ * (components/sections/trust-strip.tsx) sowie die FAQ-Antwort «Wer sieht die
+ * Daten» (components/sections/faq.tsx) dürfen nichts anderes sagen.
  */
 const RECIPIENTS: { name: string; task: string; location: string; basis: string }[] = [
   {
-    name: "Vercel Inc., USA",
-    task: "Hosting der Website",
+    name: "Nine Internet Solutions AG, Zürich",
+    task: "Hosting der Anwendung, der Datenbank und der Firmenlogos auf einem verwalteten Server",
     location:
-      "Server-Funktionen in Frankfurt (Deutschland). Seiten und die Prüfung der Anmeldesitzung liefert Vercel über ein weltweites Netz aus",
-    basis: "Zertifizierung im Data Privacy Framework (EU-US und Swiss-US)",
+      "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). Für Notfälle kann eine Tochtergesellschaft von nine aus Kanada auf den Server zugreifen",
+    basis:
+      "für den Notfallzugriff aus Kanada die Feststellung des Bundesrats, dass Kanada einen angemessenen Datenschutz gewährleistet (Anhang 1 der Datenschutzverordnung)",
   },
   {
     name: "Supabase Pte. Ltd, Singapur (Supabase-Gruppe, USA)",
-    task: "Datenbank, Anmeldung und Dateien (Firmenlogos)",
+    task: "Anmeldung: Benutzerkonten mit E-Mail-Adresse, Anmeldesitzungen und Einmal-Codes",
     location:
-      "Daten, Sicherungen und Anmeldung in Frankfurt (Deutschland). Betriebsprotokolle und Support können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur",
+      "Anmeldung in Frankfurt (Deutschland). Die Kopie der Datenbank und der Firmenlogos vom Umzugstag bleibt dort für einen allfälligen Rückweg schreibgeschützt liegen, bis wir sie nach Abschluss des Umzugs löschen. Betriebsprotokolle und Support können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur",
     basis: "Standardvertragsklauseln der EU-Kommission mit Schweizer Ergänzung",
   },
   {
@@ -42,7 +55,7 @@ export default function Page() {
   return (
     <LegalContent
       title="Datenschutzerklärung"
-      updated="20. November 2026"
+      updated={UPDATED}
       intro={
         <>
           Diese Erklärung informiert nach dem Schweizer Datenschutzgesetz (DSG)
@@ -164,8 +177,10 @@ export default function Page() {
           body: (
             <>
               <p>
-                Wir setzen folgende Dienstleister als Auftragsbearbeiter ein.
-                Jeder ist über seinen Datenbearbeitungsvertrag an uns gebunden.
+                Die Anwendung, die Datenbank mit den Konto- und Zeugnisdaten und
+                die Firmenlogos liegen auf einem Server in der Schweiz. Wir
+                setzen folgende Dienstleister als Auftragsbearbeiter ein. Jeder
+                ist über seinen Datenbearbeitungsvertrag an uns gebunden.
               </p>
               <ul className="list-disc space-y-1.5 pl-5">
                 {RECIPIENTS.map((r) => (
