@@ -41,7 +41,7 @@ export default function Page() {
   return (
     <LegalContent
       title="Datenschutzerklärung"
-      updated="13. November 2026"
+      updated="20. November 2026"
       intro={
         <>
           Diese Erklärung informiert nach dem Schweizer Datenschutzgesetz (DSG)
@@ -187,8 +187,9 @@ export default function Page() {
           body: (
             <ul className="list-disc space-y-1.5 pl-5">
               <li>
-                Kontodaten, bis das Konto gelöscht wird. Die Löschung nehmen wir
-                auf Anfrage vor.
+                Kontodaten, bis das Konto gelöscht wird. Sie löschen Ihr Konto
+                jederzeit selbst in der App unter «Daten» oder verlangen die
+                Löschung bei uns.
               </li>
               <li>
                 Zeugnisdaten, solange der Arbeitgeber {siteConfig.name} nutzt.
