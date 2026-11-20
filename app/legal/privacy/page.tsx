@@ -2,6 +2,7 @@ import { LegalContent } from "@/components/marketing/legal-content";
 import { companyInfo } from "@/lib/legal/company-info";
 import { siteConfig } from "@/lib/site-config";
 import { RETENTION } from "@/lib/retention";
+import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
 
 export const metadata = { title: "Datenschutz" };
 
@@ -24,29 +25,47 @@ export const metadata = { title: "Datenschutz" };
 const UPDATED = "26. November 2026";
 
 /**
- * Empfänger von Personendaten (Abschnitt 5), Stand nach dem Umzug zu nine
- * (Cutover A). Vercel ist weg. Supabase bleibt nur für die Anmeldung, bis
- * Cutover B die eigene Anmeldung bringt; dann fällt der Eintrag ganz weg.
- * Die Kopie der Daten bei Supabase wird nach dem Umzug gelöscht (Entscheid
- * Silvan 20.11.2026); darum nennt der Eintrag sie nicht.
- * Mit dem Mailwechsel (6.3) ersetzt mailomat.swiss (mailXpert GmbH, Zürich)
- * Resend.
+ * Empfänger von Personendaten (Abschnitt 5). Welche Liste gilt, entscheidet
+ * HOSTING_PHASE in lib/legal/hosting-phase.ts (dort die Bedingungen für den
+ * Wechsel). Jede Liste muss mit Anhang 3 des Auftragsbearbeitungsvertrags
+ * übereinstimmen.
  *
- * Cloudflare: Im Auftragsbearbeitungsvertrag von nine (Anhang 3, Abschnitt B)
- * gilt Cloudflare nur für Kunden, die es buchen; zeugnio.ch zeigt per
- * A-Record direkt auf den Server. Der Hub verlangt trotzdem, nines
- * Unterauftragsbearbeiter Cloudflare zu nennen (standards/datenschutz.md).
- * Darum steht es mit «soweit dieser Dienst eingesetzt wird» im nine-Eintrag.
- * Bucht advisori Cloudflare, den Satz schärfen.
+ * basis = null heisst: Der Anbieter bearbeitet die Daten nur in der Schweiz,
+ * es gibt keine Bekanntgabe ins Ausland.
+ *
  * Standorte Altstetten (Server) und Rümlang (Sicherungen): von Silvan am
- * 20.11.2026 bestätigt.
- *
- * Die Liste muss mit Anhang 3 des Auftragsbearbeitungsvertrags
- * übereinstimmen, und der Vertrauensstreifen
- * (components/sections/trust-strip.tsx) sowie die FAQ-Antwort «Wer sieht die
- * Daten» (components/sections/faq.tsx) dürfen nichts anderes sagen.
+ * 20.11.2026 bestätigt. Die Kopie der Daten bei Supabase wird nach dem Umzug
+ * gelöscht (Entscheid Silvan 20.11.2026); darum nennt keine Liste sie.
  */
-const RECIPIENTS: { name: string; task: string; location: string; basis: string }[] = [
+type Recipient = { name: string; task: string; location: string; basis: string | null };
+
+/**
+ * Endzustand: nur Schweizer Anbieter. Cloudflare wird ausdrücklich verneint,
+ * weil der Hub die Nennung verlangt (standards/datenschutz.md) und nines AVV
+ * Cloudflare nur bei Buchung vorsieht.
+ */
+const RECIPIENTS_SCHWEIZ: Recipient[] = [
+  {
+    name: "Nine Internet Solutions AG, Zürich",
+    task: "Hosting der Anwendung, der Anmeldung, der Datenbank und der Firmenlogos auf einem verwalteten Server",
+    location:
+      "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). Den Zugriff von Gesellschaften der nine-Gruppe ausserhalb der Schweiz haben wir ausgeschlossen. Dienste, für die nine Unterauftragsbearbeiter ausserhalb der Schweiz beizieht (etwa Cloudflare), nutzen wir nicht",
+    basis: null,
+  },
+  {
+    name: "mailXpert GmbH, Zürich (mailomat.swiss)",
+    task: "Versand von E-Mails (Anmeldecodes, Einladungen, Freigaben)",
+    location: "Versand und Protokolle in der Schweiz",
+    basis: null,
+  },
+];
+
+/**
+ * Übergang nach dem Umzug zu nine (Cutover A): Supabase nur noch für die
+ * Anmeldung, Resend bis zum Mailwechsel (6.3). Cloudflare mit Vorbehalt, siehe
+ * oben.
+ */
+const RECIPIENTS_UEBERGANG: Recipient[] = [
   {
     name: "Nine Internet Solutions AG, Zürich",
     task: "Hosting der Anwendung, der Datenbank und der Firmenlogos auf einem verwalteten Server",
@@ -69,15 +88,36 @@ const RECIPIENTS: { name: string; task: string; location: string; basis: string 
       "Versand und Empfang über Amazon Web Services in Irland. Kontodaten, Versandprotokolle und Metadaten speichert Resend in den USA, Protokolle während 30 Tagen",
     basis: "Standardvertragsklauseln der EU-Kommission mit Bestimmungen für Bekanntgaben aus der Schweiz",
   },
-  {
-    name: "Microsoft Ireland Operations Ltd, Irland (Microsoft-Gruppe, USA)",
-    task: `Microsoft 365 für E-Mails an ${companyInfo.contactEmail} und unsere übrige Korrespondenz`,
-    location:
-      "Microsoft kann diese Daten auch ausserhalb der Schweiz bearbeiten, namentlich in der EU und in den USA",
-    basis:
-      "Standardvertragsklauseln der EU-Kommission und die Zertifizierung von Microsoft im Data Privacy Framework (EU-US und Swiss-US)",
-  },
 ];
+
+/**
+ * Nicht Teil des Dienstes, aber Empfänger: unsere eigene Korrespondenz. Kein
+ * Unterauftragsbearbeiter für Zeugnisdaten, gehört darum NICHT in Anhang 3
+ * des Auftragsbearbeitungsvertrags. Gilt in beiden Phasen.
+ */
+const CORRESPONDENCE: Recipient = {
+  name: "Microsoft Ireland Operations Ltd, Irland (Microsoft-Gruppe, USA)",
+  task: `Microsoft 365 für E-Mails an ${companyInfo.contactEmail} und unsere übrige Korrespondenz`,
+  location:
+    "Microsoft kann diese Daten auch ausserhalb der Schweiz bearbeiten, namentlich in der EU und in den USA",
+  basis:
+    "Standardvertragsklauseln der EU-Kommission und die Zertifizierung von Microsoft im Data Privacy Framework (EU-US und Swiss-US)",
+};
+
+const SWISS_ONLY = HOSTING_PHASE === "schweiz";
+const RECIPIENTS = SWISS_ONLY ? RECIPIENTS_SCHWEIZ : RECIPIENTS_UEBERGANG;
+
+function RecipientItem({ r }: { r: Recipient }) {
+  return (
+    <li>
+      <strong className="font-medium text-ink-800">{r.name}</strong> – {r.task}.{" "}
+      {r.location}.{" "}
+      {r.basis
+        ? `Grundlage für die Bekanntgabe ausserhalb der Schweiz und des EWR: ${r.basis}.`
+        : "Keine Bekanntgabe ins Ausland."}
+    </li>
+  );
+}
 
 const strong = "font-medium text-ink-800";
 
@@ -232,24 +272,26 @@ export default function Page() {
           body: (
             <>
               <p>
-                Die Anwendung, die Datenbank mit den Konto- und Zeugnisdaten und
-                die Firmenlogos liegen auf einem Server in der Schweiz. Wir
-                setzen folgende Dienstleister als Auftragsbearbeiter ein. Jeder
-                ist über seinen Datenbearbeitungsvertrag an uns gebunden.
+                {SWISS_ONLY
+                  ? "Die Anwendung, die Anmeldung, die Datenbank mit den Konto- und Zeugnisdaten, die Firmenlogos und der E-Mail-Versand laufen bei Anbietern in der Schweiz."
+                  : "Die Anwendung, die Datenbank mit den Konto- und Zeugnisdaten und die Firmenlogos liegen auf einem Server in der Schweiz."}{" "}
+                Für den Betrieb von {siteConfig.name} setzen wir folgende
+                Dienstleister als Auftragsbearbeiter ein. Jeder ist über seinen
+                Datenbearbeitungsvertrag an uns gebunden.
               </p>
               <ul className="list-disc space-y-1.5 pl-5">
                 {RECIPIENTS.map((r) => (
-                  <li key={r.name}>
-                    <strong className={strong}>{r.name}</strong> – {r.task}.{" "}
-                    {r.location}. Grundlage für die Bekanntgabe ausserhalb der
-                    Schweiz und des EWR: {r.basis}.
-                  </li>
+                  <RecipientItem key={r.name} r={r} />
                 ))}
               </ul>
+              <p>Für unsere eigene Korrespondenz nutzen wir:</p>
+              <ul className="list-disc space-y-1.5 pl-5">
+                <RecipientItem r={CORRESPONDENCE} />
+              </ul>
               <p>
-                Personendaten können damit in folgende Staaten gelangen:
-                Deutschland, Irland und weitere Staaten der EU, Kanada, die USA
-                und Singapur.
+                {SWISS_ONLY
+                  ? `Für den Betrieb von ${siteConfig.name} geben wir damit keine Personendaten ins Ausland bekannt. Schreiben Sie uns eine E-Mail, kann Microsoft sie auch in der EU und in den USA bearbeiten.`
+                  : "Personendaten können damit in folgende Staaten gelangen: Deutschland, Irland und weitere Staaten der EU, Kanada, die USA und Singapur."}
               </p>
               <p>
                 Eine E-Mail, die wir zustellen, liegt danach beim Mailanbieter

@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
 
 /*
  * Vertrauensstreifen direkt unter dem Hero.
@@ -66,8 +67,22 @@ const PILOT_LOGOS: PilotLogo[] = [];
  * der Empfänger: «verlässt die Schweiz nie» wird nie stimmen.
  */
 const SHOW_SWISS_HOSTING: boolean = true;
-const SWISS_HOSTING_TEXT = "Zeugnisdaten gespeichert in der Schweiz (nine.ch, Zürich).";
-const SWISS_HOSTING_LIMITS = "Anmeldung und E-Mail-Versand über Anbieter in der EU und den USA.";
+
+/*
+ * Endzustand (HOSTING_PHASE "schweiz", Bedingungen in
+ * lib/legal/hosting-phase.ts): Alle Auftragsbearbeiter des Dienstes sind in
+ * der Schweiz, darum darf «gespeichert und verarbeitet» stehen. Auch dann
+ * nicht «verlässt die Schweiz nie»: Zugestellte Mails liegen beim
+ * Mailanbieter der Empfänger, und unsere Korrespondenz läuft über
+ * Microsoft 365.
+ */
+const SWISS_ONLY = HOSTING_PHASE === "schweiz";
+const SWISS_HOSTING_TEXT = SWISS_ONLY
+  ? "Zeugnisdaten gespeichert und verarbeitet in der Schweiz."
+  : "Zeugnisdaten gespeichert in der Schweiz (nine.ch, Zürich).";
+const SWISS_HOSTING_LIMITS = SWISS_ONLY
+  ? "Hosting, Anmeldung und E-Mail-Versand bei Schweizer Anbietern (nine.ch, mailomat.swiss)."
+  : "Anmeldung und E-Mail-Versand über Anbieter in der EU und den USA.";
 
 /* Kleine Zeile über den Logos. Solange die Firmen Piloten sind, sagt
  * «Im Pilotbetrieb bei» genau das; später z. B. «Im Einsatz bei».

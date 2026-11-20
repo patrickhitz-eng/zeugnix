@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { RETENTION } from "@/lib/retention";
+import { HOSTING_PHASE } from "@/lib/legal/hosting-phase";
 
 /*
  * «Häufige Fragen» auf der Startseite, direkt vor dem Schluss-CTA.
@@ -24,7 +25,9 @@ import { RETENTION } from "@/lib/retention";
  *  - Wer sieht was:   app/legal/privacy Abschnitt 3 («Versiegelung»: was die
  *                     Prüfung zeigt), app/(public)/app/signoffs/[token]
  *                     (Unterzeichnende sehen den Zeugnistext)
- *  - Empfänger/Orte:  RECIPIENTS in app/legal/privacy/page.tsx (seit dem Umzug:
+ *  - Empfänger/Orte:  HOSTING_PHASE in lib/legal/hosting-phase.ts schaltet
+ *                     Datenschutz, diese Antwort und den Vertrauensstreifen
+ *                     gemeinsam. RECIPIENTS in app/legal/privacy/page.tsx (seit dem Umzug:
  *                     nine in Zürich, Notfallzugriff aus Kanada, Supabase-
  *                     Anmeldung in Frankfurt, Resend über Irland, USA und
  *                     Singapur). Erlaubt: «gespeichert in der Schweiz». KEINE
@@ -111,16 +114,33 @@ const faqs: Faq[] = [
         Zeugnisdaten sehen die Personen Ihres Teams mit Zugriff, die eingeladene
         Führungskraft und die Unterzeichnenden. Wer ein ausgestelltes Zeugnis
         prüft, sieht Status, Name, Arbeitgeber, Titel, Datum und
-        Unterzeichnende. Anwendung, Datenbank und Firmenlogos liegen auf einem
-        Server von nine.ch in Zürich, die Sicherungen in einem zweiten
-        Rechenzentrum im Kanton Zürich. Im Notfall kann nine auch aus Kanada auf
-        den Server zugreifen, und für Netz- und DDoS-Schutz führt nine
-        Cloudflare (USA) als Unterauftragsbearbeiter. Die Anmeldung läuft vorerst über Supabase in
-        Frankfurt; dort liegen die E-Mail-Adressen der Benutzerkonten und die
-        Anmeldesitzungen. E-Mails wie Anmeldelinks und Einladungen verschickt
-        Resend über Irland. Betriebsprotokolle, Support und E-Mail-Metadaten
-        dieser beiden Anbieter können ausserhalb der EU bearbeitet werden,
-        namentlich in den USA und in Singapur. Alle Einzelheiten stehen in der{" "}
+        Unterzeichnende.{" "}
+        {HOSTING_PHASE === "schweiz" ? (
+          <>
+            Anwendung, Anmeldung, Datenbank und Firmenlogos liegen auf einem
+            Server von nine.ch in Zürich, die Sicherungen in einem zweiten
+            Rechenzentrum im Kanton Zürich. E-Mails wie Anmeldecodes und
+            Einladungen verschickt mailomat.swiss aus der Schweiz. Für den
+            Betrieb von zeugnio setzen wir keine Anbieter ausserhalb der Schweiz
+            ein. Eine zugestellte E-Mail liegt danach beim Mailanbieter der
+            Empfängerin oder des Empfängers.
+          </>
+        ) : (
+          <>
+            Anwendung, Datenbank und Firmenlogos liegen auf einem Server von
+            nine.ch in Zürich, die Sicherungen in einem zweiten Rechenzentrum im
+            Kanton Zürich. Im Notfall kann nine auch aus Kanada auf den Server
+            zugreifen, und für Netz- und DDoS-Schutz führt nine Cloudflare (USA)
+            als Unterauftragsbearbeiter. Die Anmeldung läuft vorerst über
+            Supabase in Frankfurt; dort liegen die E-Mail-Adressen der
+            Benutzerkonten und die Anmeldesitzungen. E-Mails wie Anmeldelinks und
+            Einladungen verschickt Resend über Irland. Betriebsprotokolle,
+            Support und E-Mail-Metadaten dieser beiden Anbieter können
+            ausserhalb der EU bearbeitet werden, namentlich in den USA und in
+            Singapur.
+          </>
+        )}{" "}
+        Alle Einzelheiten stehen in der{" "}
         <Link href="/legal/privacy" className={linkClass}>
           Datenschutzerklärung
         </Link>
