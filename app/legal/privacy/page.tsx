@@ -32,9 +32,14 @@ const UPDATED = "26. November 2026";
  * Mit dem Mailwechsel (6.3) ersetzt mailomat.swiss (mailXpert GmbH, Zürich)
  * Resend.
  *
- * Cloudflare steht im Auftragsbearbeitungsvertrag von nine nur für Kunden,
- * die Cloudflare dort buchen. zeugnio.ch zeigt per A-Record direkt auf den
- * Server; wird Cloudflare je gebucht, gehört es hierher.
+ * Cloudflare: Im Auftragsbearbeitungsvertrag von nine (Anhang 3, Abschnitt B)
+ * gilt Cloudflare nur für Kunden, die es buchen; zeugnio.ch zeigt per
+ * A-Record direkt auf den Server. Der Hub verlangt trotzdem, nines
+ * Unterauftragsbearbeiter Cloudflare zu nennen (standards/datenschutz.md).
+ * Darum steht es mit «soweit dieser Dienst eingesetzt wird» im nine-Eintrag.
+ * Bucht advisori Cloudflare, den Satz schärfen.
+ * Standorte Altstetten (Server) und Rümlang (Sicherungen): von Silvan am
+ * 20.11.2026 bestätigt.
  *
  * Die Liste muss mit Anhang 3 des Auftragsbearbeitungsvertrags
  * übereinstimmen, und der Vertrauensstreifen
@@ -46,9 +51,9 @@ const RECIPIENTS: { name: string; task: string; location: string; basis: string 
     name: "Nine Internet Solutions AG, Zürich",
     task: "Hosting der Anwendung, der Datenbank und der Firmenlogos auf einem verwalteten Server",
     location:
-      "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). Für Notfälle und Wartung ausserhalb der Bürozeiten kann die Tochtergesellschaft Nine Internet Solutions Ltd. aus Kanada auf den Server zugreifen; sie speichert dort keine Daten",
+      "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). Für Notfälle und Wartung ausserhalb der Bürozeiten kann die Tochtergesellschaft Nine Internet Solutions Ltd. aus Kanada auf den Server zugreifen; sie speichert dort keine Daten. Für Netz- und DDoS-Schutz führt nine zudem Cloudflare, Inc. (USA) als Unterauftragsbearbeiter, soweit dieser Dienst eingesetzt wird",
     basis:
-      "für den Zugriff aus Kanada die Feststellung des Bundesrats, dass Kanada einen angemessenen Datenschutz gewährleistet (Anhang 1 der Datenschutzverordnung)",
+      "für den Zugriff aus Kanada die Feststellung des Bundesrats, dass Kanada einen angemessenen Datenschutz gewährleistet (Anhang 1 der Datenschutzverordnung); für Cloudflare die Garantien im Auftragsbearbeitungsvertrag von nine (Standardvertragsklauseln, soweit anwendbar)",
   },
   {
     name: "Supabase Pte. Ltd, Singapur (Supabase-Gruppe, USA)",

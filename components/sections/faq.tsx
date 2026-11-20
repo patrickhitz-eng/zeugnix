@@ -114,7 +114,8 @@ const faqs: Faq[] = [
         Unterzeichnende. Anwendung, Datenbank und Firmenlogos liegen auf einem
         Server von nine.ch in Zürich, die Sicherungen in einem zweiten
         Rechenzentrum im Kanton Zürich. Im Notfall kann nine auch aus Kanada auf
-        den Server zugreifen. Die Anmeldung läuft vorerst über Supabase in
+        den Server zugreifen, und für Netz- und DDoS-Schutz führt nine
+        Cloudflare (USA) als Unterauftragsbearbeiter. Die Anmeldung läuft vorerst über Supabase in
         Frankfurt; dort liegen die E-Mail-Adressen der Benutzerkonten und die
         Anmeldesitzungen. E-Mails wie Anmeldelinks und Einladungen verschickt
         Resend über Irland. Betriebsprotokolle, Support und E-Mail-Metadaten
