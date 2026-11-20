@@ -1,49 +1,48 @@
 import Link from "next/link";
 
+// Aufbau (seit 20.11.2026): vier kompakte Karten mit Titel, einem Satz Nutzen
+// und «Mehr erfahren». Die bisherigen Detailpunkte stehen wörtlich auf den
+// Unterseiten (for-employers: kmuFeatures und treuhandFeatures,
+// for-candidates und for-recruiters: ihre Vorteilslisten) und sind darum
+// hier entfallen. Vorbilder auf Mobbin: Grain und Givingli (kurze Karten,
+// Link unten) und Mural (Link am Kartenfuss bündig).
+//
+// Treuhänder haben keine eigene Seite. Sie verlinken auf /for-employers: Die
+// Seite richtet sich laut Eyebrow an «Arbeitgeber, KMU & Treuhänder» und hat
+// eine eigene Karte «Treuhänder & HR-Berater» mit den Firmenfunktionen.
+//
+// Jede Aussage ist im Code belegt (UWG Art. 3 Abs. 1 lit. b):
+// - Satzbausteine und Link für die vorgesetzte Person: lib/phrases,
+//   app/(public)/app/signoffs/[token] und invitations/[token].
+// - Klartext-Analyse: app/verify/page.tsx (Tier «analyse» und «premium»).
+// - Echtheitsprüfung registrierter Zeugnisse: /verify.
+// - Mehrere Firmen, Logo und Fusszeile pro Firma: app/(authed)/app/company
+//   («Weitere Firma anlegen»), lib/company/payload.ts (certificate_footer),
+//   /api/companies/[id]/logo.
+//
+// Barrierefreiheit: Pro Karte genau ein <a>. Der Link «Mehr erfahren» wird
+// per ::after über die ganze Karte gezogen (keine verschachtelten Links),
+// sein zugänglicher Name nennt die Zielgruppe mit.
 const audiences = [
   {
     title: "Arbeitgeber & KMU",
     href: "/for-employers",
-    body: "Strukturierte Erstellung mit Bausteinen, Führungskräfte-Einbindung über Magic Link und automatische Hash-Absicherung.",
-    items: [
-      "Weniger Aufwand pro Zeugnis",
-      "Einheitliche Beurteilungsstandards",
-      "Professionelle Formulierungen",
-      "Prüfbar per QR-Code",
-    ],
+    body: "Zeugnisse aus Satzbausteinen erstellen, die vorgesetzte Person per Link bewerten lassen und als prüfbares PDF abschliessen.",
   },
   {
     title: "Kandidatinnen & Kandidaten",
     href: "/for-candidates",
-    body: "Sie haben ein Zeugnis erhalten und möchten wissen, was es wirklich aussagt. Wir übersetzen Formulierungen in Klartext.",
-    items: [
-      "Gesamturteil in Klartext",
-      "Stärken und schwächere Signale",
-      "Analyse der Schlussformel",
-      "Hinweise auf Auffälligkeiten",
-    ],
+    body: "Erfahren Sie in Klartext, was die Formulierungen in Ihrem Zeugnis aussagen.",
   },
   {
     title: "Recruiter",
     href: "/for-recruiters",
-    body: "Schnellere und konsistentere Vorprüfung eingereichter Zeugnisse mit standardisierter Interpretation und Echtheitsprüfung.",
-    items: [
-      "Schnelle Vorprüfung",
-      "Standardisierte Interpretation",
-      "Bessere Vergleichbarkeit",
-      "Echtheitsprüfung registrierter Zeugnisse",
-    ],
+    body: "Eingereichte Zeugnisse einheitlich interpretieren und bei registrierten Zeugnissen die Echtheit prüfen.",
   },
   {
     title: "Treuhänder & HR-Berater",
     href: "/for-employers",
-    body: "Treuhandkunden professionell unterstützen – ohne selbst jedes Zeugnis schreiben zu müssen. Einheitlich und nachvollziehbar.",
-    items: [
-      "Mehrere Firmen in einem Konto",
-      "Logo und Fusszeile pro Firma",
-      "Standardisierte Qualität",
-      "Jedes Zeugnis prüfbar",
-    ],
+    body: "Zeugnisse für mehrere Firmen aus einem Konto erstellen, jede mit eigenem Logo und eigener Fusszeile.",
   },
 ];
 
@@ -63,48 +62,42 @@ export function AudienceSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-px overflow-hidden rounded-xl border border-ink-200 bg-ink-200 sm:grid-cols-2">
+        <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {audiences.map((a) => (
-            <Link
+            <li
               key={a.title}
-              href={a.href}
-              className="group block bg-white p-7 transition-colors hover:bg-ink-50/40"
+              className="group relative flex flex-col rounded-xl border border-ink-200 bg-white p-6 transition-colors hover:border-petrol-300 hover:bg-ink-50/40 motion-reduce:transition-none"
             >
-              <div className="flex items-start justify-between">
-                <h3 className="text-[18px] font-medium tracking-tight text-ink-900">
-                  {a.title}
-                </h3>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mt-1 text-ink-400 transition-all group-hover:translate-x-0.5 group-hover:text-petrol-700"
-                >
-                  <path d="M7 17L17 7M9 7h8v8" />
-                </svg>
-              </div>
+              <h3 className="text-[17px] font-medium leading-snug tracking-tight text-ink-900">
+                {a.title}
+              </h3>
               <p className="mt-2.5 text-[14px] leading-relaxed text-ink-600">
                 {a.body}
               </p>
-              <ul className="mt-5 grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {a.items.map((it) => (
-                  <li
-                    key={it}
-                    className="flex items-start gap-1.5 text-[12.5px] text-ink-700"
-                  >
-                    <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-petrol-600" />
-                    {it}
-                  </li>
-                ))}
-              </ul>
-            </Link>
+              <Link
+                href={a.href}
+                className="mt-auto inline-flex items-center gap-1.5 pt-6 text-[13.5px] font-medium text-petrol-700 after:absolute after:inset-0 after:rounded-xl after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-petrol-600 focus-visible:after:ring-offset-2"
+              >
+                Mehr erfahren
+                <span className="sr-only">: {a.title}</span>
+                <svg
+                  aria-hidden="true"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                >
+                  <path d="M5 12h14M13 6l6 6-6 6" />
+                </svg>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );
