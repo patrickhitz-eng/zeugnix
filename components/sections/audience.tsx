@@ -22,7 +22,12 @@ import Link from "next/link";
 //
 // Barrierefreiheit: Pro Karte genau ein <a>. Der Link «Mehr erfahren» wird
 // per ::after über die ganze Karte gezogen (keine verschachtelten Links),
-// sein zugänglicher Name nennt die Zielgruppe mit.
+// sein zugänglicher Name nennt die Zielgruppe mit. role="list" am <ul>, weil
+// Safari/VoiceOver die Listensemantik bei list-style: none (Preflight) verwirft.
+//
+// Im Vier-Spalten-Raster (lg) halten die Titel zwei Zeilen Höhe (min-h-[2lh]),
+// damit die Nutzensätze trotz Umbruch von «Kandidatinnen & Kandidaten» auf
+// gleicher Höhe beginnen.
 const audiences = [
   {
     title: "Arbeitgeber & KMU",
@@ -32,7 +37,7 @@ const audiences = [
   {
     title: "Kandidatinnen & Kandidaten",
     href: "/for-candidates",
-    body: "Erfahren Sie in Klartext, was die Formulierungen in Ihrem Zeugnis aussagen.",
+    body: "Die Formulierungen im eigenen Zeugnis in Klartext übersetzen lassen und verstehen, was sie aussagen.",
   },
   {
     title: "Recruiter",
@@ -62,13 +67,16 @@ export function AudienceSection() {
           </p>
         </div>
 
-        <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul
+          role="list"
+          className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
           {audiences.map((a) => (
             <li
               key={a.title}
               className="group relative flex flex-col rounded-xl border border-ink-200 bg-white p-6 transition-colors hover:border-petrol-300 hover:bg-ink-50/40 motion-reduce:transition-none"
             >
-              <h3 className="text-[17px] font-medium leading-snug tracking-tight text-ink-900">
+              <h3 className="text-[17px] font-medium leading-snug tracking-tight text-ink-900 lg:min-h-[2lh]">
                 {a.title}
               </h3>
               <p className="mt-2.5 text-[14px] leading-relaxed text-ink-600">
