@@ -193,7 +193,7 @@ export function VerifyAnalysisResult({ result }: { result: AnalysisResult }) {
           </div>
         )}
 
-        <p className="text-[11px] leading-relaxed text-ink-400">
+        <p className="text-[11px] leading-relaxed text-ink-500">
           Die Analyse ist eine heuristische Einschätzung der Formulierungen und
           ersetzt keine rechtliche Beratung.
         </p>
