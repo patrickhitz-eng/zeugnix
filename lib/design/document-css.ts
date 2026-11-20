@@ -40,6 +40,8 @@ export interface DocumentCss {
   formattedParagraph: React.CSSProperties;
   formattedBullet: React.CSSProperties;
   signaturesHeader: React.CSSProperties;
+  /** Freiraum zum Unterschreiben von Hand (statt des Kopfs). */
+  signatureHandwrittenSpace: React.CSSProperties;
   signaturesWrap: React.CSSProperties;
   signatureCellLeft: React.CSSProperties;
   signatureCellRight: React.CSSProperties;
@@ -101,6 +103,9 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
     },
     letterheadRight: {
       verticalAlign: "top",
+      // Gleiche Spaltenbreite wie im PDF (styles.letterheadRight), damit die
+      // gebündelten Kontaktzeilen an derselben Stelle umbrechen.
+      width: cssPt(T.space.letterheadRightWidth),
       textAlign: "right",
       fontSize: cssPt(T.fontSize.letterhead),
       color: c.textSecondary,
@@ -157,6 +162,13 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       letterSpacing: cssPt(T.letterSpacing.label),
       marginTop: cssPt(T.space.signaturesHeaderMarginTop),
       marginBottom: cssPt(T.space.signaturesHeaderMarginBottom),
+    },
+    // Gegenstück zu styles.signatureHandwrittenSpace im PDF. Vorher fehlte die
+    // Fläche in der Vorschau ganz: Namen klebten am Text, das PDF hatte 25mm
+    // Luft, und die Vorschau zeigte nicht, ob das Zeugnis einseitig bleibt.
+    signatureHandwrittenSpace: {
+      marginTop: cssPt(T.space.signatureHandwrittenMarginTop),
+      height: cssPt(T.space.signatureHandwrittenHeight),
     },
     signaturesWrap: {
       width: "100%",

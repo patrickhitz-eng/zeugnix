@@ -14,6 +14,8 @@
  *     --no-logo                     ohne Platzhalter-Logo rendern
  *     --kapazitaet                  zusätzlich suchen, wie viele
  *                                   Beurteilungssätze einseitig Platz haben
+ *     --hand                        Unterschrift von Hand (Freiraum über der
+ *                                   Linie statt «Digital ausgestellt durch»)
  *
  * Die Zahl aus --kapazitaet ist das eigentlich vergleichbare Mass: die
  * Seitenzahl eines einzelnen Beispiels sagt nur etwas über dieses Beispiel,
@@ -295,6 +297,8 @@ async function main() {
   const args = process.argv.slice(2);
   const noLogo = args.includes("--no-logo");
   const withCapacity = args.includes("--kapazitaet");
+  // Gilt für alle Renderings dieses Laufs, auch für die Kapazitätssuche.
+  if (args.includes("--hand")) SHARED.signatureMode = "handwritten";
   const umfang = (["kurz", "typisch", "lang"] as const).find((k) =>
     args.includes(`--${k}`),
   ) ?? "typisch";
@@ -322,6 +326,7 @@ async function main() {
   console.log("");
   console.log(`  Umfang:          --${umfang} (${sentences} Beurteilungssätze, ${tasks} Aufgaben)`);
   console.log(`  Logo:            ${noLogo ? "ohne" : "mit (Platzhalter)"}`);
+  console.log(`  Unterschrift:    ${SHARED.signatureMode === "handwritten" ? "von Hand" : "digital"}`);
   console.log(`  Zeichen im Body: ${bodyText.length}`);
   console.log(`  PDF-Seiten:      ${pages}${pages === 1 ? "  ✓ einseitig" : "  ✗ mehrseitig"}`);
   console.log(`  Letzte Seite:    ${fill} belegt`);

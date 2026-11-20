@@ -92,11 +92,18 @@ export const BASE_TOKENS = {
     sentinel: 4 as Pt,
   },
 
+  /**
+   * Fliesstext 1.4 statt 1.5 (20.11.2026, Ziel: das typische Zeugnis mit elf
+   * Beurteilungssätzen bleibt einseitig). 10.5pt × 1.4 = 14.7pt Zeilenabstand,
+   * also immer noch deutlich mehr Durchschuss als Words Standard (≈ 1.2). Bei
+   * ~85 Zeichen je Zeile ist 1.4 die vernünftige Untergrenze: lange Zeilen
+   * brauchen Luft, damit das Auge die nächste Zeile findet.
+   */
   lineHeight: {
-    page: 1.5,
-    body: 1.5,
+    page: 1.4,
+    body: 1.4,
     letterhead: 1.3,
-    hash: 1.5,
+    hash: 1.4,
     /**
      * Der Titel ist eine einzelne Zeile; er braucht die Durchschusshöhe des
      * Fliesstexts nicht. Ohne eigenen Wert erbte er lineHeight.page und zog
@@ -119,37 +126,55 @@ export const BASE_TOKENS = {
    * Gemessen mit scripts/render-sample-certificate.ts --kapazitaet.
    */
   space: {
-    letterheadPaddingBottom: 9 as Pt,
-    letterheadMarginBottom: 16 as Pt,
-    letterheadRightWidth: 200 as Pt,
+    letterheadPaddingBottom: 8 as Pt,
+    /**
+     * Trennlinie → Titel. Zusammen mit titleMarginTop 14pt statt früher 28pt:
+     * der Titel gehört zum Text, nicht zum Briefkopf, und ein grosser Abstand
+     * zur Linie liess ihn verloren in der Fläche stehen (Rückmeldung Silvan,
+     * 20.11.2026).
+     */
+    letterheadMarginBottom: 10 as Pt,
+    /**
+     * Breite der Kontaktspalte. 240pt (statt 200pt) fassen eine gebündelte
+     * Zeile «Telefon · E-Mail» bei 8pt ohne Umbruch (rund 54 Zeichen); das Logo
+     * links hat mit 140pt trotzdem Luft.
+     */
+    letterheadRightWidth: 240 as Pt,
     letterheadCompanyNameMarginBottom: 2 as Pt,
 
-    titleMarginTop: 12 as Pt,
-    titleMarginBottom: 18 as Pt,
+    titleMarginTop: 4 as Pt,
+    titleMarginBottom: 14 as Pt,
 
-    paragraphMarginBottom: 9 as Pt,
+    paragraphMarginBottom: 8 as Pt,
     bulletMarginLeft: 14 as Pt,
     bulletMarginBottom: 3 as Pt,
 
-    signaturesHeaderMarginTop: 16 as Pt,
+    signaturesHeaderMarginTop: 14 as Pt,
     /**
      * Handschriftliche Unterschrift: Freiraum ÜBER der Unterschriftslinie
-     * (ersetzt den entfallenden Kopf „Digital ausgestellt durch"). 72pt sind
-     * 25mm – reichlich für eine Unterschrift mit Stift, die selten über 15mm
-     * hoch wird.
+     * (ersetzt den entfallenden Kopf „Digital ausgestellt durch").
+     *
+     * 48pt sind 17mm. Eine Unterschrift mit Stift wird selten über 15mm hoch;
+     * DIN 5008 sieht im Geschäftsbrief drei Leerzeilen (rund 13mm) vor. Die
+     * Vorbilder aus Mobbin (Bonsai, Remote, Gusto) setzen die Unterschrift
+     * ebenso direkt auf die Linie, mit zwei bis drei Zeilenhöhen Luft darüber,
+     * und Name/Funktion darunter. Die früheren 72pt (25mm) plus 20pt Abstand
+     * kosteten eine halbe Spalte Text und schoben ein typisches Zeugnis auf
+     * die zweite Seite. Den Abstand zum Ort/Datum gibt schon der Absatzabstand
+     * darüber; signatureHandwrittenMarginTop ist nur noch eine kleine Zugabe.
      */
-    signatureHandwrittenMarginTop: 20 as Pt,
-    signatureHandwrittenHeight: 72 as Pt,
-    signaturesHeaderMarginBottom: 8 as Pt,
-    signaturesMarginTop: 4 as Pt,
-    signatureCellPaddingTop: 6 as Pt,
+    signatureHandwrittenMarginTop: 6 as Pt,
+    signatureHandwrittenHeight: 48 as Pt,
+    signaturesHeaderMarginBottom: 6 as Pt,
+    signaturesMarginTop: 2 as Pt,
+    signatureCellPaddingTop: 5 as Pt,
     signatureSpacer: 20 as Pt,
     signatureRoleMarginTop: 1 as Pt,
     signatureEmailMarginTop: 1 as Pt,
     signatureConfirmedMarginTop: 3 as Pt,
 
-    hashBlockMarginTop: 16 as Pt,
-    hashBlockPaddingTop: 9 as Pt,
+    hashBlockMarginTop: 12 as Pt,
+    hashBlockPaddingTop: 8 as Pt,
     hashTextPaddingRight: 16 as Pt,
     hashLabelMarginBottom: 3 as Pt,
     hashValueMarginBottom: 4 as Pt,
@@ -158,7 +183,7 @@ export const BASE_TOKENS = {
     // Fusszeile: Abstand vom unteren Blattrand und Innenabstand über der
     // Trennlinie. Beides muss in den Unterrand (page.paddingBottom = 48pt)
     // passen, damit die absolut positionierte Fusszeile nie den Fliesstext
-    // überlappt: 16 + 6 + zwei Zeilen à 7.5pt/1.5 (22.5pt) = 44.5pt < 48pt.
+    // überlappt: 16 + 6 + zwei Zeilen à 7.5pt/1.4 (21pt) = 43pt < 48pt.
     footerBottom: 16 as Pt,
     footerPaddingTop: 6 as Pt,
   },
@@ -168,10 +193,10 @@ export const BASE_TOKENS = {
     signature: 0.6 as Pt,
   },
 
-  // Logo. Die Höhe des Briefkopfs ist max(Logo, Kontaktspalte) – bei den
-  // üblichen sechs Kontaktzeilen (62pt) gibt die Spalte den Takt vor, nicht
-  // das Logo. 42pt halten die beiden Seiten optisch im Gleichgewicht, ohne
-  // dass das Logo die Zeile aufzieht.
+  // Logo. Die Höhe des Briefkopfs ist max(Logo, Kontaktspalte). Seit die
+  // Kontaktangaben gebündelt sind (lib/design/letterhead-lines.ts: Name plus
+  // höchstens drei Zeilen, rund 44pt), sind Logo (42pt) und Spalte praktisch
+  // gleich hoch: der Briefkopf ist so niedrig, wie das Logo es erlaubt.
   logo: { maxWidth: 140 as Pt, maxHeight: 42 as Pt },
   qr: { size: 56 as Pt },
 } as const;

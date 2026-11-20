@@ -109,10 +109,14 @@ export function buildPdfStyles(theme: DocumentTheme) {
       flexDirection: "row",
       marginTop: T.space.signaturesMarginTop,
     },
-    /** Freiraum zum Unterschreiben von Hand, anstelle des Signatur-Kopfs. */
+    /**
+     * Freiraum zum Unterschreiben von Hand, anstelle des Signatur-Kopfs.
+     * minHeight statt height: die Fläche nimmt die unsichtbaren Prüfblöcke auf
+     * (lib/pdf/certificate.tsx) und darf nie kleiner werden als das Token.
+     */
     signatureHandwrittenSpace: {
       marginTop: T.space.signatureHandwrittenMarginTop,
-      height: T.space.signatureHandwrittenHeight,
+      minHeight: T.space.signatureHandwrittenHeight,
     },
     signatureCell: {
       flex: 1,

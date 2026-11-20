@@ -99,6 +99,19 @@ async function run() {
       `(unsichtbar, weiss auf Papierweiss)\n`,
   );
 
+  // Bei Unterschrift von Hand liegen Meta- und Signatur-Block IN der
+  // Unterschriftsfläche statt als eigener Streifen davor (lib/pdf/
+  // certificate.tsx). Darum laufen beide Modi durch dieselben Prüfungen.
+  for (const signatureMode of ["digital", "handwritten"] as const) {
+    console.log(`\n### Unterschrift: ${signatureMode}\n`);
+    await checkMode(signatureMode);
+  }
+
+  console.log(`\n--- ${passed} bestanden, ${failed} fehlgeschlagen ---\n`);
+  if (failed > 0) process.exit(1);
+}
+
+async function checkMode(signatureMode: "digital" | "handwritten") {
   const pdf = await renderCertificatePdf({
     companyName: "Beispiel Treuhand AG",
     companyAddress: "Bahnhofstrasse 42",
@@ -123,7 +136,7 @@ async function run() {
     signatory1ConfirmedAt: "2026-10-23T09:14:00.000Z",
     signatory2Name: "Thomas Vorgesetzt",
     signatory2Role: "Leiter Firmenkunden",
-    signatureMode: "digital",
+    signatureMode,
 
     metaBlockEncoded: encodeMetaBlock(META),
     signatureBlockEncoded: Buffer.from(
@@ -198,9 +211,6 @@ async function run() {
     assert("Schlüssel-ID erhalten", parsed?.kid === "zeugnio-2026-01");
     assert("Signatur erhalten", parsed?.sig === Buffer.alloc(64, 7).toString("base64"));
   }
-
-  console.log(`\n--- ${passed} bestanden, ${failed} fehlgeschlagen ---\n`);
-  if (failed > 0) process.exit(1);
 }
 
 run().catch((err) => {

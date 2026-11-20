@@ -46,6 +46,7 @@ import {
 import type { FontKey } from "@/lib/pdf/fonts";
 import { buildVerifyUrl } from "@/lib/hash/canonicalize";
 import { imageSizePx } from "@/lib/docx/image-size";
+import { letterheadContactLines } from "@/lib/design/letterhead-lines";
 
 export interface DocxLogo {
   data: Buffer;
@@ -312,16 +313,15 @@ function letterhead(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
     );
   }
 
-  const cityLine = [s(input.companyPostalCode), s(input.companyCity)]
-    .filter((x) => x.length > 0)
-    .join(" ");
-  const contactLines = [
-    s(input.companyAddress),
-    cityLine,
-    s(input.companyPhone),
-    s(input.companyEmail),
-    s(input.companyWebsite),
-  ].filter((x) => x.length > 0);
+  // Gebündelte Kontaktzeilen wie im PDF (lib/design/letterhead-lines.ts).
+  const contactLines = letterheadContactLines({
+    address: s(input.companyAddress),
+    postalCode: s(input.companyPostalCode),
+    city: s(input.companyCity),
+    phone: s(input.companyPhone),
+    email: s(input.companyEmail),
+    website: s(input.companyWebsite),
+  });
   for (const line of contactLines) rightChildren.push(smallLine(line));
 
   if (rightChildren.length === 0) rightChildren.push(new Paragraph({ children: [] }));
@@ -343,13 +343,14 @@ function letterhead(input: DocxRenderInput, theme: DocumentTheme): (Paragraph | 
         new TableRow({
           children: [
             new TableCell({
-              width: { size: 55, type: WidthType.PERCENTAGE },
+              // 50/50 entspricht der PDF-Spalte von 240pt bei 475pt Satzbreite.
+              width: { size: 50, type: WidthType.PERCENTAGE },
               verticalAlign: VerticalAlign.TOP,
               borders: noBorders,
               children: leftChildren,
             }),
             new TableCell({
-              width: { size: 45, type: WidthType.PERCENTAGE },
+              width: { size: 50, type: WidthType.PERCENTAGE },
               verticalAlign: VerticalAlign.TOP,
               borders: noBorders,
               children: rightChildren,
