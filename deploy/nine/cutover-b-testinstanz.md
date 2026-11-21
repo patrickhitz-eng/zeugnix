@@ -117,8 +117,9 @@ Ein paar Begriffe, die unten immer wieder vorkommen:
 | **Fenster www-zeugnio** | PowerShell: `ssh www-zeugnio@advisori01.nine.ch` | fast alles |
 | **Fenster www-data** | PowerShell: `ssh www-data@advisori01.nine.ch` | nur der vhost (Schritt 8 und 10) |
 
-`sudo` fragt im Fenster www-data nach dem Passwort des Kontos `www-data` selbst (Ablage
-«nine.ch SSH www-data»). Kein anderes Passwort wird in diesem Ablauf gebraucht.
+`sudo nine-manage-vhosts` läuft im Fenster www-data ohne Passwortabfrage (so beim Umzug am
+20.11. erlebt). Fragt `sudo` nach einem Passwort, bist du im falschen Fenster: Im Fenster
+www-zeugnio geht `sudo` nicht. In diesem Ablauf wird kein Passwort gebraucht.
 
 ---
 
