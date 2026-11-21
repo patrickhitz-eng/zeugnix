@@ -1,4 +1,5 @@
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { companyRoleLabel } from "@/lib/auth/ownership";
 import { invitationState, isAccessRole, type AccessRole } from "@/lib/team/invitations";
 import {
@@ -23,9 +24,7 @@ export const metadata = { title: "Team" };
 export default async function TeamPage({ searchParams }: { searchParams: Promise<{ org?: string }> }) {
   const { org: wantedOrg } = await searchParams;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: memberships } = await supabase

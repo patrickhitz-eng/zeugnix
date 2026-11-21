@@ -2,7 +2,8 @@ import { LoginForm } from "@/components/forms/login-form";
 import { Logo } from "@/components/ui/logo";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/db/supabase-server";
+import { authMode } from "@/lib/auth/config";
+import { getSessionUser } from "@/lib/auth/session";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 export const metadata = {
@@ -13,6 +14,8 @@ export const metadata = {
 const ERROR_MESSAGES: Record<string, string> = {
   setup_incomplete:
     "Die Anmeldung ist noch nicht eingerichtet. Bitte versuchen Sie es später erneut.",
+  link_ungueltig:
+    "Dieser Anmeldelink ist abgelaufen oder wurde bereits benutzt. Bitte fordern Sie unten einen neuen Code an.",
   service_unavailable:
     "Der Anmeldedienst ist momentan nicht erreichbar. Bitte versuchen Sie es in ein paar Minuten erneut.",
 };
@@ -32,11 +35,7 @@ export default async function LoginPage({
   // im try-Block stehen, sonst würde der catch-Block den Redirect schlucken.
   let alreadyLoggedIn = false;
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    alreadyLoggedIn = !!user;
+    alreadyLoggedIn = !!(await getSessionUser());
   } catch {
     // Supabase nicht erreichbar -> einfach das Login-Formular zeigen.
   }
@@ -75,7 +74,7 @@ export default async function LoginPage({
         )}
 
         <div className="mt-10">
-          <LoginForm next={next} />
+          <LoginForm next={next} mode={authMode()} />
         </div>
 
         <p className="mt-8 text-center text-[12px] text-ink-500">

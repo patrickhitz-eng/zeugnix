@@ -1,3 +1,6 @@
+import { redirect } from "next/navigation";
+
+import { authMode } from "@/lib/auth/config";
 import AuthCallbackClient from "./callback-client";
 
 /**
@@ -29,5 +32,8 @@ import AuthCallbackClient from "./callback-client";
 export const dynamic = "force-dynamic";
 
 export default function AuthCallbackPage() {
+  // Nach Cutover B kommen hier nur noch Links aus alten Supabase-Mails an. Sie
+  // lassen sich nicht mehr einlösen; die Anmeldeseite schickt eine neue Mail.
+  if (authMode() === "eigen") redirect("/login?error=link_ungueltig");
   return <AuthCallbackClient />;
 }

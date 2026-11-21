@@ -9,7 +9,7 @@
   "scripts": {
     "predev": "npm run copy:pdfjs",
     "dev": "next dev",
-    "prebuild": "npm run test:themes && npm run test:dataapi && npm run copy:pdfjs",
+    "prebuild": "npm run test:themes && npm run test:dataapi && npm run test:auth && npm run copy:pdfjs",
     "build": "next build",
     "copy:pdfjs": "tsx scripts/copy-pdf-worker.ts",
     "start": "next start",
@@ -36,6 +36,8 @@
     "test:loeschen-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-loeschen.sql",
     "render:sample": "tsx scripts/render-sample-certificate.ts",
     "test:dataapi": "tsx scripts/test-data-api-token.ts",
+    "test:auth": "tsx scripts/test-auth.ts",
+    "test:auth-db": "psql -X -v ON_ERROR_STOP=1 -f supabase/907_auth_eigen_verify.sql",
     "backfill:hash": "tsx scripts/backfill-hash.ts",
     "check:env": "node --env-file=.env scripts/check-env.mjs",
     "migrate": "node --env-file=.env scripts/migrate.mjs",

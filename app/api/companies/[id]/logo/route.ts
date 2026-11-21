@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { logError, logWarn } from "@/lib/log";
 import {
   LOGO_URL_PREFIX,
@@ -64,9 +65,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   if (!(await userHasCompanyPermission(supabase, id, user.id, "company"))) {
@@ -229,9 +228,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   if (!(await userHasCompanyPermission(supabase, id, user.id, "company"))) {

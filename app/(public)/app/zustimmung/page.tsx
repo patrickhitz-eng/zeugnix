@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { Logo } from "@/components/ui/logo";
 import { SignOutButton } from "@/components/app/sign-out-button";
 import { TermsAcceptForm } from "@/components/forms/terms-accept-form";
@@ -28,9 +29,7 @@ export default async function ZustimmungPage({
   if (safeNext.startsWith("/app/zustimmung")) safeNext = "/app/dashboard";
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/login");
 
   // Schon angenommen (z.B. zweiter Tab) → direkt weiter.

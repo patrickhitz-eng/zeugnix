@@ -1,16 +1,15 @@
 "use client";
 
-import { createClient } from "@/lib/db/supabase-client";
-import { useRouter } from "next/navigation";
-
+/**
+ * Abmelden über den Server (POST /api/auth/abmelden), für beide Stellungen des
+ * Schalters ZEUGNIO_AUTH. Das Sitzungs-Cookie der eigenen Anmeldung ist
+ * HttpOnly; der Browser kann es gar nicht selbst löschen.
+ */
 export function SignOutButton() {
-  const router = useRouter();
-
   async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
+    await fetch("/api/auth/abmelden", { method: "POST" }).catch(() => undefined);
+    // Harter Seitenwechsel: kein zwischengespeicherter App-Inhalt bleibt stehen.
+    window.location.assign("/");
   }
 
   return (

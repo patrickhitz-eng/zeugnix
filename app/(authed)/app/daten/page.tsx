@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { getCompanyPermissions } from "@/lib/auth/ownership";
 import { DataManager, type DataCompany, type DataOrganization } from "@/components/app/data-manager";
 import { RETENTION } from "@/lib/retention";
@@ -17,9 +18,7 @@ export const metadata = { title: "Daten" };
  */
 export default async function DatenPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return null;
 
   const { data: memberships } = await supabase

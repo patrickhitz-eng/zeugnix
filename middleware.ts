@@ -1,5 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { authMode, authSecret, SESSION_COOKIE } from "@/lib/auth/config";
+import { clearedSessionCookie, sessionCookie } from "@/lib/auth/cookie";
+import { lookupSession } from "@/lib/auth/store";
+import { hmac, isTokenShape } from "@/lib/auth/tokens";
 import { logError } from "@/lib/log";
 import { legacyHostRedirect, publicOrigin } from "@/lib/public-origin";
 
@@ -17,10 +21,23 @@ import { legacyHostRedirect, publicOrigin } from "@/lib/public-origin";
  * Riegel gegen neue Abflüsse aus der Schweiz – ein nachträglich eingebautes
  * CDN, Analytics-Snippet oder Fremd-Font fällt sofort auf, statt still zu
  * funktionieren.
+ *
+ * Anmeldung: Der Schalter ZEUGNIO_AUTH (lib/auth/config.ts) entscheidet, wer
+ * die Sitzung prüft. «supabase» wie bisher über supabase.auth.getUser(),
+ * «eigen» über das Cookie __Host-zeugnio_session und auth.sessions auf
+ * advisori01. Darum läuft die Middleware seit Cutover B in der Node-Laufzeit
+ * (Entscheid E4, config unten): HMAC und Datenbankzugriff nutzen denselben
+ * Code wie die Routen.
  */
 
-/** Herkunft der Daten-API (heute Supabase, nach dem Cutover die eigene). */
+/**
+ * Supabase-Ursprung für die CSP: Der Browser spricht mit Supabase nur noch für
+ * die Anmeldung (signInWithOtp, verifyOtp) und den Marketing-Header. Mit der
+ * eigenen Anmeldung fällt er ganz weg, und connect-src ist nur noch 'self'
+ * (Plan § 1, «messbar fertig»).
+ */
 function dataApiOrigin(): string | null {
+  if (authMode() === "eigen") return null;
   try {
     return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin;
   } catch {
@@ -160,6 +177,9 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/for-") ||
     path.startsWith("/legal") ||
     path.startsWith("/auth/callback") ||
+    path.startsWith("/auth/link") ||
+    // Anmelde-Routen prüfen selbst (Herkunft, Ratenbegrenzung, Sitzung).
+    path.startsWith("/api/auth/") ||
     path.startsWith("/api/verify") ||
     path.startsWith("/api/analyze") ||
     // Firmenlogos: liegen auf der Platte und sind wie bisher im öffentlichen
@@ -169,6 +189,42 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/logos/") ||
     path.startsWith("/api/health") ||
     path.startsWith("/app/invitations"); // Token-basiert, kein Login nötig
+
+  if (authMode() === "eigen") {
+    return sealed(await eigeneSitzung());
+  }
+
+  /**
+   * Eigene Anmeldung: Cookie lesen, Sitzung in auth.sessions nachschlagen.
+   * Ohne Sitzung führt /app/* zur Anmeldung, /api/* lässt die Route selbst mit
+   * 401 antworten (wie bisher). Wurde die Sitzung eben verlängert, bekommt auch
+   * das Cookie wieder 30 Tage; ist sie ungültig, wird das Cookie gelöscht.
+   */
+  async function eigeneSitzung(): Promise<NextResponse> {
+    const appPath = path.startsWith("/app") && !path.startsWith("/app/invitations");
+    if (isPublic) return NextResponse.next({ request: { headers: forwardedHeaders() } });
+
+    const raw = request.cookies.get(SESSION_COOKIE)?.value;
+    const token = isTokenShape(raw) ? raw : null;
+    try {
+      const user = token ? await lookupSession(hmac(authSecret(), "session", token)) : null;
+      const response = !user && appPath
+        ? redirectToLogin({ next: path })
+        : NextResponse.next({ request: { headers: forwardedHeaders() } });
+      if (user?.renewed && token) {
+        const c = sessionCookie(token);
+        response.cookies.set(c.name, c.value, c.options);
+      } else if (raw && !user) {
+        const c = clearedSessionCookie();
+        response.cookies.set(c.name, c.value, c.options);
+      }
+      return response;
+    } catch (err) {
+      logError("[middleware] Sitzung nicht prüfbar:", err);
+      if (appPath) return redirectToLogin({ error: "service_unavailable" });
+      return NextResponse.next({ request: { headers: forwardedHeaders() } });
+    }
+  }
 
   // ENV-Vars prüfen
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -243,6 +299,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Node statt Edge (Entscheid E4, seit Next 15.5 stabil): node:crypto für den
+  // HMAC der Sitzungskennung und derselbe Datenbankzugang wie in den Routen.
+  runtime: "nodejs",
   matcher: [
     /*
      * Alle Pfade ausser:

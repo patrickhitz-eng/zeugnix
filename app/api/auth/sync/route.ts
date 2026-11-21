@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { authMode } from "@/lib/auth/config";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
 import { logError, logWarn } from "@/lib/log";
 
@@ -32,6 +33,12 @@ import { logError, logWarn } from "@/lib/log";
 export const runtime = "nodejs";
 
 export async function POST() {
+  // Mit der eigenen Anmeldung entsteht die Person direkt in auth.users
+  // (906: auth.open_session). Diese Brücke hat dann nichts mehr zu tun und
+  // fällt im Aufräumen (Plan § 8, B2) ganz weg.
+  if (authMode() === "eigen") {
+    return NextResponse.json({ error: "Nicht verfügbar." }, { status: 404 });
+  }
   const supabase = await createClient();
   const {
     data: { user },

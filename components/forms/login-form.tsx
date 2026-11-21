@@ -8,7 +8,11 @@ import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { finishLogin } from "@/lib/auth/finish-login";
 
 /**
- * Anmeldung mit zwei gleichwertigen Wegen aus derselben E-Mail:
+ * Anmeldung mit zwei gleichwertigen Wegen aus derselben E-Mail. Seit Cutover B
+ * gibt es dafür zwei Wege im Hintergrund, je nach Schalter ZEUGNIO_AUTH:
+ * «supabase» (unten beschrieben) oder «eigen» (fetch auf /api/auth/anfordern
+ * und /api/auth/code; der Link führt auf /auth/link mit einem Knopf).
+ *
  *
  *   1. Magic-Link anklicken  -> /auth/callback
  *   2. 6-stelligen Code hier eintippen -> verifyOtp()
@@ -28,7 +32,14 @@ import { finishLogin } from "@/lib/auth/finish-login";
 /** Schlüssel für die zwischengespeicherte Adresse. Nur diese eine Angabe. */
 const EMAIL_KEY = "zeugnio:login-email";
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({
+  next,
+  mode = "supabase",
+}: {
+  next?: string;
+  /** Schalter ZEUGNIO_AUTH, von app/login/page.tsx durchgereicht (lib/auth/config.ts). */
+  mode?: "supabase" | "eigen";
+}) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<
@@ -66,6 +77,29 @@ export function LoginForm({ next }: { next?: string }) {
     setErrorMsg("");
     setNoAccount(false);
 
+    if (mode === "eigen") {
+      // Eigene Anmeldung: Die Antwort ist für jede Adresse gleich (Entscheid E3),
+      // darum gibt es hier auch keinen Hinweis «kein Konto».
+      const res = await fetch("/api/auth/anfordern", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, next: safeNext }),
+      }).catch(() => null);
+      if (!res || !res.ok) {
+        const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+        setStatus("error");
+        setErrorMsg(body?.error ?? "Die Anmeldung ist gerade nicht möglich. Bitte versuchen Sie es erneut.");
+        return;
+      }
+      try {
+        sessionStorage.setItem(EMAIL_KEY, email);
+      } catch {
+        // Siehe useEffect – ohne Speicher läuft der Weg trotzdem.
+      }
+      setStatus("sent");
+      return;
+    }
+
     const supabase = createOtpClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -100,6 +134,23 @@ export function LoginForm({ next }: { next?: string }) {
     e.preventDefault();
     setStatus("verifying");
     setErrorMsg("");
+
+    if (mode === "eigen") {
+      const res = await fetch("/api/auth/code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: code.trim() }),
+      }).catch(() => null);
+      if (res?.ok) {
+        // Harter Seitenwechsel, damit die Middleware das neue Cookie sieht.
+        window.location.assign(safeNext);
+        return;
+      }
+      const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+      setStatus("sent");
+      setErrorMsg(body?.error ?? "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.");
+      return;
+    }
 
     // Hier der SSR-Client, nicht createOtpClient: verifyOtp muss die Session in
     // die Cookies schreiben, damit die Middleware sie sieht. createOtpClient
