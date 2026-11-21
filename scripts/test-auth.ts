@@ -22,7 +22,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 
-import { ANFORDERN_OK, handleAnfordern, type AnfordernDeps } from "../lib/auth/anfordern";
+import { ANFORDERN_OK, ANFORDERN_ZU_VIELE, handleAnfordern, type AnfordernDeps } from "../lib/auth/anfordern";
 import {
   authMode,
   authSecret,
@@ -34,8 +34,18 @@ import {
 } from "../lib/auth/config";
 import { clearedSessionCookie, sessionCookie } from "../lib/auth/cookie";
 import { allowedOrigins, isAllowedOrigin } from "../lib/auth/origin";
+import { createRequestMemo, hasSupabaseSessionCookie, supabaseCookieSignature } from "../lib/auth/request-memo";
 import { sanitizeNext } from "../lib/auth/sanitize-next";
-import { codeHmac, hmac, isCodeShape, isTokenShape, newCode, newToken, normalizeEmail } from "../lib/auth/tokens";
+import {
+  codeHmac,
+  hmac,
+  isCodeShape,
+  isTokenShape,
+  maskEmail,
+  newCode,
+  newToken,
+  normalizeEmail,
+} from "../lib/auth/tokens";
 
 let passed = 0;
 let failed = 0;
@@ -201,6 +211,49 @@ async function main() {
   ok("Zähler-Schlüssel ohne Adresse im Klartext", keys.length === 2 && keys.every((k) => !k.includes("firma.ch")), keys.join(" | "));
   ok("Zähler-Schlüssel pro IP nutzt die übergebene IP", keys.some((k) => k === "auth:anfordern:ip:203.0.113.7"));
   eq("ungültige Adresse: 400", (await handleAnfordern({ email: "kein-at", next: "" }, deps().d)).status, 400);
+
+  // Aussperren über eine fremde Adresse (Review PR #91): Wer von einer IP aus
+  // schon über dem Limit ist, darf den Zähler der Adresse nicht weiter füllen.
+  const kinds: string[] = [];
+  const ipLimited = deps({ rateLimit: async (_key, kind) => (kinds.push(kind), kind !== "ip") });
+  const rIp = await handleAnfordern({ email: KNOWN, next: "" }, ipLimited.d);
+  eq("Ratenbegrenzung pro IP: 429", rIp.status, 429);
+  eq("IP über dem Limit: Zähler der Adresse unberührt", kinds, ["ip"]);
+  ok("Ratenbegrenzung pro IP: nichts gespeichert, keine Mail", ipLimited.stored.length === 0 && ipLimited.scheduled.length === 0);
+  eq("429-Text gleich für IP und Adresse (verrät nichts)", [rIp.body, rLimited.body], [{ error: ANFORDERN_ZU_VIELE }, { error: ANFORDERN_ZU_VIELE }]);
+  ok("429-Text sagt, dass erhaltene Mails gültig bleiben", ANFORDERN_ZU_VIELE.includes(`${LOGIN_TTL_MINUTES} Minuten gültig`));
+
+  // ------------------------------------------------------------------------
+  console.log("\nAdresse auf /auth/link (Login-CSRF)");
+  eq("lange Adresse: zwei Zeichen und Domain", maskEmail("anna.muster@firma.ch"), "an•••@firma.ch");
+  eq("kurze Adresse: ein Zeichen", maskEmail("ab@firma.ch"), "a•••@firma.ch");
+  eq("ein Zeichen vor dem @", maskEmail("a@firma.ch"), "a•••@firma.ch");
+  ok("Lokalteil nie ganz sichtbar", !maskEmail("anna.muster@firma.ch").includes("anna.muster"));
+  eq("ohne @: nichts sichtbar", maskEmail("kaputt"), "•••");
+
+  // ------------------------------------------------------------------------
+  console.log("\nEin getUser() pro Anfrage (Modus supabase)");
+  const remember = createRequestMemo<number>();
+  let computed = 0;
+  const requestA = {};
+  const requestB = {};
+  const value = () => ++computed;
+  remember(requestA, "sb-x=1", value);
+  remember(requestA, "sb-x=1", value);
+  eq("gleiche Anfrage, gleiche Cookies: einmal gefragt", computed, 1);
+  remember(requestA, "sb-x=2", value);
+  eq("Cookies geändert (aufgefrischt): neu gefragt", computed, 2);
+  eq("andere Anfrage: eigenes Ergebnis", remember(requestB, "sb-x=2", value), 3);
+  eq("ohne sb-Cookie: leere Signatur", supabaseCookieSignature([{ name: "theme", value: "hell" }]), "");
+  eq(
+    "Signatur unabhängig von der Reihenfolge",
+    supabaseCookieSignature([{ name: "sb-p-auth-token.1", value: "b" }, { name: "sb-p-auth-token.0", value: "a" }]),
+    supabaseCookieSignature([{ name: "sb-p-auth-token.0", value: "a" }, { name: "sb-p-auth-token.1", value: "b" }]),
+  );
+  ok("Sitzungscookie erkannt", hasSupabaseSessionCookie([{ name: "sb-swny-auth-token" }]));
+  ok("gestückeltes Sitzungscookie erkannt", hasSupabaseSessionCookie([{ name: "sb-swny-auth-token.0" }]));
+  ok("code-verifier allein ist keine Sitzung", !hasSupabaseSessionCookie([{ name: "sb-swny-auth-token-code-verifier" }]));
+  ok("eigenes Sitzungscookie zählt im Modus supabase nicht", !hasSupabaseSessionCookie([{ name: SESSION_COOKIE }]));
 
   // ------------------------------------------------------------------------
   console.log("\nHerkunft (Origin)");

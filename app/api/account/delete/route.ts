@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/db/supabase-server";
 import { authMode } from "@/lib/auth/config";
 import { clearedSessionCookie } from "@/lib/auth/cookie";
 import { getSessionUser } from "@/lib/auth/session";
+import { endAllSessions } from "@/lib/auth/store";
 import { deletionErrorStatus } from "@/lib/loeschen/rpc-error";
 import { logError } from "@/lib/log";
 
@@ -45,8 +46,18 @@ export async function POST(req: NextRequest) {
   }
 
   if (authMode() === "eigen") {
-    // auth.users und auth.sessions sind schon weg (siehe oben). Hier nur noch das
-    // Cookie dieses Browsers löschen.
+    // auth.users und damit auth.sessions sollten schon weg sein (siehe oben).
+    // Trotzdem alle Sitzungen ausdrücklich beenden (Review PR #91): Die Kaskade
+    // hängt an einem Fremdschlüssel, den eine spätere Änderung an
+    // zeugnio_delete_account oder an auth.users still aushebeln könnte. Dann
+    // blieben andere Geräte bis zu 30 Tage angemeldet, ohne Profil, aber mit
+    // gültiger Sitzung. Schlägt dieser Aufruf fehl, ist das Konto trotzdem
+    // gelöscht; die Sitzungen räumt dann die Kaskade bzw. auth_cleanup ab.
+    try {
+      await endAllSessions(user.id);
+    } catch (endError) {
+      logError("[loeschen] Sitzungen nicht beendet:", user.id, endError);
+    }
     const res = NextResponse.json({ ok: true });
     const c = clearedSessionCookie();
     res.cookies.set(c.name, c.value, c.options);

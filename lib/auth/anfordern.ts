@@ -1,3 +1,4 @@
+import { LOGIN_TTL_MINUTES } from "./config";
 import { codeHmac, hmac, isPlausibleEmail, newCode, newToken, normalizeEmail } from "./tokens";
 
 /**
@@ -42,6 +43,11 @@ export const ANFORDERN_OK: AnfordernResult = Object.freeze({
   body: Object.freeze({ ok: true }) as Record<string, unknown>,
 });
 
+/** Antwort bei 429. Gleich für das Limit pro IP und pro Adresse, verrät also nichts über Konten. */
+export const ANFORDERN_ZU_VIELE =
+  `Zu viele Anfragen in kurzer Zeit. Eine bereits erhaltene Anmelde-Mail bleibt ${LOGIN_TTL_MINUTES} Minuten gültig. ` +
+  "Sonst bitte etwas später erneut versuchen.";
+
 export async function handleAnfordern(
   input: { email: unknown; next: unknown },
   deps: AnfordernDeps,
@@ -53,15 +59,26 @@ export async function handleAnfordern(
     return { status: 400, body: { error: "Bitte eine gültige E-Mail-Adresse eingeben." } };
   }
 
-  // Ratenbegrenzung pro IP und pro Adresse. Die Adresse geht nur als HMAC in den
-  // Zähler, nicht im Klartext in die Tabelle rate_limits.
+  // Ratenbegrenzung erst pro IP, dann pro Adresse. Die Adresse geht nur als
+  // HMAC in den Zähler, nicht im Klartext in die Tabelle rate_limits.
+  //
+  // Die Reihenfolge ist Absicht (Review PR #91): Wer von einer IP aus schon über
+  // dem Limit ist, verbraucht das Kontingent der Adresse nicht mehr. Vorher
+  // zählten beide Zähler bei jeder Anfrage, auch bei abgelehnten, und eine
+  // fremde Person konnte von einer einzigen IP aus das Limit einer Adresse
+  // aufbrauchen. Das Limit pro Adresse bleibt nötig: Es schützt das Postfach
+  // vor einer Flut von Anmelde-Mails.
+  //
+  // Wer trotzdem auf das Limit pro Adresse trifft, ist nicht ausgesperrt: Jede
+  // Anforderung der letzten Viertelstunde hat eine gültige Mail in das
+  // Postfach gelegt, und ältere Mails verfallen nicht mehr durch neue
+  // (906, auth_request_login).
   const ipOk = await deps.rateLimit(`auth:anfordern:ip:${deps.clientIp}`, "ip");
-  const mailOk = await deps.rateLimit(
-    `auth:anfordern:mail:${hmac(deps.secret, "ratelimit", email).slice(0, 32)}`,
-    "adresse",
-  );
+  const mailOk =
+    ipOk &&
+    (await deps.rateLimit(`auth:anfordern:mail:${hmac(deps.secret, "ratelimit", email).slice(0, 32)}`, "adresse"));
   if (!ipOk || !mailOk) {
-    return { status: 429, body: { error: "Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einen Moment." } };
+    return { status: 429, body: { error: ANFORDERN_ZU_VIELE } };
   }
 
   const token = newToken();

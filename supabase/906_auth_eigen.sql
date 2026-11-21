@@ -32,6 +32,11 @@
 --   psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/906_auth_eigen.sql
 -- Danach die Gegenprobe:
 --   psql -w -v ON_ERROR_STOP=1 -d nmd_zeugnio -f supabase/907_auth_eigen_verify.sql
+-- Und PFLICHT: PostgREST neu laden, sonst kennt es die neuen Funktionen nicht
+-- (db-channel-enabled = false, 404 auf /rpc/auth_*), und nach dem Umschalten
+-- kann sich niemand anmelden:
+--   systemctl --user reload postgrest
+--   node deploy/nine/postgrest-probe.mjs --auth-eigen
 --
 -- Idempotent: mehrfaches Ausführen ändert nichts.
 -- ============================================================================
@@ -189,6 +194,21 @@ $$;
 
 revoke all on function auth.open_session(text, text, boolean) from public, anon, authenticated, service_role;
 
+-- Nach einer erfolgreichen Anmeldung: alle übrigen offenen Anforderungen der
+-- Adresse verbrauchen. Die Person ist drin, weitere Mails braucht sie nicht
+-- mehr, und ein liegengebliebener Code im Postfach soll nicht noch eine
+-- Viertelstunde lang eine zweite Sitzung eröffnen können.
+create or replace function auth.consume_open_requests(p_email text)
+returns void
+language sql
+security definer
+set search_path = pg_catalog, auth
+as $$
+  update auth.login_requests set used_at = now() where email = p_email and used_at is null;
+$$;
+
+revoke all on function auth.consume_open_requests(text) from public, anon, authenticated, service_role;
+
 -- ----------------------------------------------------------------------------
 -- 5) Öffentliche Funktionen (nur service_role)
 -- ----------------------------------------------------------------------------
@@ -197,8 +217,16 @@ revoke all on function auth.open_session(text, text, boolean) from public, anon,
 -- Gibt zurück, ob eine Mail verschickt werden soll. Die Anwendung antwortet
 -- dem Browser in BEIDEN Fällen gleich (Entscheid E3); nur die Mail bleibt aus,
 -- wenn die Registrierung geschlossen ist und es die Adresse nicht gibt.
--- Ältere offene Anforderungen derselben Adresse verfallen: gültig ist immer
--- nur die jüngste Mail.
+--
+-- Ältere offene Anforderungen derselben Adresse bleiben bis zu ihrem Ablauf
+-- gültig (Review PR #91, 21.11.). Vorher machte jede neue Anforderung die
+-- älteren ungültig. Damit konnte eine fremde Person, die nur die Adresse
+-- kennt, mit einer Anforderung pro Minute jede Mail entwerten, bevor die
+-- Inhaberin sie öffnet, und mit fünf Anforderungen pro Stunde auch das Limit
+-- pro Adresse aufbrauchen. Jetzt landet jede fremde Anforderung als
+-- zusätzliche, gültige Mail im Postfach der Inhaberin; aussperren lässt sie
+-- sich damit nicht mehr. Nach einer erfolgreichen Anmeldung verfallen alle
+-- offenen Anforderungen der Adresse (auth.consume_open_requests).
 create or replace function public.auth_request_login(
   p_email text, p_link_hmac text, p_code_hmac text, p_signup_open boolean
 )
@@ -222,10 +250,6 @@ begin
     return false;
   end if;
 
-  update auth.login_requests
-     set used_at = now()
-   where email = v_email and used_at is null;
-
   insert into auth.login_requests (email, link_hmac, code_hmac, expires_at)
   values (v_email, p_link_hmac, p_code_hmac, now() + auth.login_ttl());
 
@@ -237,6 +261,12 @@ $$;
 -- Das UPDATE … RETURNING verbraucht den Link nur, wenn er noch offen und
 -- gültig ist. Ein zweiter, gleichzeitiger Aufruf findet ihn bereits verbraucht
 -- und bekommt nichts zurück.
+--
+-- Fehlversuche beim CODE sperren den Link nicht (Review PR #91). Der Zähler
+-- schützt die 6-stelligen Codes vor dem Durchprobieren. Der Link trägt 32
+-- zufällige Bytes, den errät niemand. Hinge er am selben Zähler, könnte eine
+-- fremde Person mit fünf falschen Codes auf die Adresse auch den Link im
+-- Postfach der Inhaberin entwerten.
 create or replace function public.auth_redeem_link(
   p_link_hmac text, p_token_hmac text, p_signup_open boolean
 )
@@ -253,23 +283,34 @@ begin
    where r.link_hmac = p_link_hmac
      and r.used_at is null
      and r.expires_at > now()
-     and r.attempts < auth.login_max_tries()
   returning r.email into v_email;
 
   if v_email is null then
     return;
   end if;
 
+  perform auth.consume_open_requests(v_email);
+
   return query select s.user_id, s.email from auth.open_session(v_email, p_token_hmac, p_signup_open) s;
 end
 $$;
 
 -- 5c) Code einlösen und Sitzung eröffnen.
--- Die jüngste offene Anforderung der Adresse wird gesperrt (FOR UPDATE), dann
--- verglichen. Falscher Code: Fehlversuch zählen und nichts zurückgeben, OHNE
--- Ausnahme, sonst würde die Zählung mit zurückgerollt. Ab dem fünften
--- Fehlversuch ist die Anforderung verbrannt, auch der richtige Code hilft
--- dann nicht mehr.
+-- Alle offenen Anforderungen der Adresse werden gesperrt (FOR UPDATE), dann
+-- wird der Code gegen jede davon verglichen: Seit ältere Mails gültig bleiben
+-- (5a), darf die Person den Code aus irgendeiner noch gültigen Mail nehmen.
+--
+-- Falscher Code: Fehlversuch bei ALLEN offenen Anforderungen der Adresse
+-- zählen und nichts zurückgeben, OHNE Ausnahme, sonst würde die Zählung mit
+-- zurückgerollt. Ab dem fünften Fehlversuch ist eine Anforderung für den Code
+-- verbrannt, auch der richtige Code hilft dann nicht mehr (der Link schon).
+--
+-- Warum bei allen: Ein Rateversuch prüft gegen bis zu N offene Codes. Zählte
+-- er nur bei einer Anforderung, bekäme ein Angreifer mit N offenen Mails
+-- N × 5 Versuche pro Code. So bekommt jeder Code höchstens 5 Prüfungen, gleich
+-- viele wie vorher. Bei höchstens 5 Anforderungen pro Stunde und Adresse
+-- (lib/auth/config.ts) sind das höchstens 25 geprüfte Codes pro Stunde und
+-- Adresse, eine Trefferchance von rund 1 zu 40 000 pro Stunde.
 --
 -- Der Vergleich läuft auf HMAC-Werten, nicht auf dem Code. Ein Zeitunterschied
 -- im Vergleich verrät darum nichts, womit sich ein Code erraten liesse.
@@ -283,31 +324,65 @@ set search_path = pg_catalog, auth
 as $$
 declare
   v_email text := lower(btrim(p_email));
-  v_req   auth.login_requests%rowtype;
+  v_id    uuid;
 begin
-  select * into v_req
+  -- Sperren, damit zwei gleichzeitige Aufrufe nicht beide durchkommen: der
+  -- zweite wartet und findet die Anforderungen danach verbraucht.
+  perform 1
+     from auth.login_requests r
+    where r.email = v_email
+      and r.used_at is null
+      and r.expires_at > now()
+      and r.attempts < auth.login_max_tries()
+      for update;
+
+  if not found then
+    return;
+  end if;
+
+  select r.id into v_id
     from auth.login_requests r
    where r.email = v_email
      and r.used_at is null
      and r.expires_at > now()
      and r.attempts < auth.login_max_tries()
-   order by r.created_at desc
-   limit 1
-   for update;
+     and r.code_hmac = p_code_hmac
+   limit 1;
 
-  if v_req.id is null then
+  if v_id is null then
+    update auth.login_requests r
+       set attempts = r.attempts + 1
+     where r.email = v_email
+       and r.used_at is null
+       and r.expires_at > now()
+       and r.attempts < auth.login_max_tries();
     return;
   end if;
 
-  if v_req.code_hmac is distinct from p_code_hmac then
-    update auth.login_requests set attempts = attempts + 1 where id = v_req.id;
-    return;
-  end if;
-
-  update auth.login_requests set used_at = now() where id = v_req.id;
+  perform auth.consume_open_requests(v_email);
 
   return query select s.user_id, s.email from auth.open_session(v_email, p_token_hmac, p_signup_open) s;
 end
+$$;
+
+-- 5c') Zu welcher Adresse gehört dieser Link? Nur lesen, nichts verbrauchen.
+-- Die Seite /auth/link zeigt die Adresse (maskiert) VOR dem Knopf
+-- «Anmelden» (Review PR #91, Login-CSRF): Schickt jemand einer Person den
+-- Link zum eigenen Konto, sieht diese eine fremde Adresse und meldet sich
+-- nicht ahnungslos im fremden Konto an. NULL, wenn der Link unbekannt,
+-- verbraucht oder abgelaufen ist.
+create or replace function public.auth_link_email(p_link_hmac text)
+returns text
+language sql
+stable
+security definer
+set search_path = pg_catalog, auth
+as $$
+  select r.email
+    from auth.login_requests r
+   where r.link_hmac = p_link_hmac
+     and r.used_at is null
+     and r.expires_at > now();
 $$;
 
 -- 5d) Wer gehört zu dieser Sitzung?
@@ -403,6 +478,7 @@ begin
     'public.auth_request_login(text,text,text,boolean)',
     'public.auth_redeem_link(text,text,boolean)',
     'public.auth_redeem_code(text,text,text,boolean)',
+    'public.auth_link_email(text)',
     'public.auth_session_user(text)',
     'public.auth_end_session(text)',
     'public.auth_end_all_sessions(uuid)',

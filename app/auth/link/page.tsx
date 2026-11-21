@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Logo } from "@/components/ui/logo";
-import { authMode } from "@/lib/auth/config";
+import { authMode, authSecret } from "@/lib/auth/config";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
-import { isTokenShape } from "@/lib/auth/tokens";
+import { linkEmail } from "@/lib/auth/store";
+import { hmac, isTokenShape, maskEmail } from "@/lib/auth/tokens";
+import { logError } from "@/lib/log";
 
 /**
  * /auth/link?t=…&next=…
@@ -15,6 +17,17 @@ import { isTokenShape } from "@/lib/auth/tokens";
  * jeden Link vorab auf (GET). Würde schon dieser Aufruf einlösen, wäre der Link
  * tot, bevor der Mensch klickt.
  *
+ * Vor dem Knopf steht die Adresse, für die der Link gilt, teilweise verdeckt
+ * (Review PR #91, Login-CSRF). Ohne diese Anzeige könnte jemand einer Person
+ * den Link zum eigenen Konto schicken; sie meldete sich ahnungslos dort an und
+ * legte ihre Zeugnisse im fremden Konto ab. Das Nachschlagen liest nur
+ * (auth_link_email), es verbraucht nichts.
+ *
+ * Das Token steht in der Adresse dieser Seite. Darum gilt hier
+ * `Referrer-Policy: no-referrer` (next.config.mjs und Metadaten unten): Ein
+ * Klick auf «Neuen Code anfordern» schickte sonst die volle Adresse samt
+ * Token als Referer mit, und der landete im Zugriffsprotokoll von nginx.
+ *
  * `force-dynamic` ist Pflicht: Unter /auth vergibt die Middleware eine
  * CSP-Nonce, und nur eine pro Anfrage gerenderte Seite kann sie tragen
  * (siehe app/auth/callback/page.tsx, PR #27).
@@ -24,7 +37,21 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Anmelden",
   robots: { index: false, follow: false },
+  referrer: "no-referrer",
 };
+
+type LinkState = { kind: "offen"; masked: string } | { kind: "ungueltig" } | { kind: "fehler" };
+
+async function linkState(t: string | undefined): Promise<LinkState> {
+  if (!isTokenShape(t)) return { kind: "ungueltig" };
+  try {
+    const email = await linkEmail(hmac(authSecret(), "link", t));
+    return email ? { kind: "offen", masked: maskEmail(email) } : { kind: "ungueltig" };
+  } catch (error) {
+    logError("[auth] Link nicht nachschlagbar:", error);
+    return { kind: "fehler" };
+  }
+}
 
 export default async function AuthLinkPage({
   searchParams,
@@ -34,7 +61,7 @@ export default async function AuthLinkPage({
   if (authMode() !== "eigen") redirect("/login");
 
   const { t, next } = await searchParams;
-  const valid = isTokenShape(t);
+  const state = await linkState(t);
 
   return (
     <section className="bg-white">
@@ -51,10 +78,12 @@ export default async function AuthLinkPage({
 
         <h1 className="headline-display mt-12 text-center text-[28px] leading-tight">Anmelden</h1>
 
-        {valid ? (
+        {state.kind === "offen" ? (
           <>
-            <p className="mt-3 text-center text-[14px] text-ink-600">
-              Klicken Sie auf «Anmelden», um sich auf diesem Gerät anzumelden.
+            <p className="mt-3 text-center text-[14px] text-ink-600">Dieser Link meldet Sie an als</p>
+            <p className="mt-1 text-center text-[16px] font-medium text-ink-900">{state.masked}</p>
+            <p className="mt-3 text-center text-[13px] text-ink-500">
+              Ist das nicht Ihre Adresse, klicken Sie nicht auf «Anmelden» und schliessen Sie diese Seite.
             </p>
             <form method="post" action="/api/auth/link" className="mt-10">
               <input type="hidden" name="t" value={t} />
@@ -64,9 +93,13 @@ export default async function AuthLinkPage({
               </button>
             </form>
           </>
+        ) : state.kind === "fehler" ? (
+          <div className="mt-8 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-[13px] text-red-700">
+            Die Anmeldung ist gerade nicht möglich. Bitte versuchen Sie es in ein paar Minuten erneut.
+          </div>
         ) : (
           <div className="mt-8 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-center text-[13px] text-red-700">
-            Dieser Link ist unvollständig. Bitte öffnen Sie ihn direkt aus der E-Mail oder fordern Sie einen neuen
+            Dieser Link ist abgelaufen, wurde schon verwendet oder ist unvollständig. Bitte fordern Sie einen neuen
             Code an.
           </div>
         )}

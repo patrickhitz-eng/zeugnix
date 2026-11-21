@@ -71,3 +71,21 @@ export function hmac(secret: string, purpose: HmacPurpose, value: string): strin
 export function codeHmac(secret: string, email: string, code: string): string {
   return hmac(secret, "code", `${normalizeEmail(email)}\0${code}`);
 }
+
+/**
+ * Adresse für die Anzeige auf /auth/link, teilweise verdeckt:
+ * «anna.muster@firma.ch» → «an•••@firma.ch».
+ *
+ * Zweck (Review PR #91, Login-CSRF): Schickt jemand einer Person den Link zum
+ * EIGENEN Konto, soll diese vor dem Klick sehen, dass es nicht ihre Adresse
+ * ist. Dafür reicht der Anfang und die Domain. Ganz ausgeschrieben stünde die
+ * Adresse sonst auf jeder Seite, die ein Linkscanner abruft.
+ */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return "•••";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  const visible = local.length <= 2 ? local.slice(0, 1) : local.slice(0, 2);
+  return `${visible}•••@${domain}`;
+}

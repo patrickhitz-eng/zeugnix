@@ -52,6 +52,15 @@ const nextConfig = {
         ],
       },
       {
+        // Die Seite hinter dem Link der Anmelde-Mail trägt das Token in der
+        // Adresse (/auth/link?t=…). Ohne diese Zeile ginge die volle Adresse
+        // beim nächsten Klick als Referer mit, auch an zeugnio selbst, und
+        // stünde dann im Zugriffsprotokoll von nginx. Steht nach dem Block
+        // "/:path*", weil bei gleichem Kopf der spätere Eintrag gilt.
+        source: "/auth/link",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
         // Schriftdateien ändern sich faktisch nie. Wird doch einmal eine
         // ersetzt, braucht sie einen neuen Dateinamen – sonst sehen Bestands-
         // Browser ein Jahr lang die alte.

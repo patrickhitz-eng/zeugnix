@@ -305,7 +305,17 @@ if (uploadDir && !onVercel) {
 
 // --- E-Mail ------------------------------------------------------------------------------
 if (!nonEmpty("RESEND_API_KEY")) {
-  warnings.push("RESEND_API_KEY fehlt – Einladungen an Vorgesetzte werden nicht verschickt.");
+  // Mit der eigenen Anmeldung schickt zeugnio auch die Anmelde-Mail selbst. Ohne Schlüssel
+  // antwortet /api/auth/anfordern zwar «Mail ist unterwegs», aber es kommt keine an, und
+  // niemand kann sich mehr anmelden. Darum hier ein Fehler statt einer Warnung.
+  if (authModeRaw === "eigen") {
+    errors.push(
+      "RESEND_API_KEY fehlt, obwohl ZEUGNIO_AUTH=eigen. Die Anmelde-Mails gehen dann nicht hinaus, " +
+        "und niemand kann sich anmelden.",
+    );
+  } else {
+    warnings.push("RESEND_API_KEY fehlt – Einladungen an Vorgesetzte werden nicht verschickt.");
+  }
 } else if (!nonEmpty("EMAIL_FROM")) {
   warnings.push("EMAIL_FROM fehlt, obwohl ein Mailversand konfiguriert ist.");
 }

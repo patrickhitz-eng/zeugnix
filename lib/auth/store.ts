@@ -119,3 +119,18 @@ export async function lookupSession(sessionHmac: string): Promise<(StoredUser & 
 export async function endSession(sessionHmac: string): Promise<void> {
   await rpc<void>("auth_end_session", { p_token_hmac: sessionHmac });
 }
+
+/** Beendet alle Sitzungen einer Person (Konto löschen). Gibt die Anzahl zurück. */
+export async function endAllSessions(userId: string): Promise<number> {
+  const count = await rpc<number>("auth_end_all_sessions", { p_user_id: userId });
+  return typeof count === "number" ? count : 0;
+}
+
+/**
+ * Adresse zu einem offenen Link, ohne ihn zu verbrauchen (Seite /auth/link,
+ * Schutz gegen Login-CSRF). null = unbekannt, verbraucht oder abgelaufen.
+ */
+export async function linkEmail(linkHmac: string): Promise<string | null> {
+  const email = await rpc<string | null>("auth_link_email", { p_link_hmac: linkHmac });
+  return typeof email === "string" && email !== "" ? email : null;
+}

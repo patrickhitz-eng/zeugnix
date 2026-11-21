@@ -25,19 +25,16 @@ export async function createClient(): Promise<SupabaseClient> {
 
   const cookieStore = await cookies();
 
-  // Der Fetch-Wrapper braucht die GEPRÜFTE Identität, und die liefert ausgerechnet der
-  // Client, den er selbst bedient. Darum dieser Platzhalter: er wird gesetzt, sobald der
-  // Client steht, und der Wrapper fragt erst bei der ersten Datenanfrage nach – dann ist
-  // er längst gefüllt. `getUser()` ist ein Netzwerkaufruf zum Auth-Server und damit die
-  // einzige belastbare Quelle; das Cookie selbst ist keine (siehe lib/db/rest-rewrite.ts).
-  let self: ReturnType<typeof createServerClient> | null = null;
-
+  // Der Fetch-Wrapper braucht die GEPRÜFTE Identität. Er fragt erst bei der ersten
+  // Datenanfrage nach, und zwar bei getSessionUser(): Das ist derselbe Aufruf von
+  // `supabase.auth.getUser()` (Netzwerkaufruf zum Auth-Server, die einzige belastbare
+  // Quelle; das Cookie selbst ist keine, siehe lib/db/rest-rewrite.ts), aber nur einmal
+  // pro Anfrage gemerkt (lib/auth/request-memo.ts). Vorher fragte jeder Datenclient
+  // selbst bei Supabase nach, zusätzlich zur Route.
   const dataFetch = createDataApiFetch({
     resolveIdentity: async () => {
-      if (!self) return null;
-      const { data, error } = await self.auth.getUser();
-      if (error || !data.user) return null;
-      return { role: "authenticated", sub: data.user.id };
+      const user = await getSessionUser();
+      return user ? { role: "authenticated", sub: user.id } : null;
     },
   });
 
@@ -65,7 +62,6 @@ export async function createClient(): Promise<SupabaseClient> {
     },
   );
 
-  self = client;
   return client as unknown as SupabaseClient;
 }
 

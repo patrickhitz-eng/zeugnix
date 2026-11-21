@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 import { authMode, authSecret, SESSION_COOKIE } from "./config";
+import { createRequestMemo, supabaseCookieSignature } from "./request-memo";
 import { endSession, lookupSession } from "./store";
 import { hmac, isTokenShape } from "./tokens";
 import { logError } from "@/lib/log";
@@ -35,11 +36,26 @@ export interface SessionUser {
   email?: string;
 }
 
+/** Ein getUser() pro Anfrage, siehe lib/auth/request-memo.ts. */
+const rememberSupabaseUser = createRequestMemo<Promise<SessionUser | null>>();
+
 async function supabaseUser(): Promise<SessionUser | null> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   const cookieStore = await cookies();
+  const signature = supabaseCookieSignature(cookieStore.getAll());
+  // Ohne Supabase-Cookie kann niemand angemeldet sein. getUser() käme zum selben
+  // Ergebnis, nur mit mehr Aufwand.
+  if (!signature) return null;
+  return rememberSupabaseUser(cookieStore, signature, () => fetchSupabaseUser(url, key, cookieStore));
+}
+
+async function fetchSupabaseUser(
+  url: string,
+  key: string,
+  cookieStore: Awaited<ReturnType<typeof cookies>>,
+): Promise<SessionUser | null> {
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {

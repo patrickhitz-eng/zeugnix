@@ -113,8 +113,12 @@ begin
   select count(*) into n from public.auth_session_user(s1);
   if n <> 0 then raise exception '907: abgelaufene Sitzung gilt noch'; end if;
 
-  -- Fünf falsche Codes, dann der richtige: abgelehnt.
+  -- Fünf falsche Codes, dann der richtige: abgelehnt. Der Link derselben Mail
+  -- gilt aber weiter (Fehlversuche beim Code sperren den Link nicht).
   perform public.auth_request_login('neu.test@probe-907.ch', l2, c2, true);
+  if public.auth_link_email(l2) is distinct from 'neu.test@probe-907.ch' then
+    raise exception '907: auth_link_email liefert nicht die Adresse des offenen Links';
+  end if;
   for i in 1..5 loop
     select count(*) into n from public.auth_redeem_code('neu.test@probe-907.ch', falsch, s3, true);
     if n <> 0 then raise exception '907: falscher Code angenommen'; end if;
@@ -124,8 +128,11 @@ begin
   end if;
   select count(*) into n from public.auth_redeem_code('neu.test@probe-907.ch', c2, s3, true);
   if n <> 0 then raise exception '907: richtiger Code nach 5 Fehlversuchen angenommen'; end if;
-  select count(*) into n from public.auth_redeem_link(l2, s3, true);
-  if n <> 0 then raise exception '907: Link nach 5 Fehlversuchen noch gültig'; end if;
+  select count(*) into n from public.auth_redeem_link(l2, s2, true);
+  if n <> 1 then raise exception '907: Link nach 5 falschen Codes gesperrt (Aussperren über fremde Adresse)'; end if;
+  if public.auth_link_email(l2) is not null then
+    raise exception '907: auth_link_email liefert die Adresse eines verbrauchten Links';
+  end if;
 
   -- Richtiger Code (Grossschreibung egal), danach verbraucht.
   perform public.auth_request_login('NEU.test@probe-907.ch', repeat('e', 64), repeat('9', 64), true);
@@ -134,15 +141,38 @@ begin
   select count(*) into n from public.auth_redeem_code('neu.test@probe-907.ch', repeat('9', 64), s4, true);
   if n <> 0 then raise exception '907: Code liess sich zweimal einlösen'; end if;
 
-  -- Neue Anforderung entwertet die ältere.
+  -- Eine neue Anforderung entwertet die ältere NICHT (Aussperren über eine
+  -- fremde Adresse). Code und Link der älteren Mail gelten weiter.
   perform public.auth_request_login('neu.test@probe-907.ch', repeat('5', 64), repeat('6', 64), true);
   perform public.auth_request_login('neu.test@probe-907.ch', repeat('7', 64), repeat('8', 64), true);
-  select count(*) into n from public.auth_redeem_link(repeat('5', 64), s4, true);
-  if n <> 0 then raise exception '907: ältere Anforderung gilt noch'; end if;
+  select * into r from public.auth_redeem_code('neu.test@probe-907.ch', repeat('6', 64), s4, true);
+  if r.user_id is distinct from v_uid then
+    raise exception '907: Code der älteren Mail nach neuer Anforderung abgelehnt';
+  end if;
+  -- … und nach der Anmeldung sind alle offenen Anforderungen der Adresse verbraucht.
+  select count(*) into n from public.auth_redeem_link(repeat('7', 64), repeat('5', 64), true);
+  if n <> 0 then raise exception '907: nach erfolgreicher Anmeldung gilt eine zweite Mail noch'; end if;
+  perform public.auth_end_session(s4);
+  perform public.auth_end_session(repeat('5', 64));
 
-  -- Abgelaufene Anforderung: abgelehnt.
-  update auth.login_requests set expires_at = now() - interval '1 second' where link_hmac = repeat('7', 64);
-  select count(*) into n from public.auth_redeem_link(repeat('7', 64), s4, true);
+  -- Ein falscher Code zählt bei allen offenen Anforderungen der Adresse, sonst
+  -- vervielfachten mehrere offene Mails die Rateversuche.
+  perform public.auth_request_login('neu.test@probe-907.ch', repeat('a1', 32), repeat('b1', 32), true);
+  perform public.auth_request_login('neu.test@probe-907.ch', repeat('a2', 32), repeat('b2', 32), true);
+  perform public.auth_redeem_code('neu.test@probe-907.ch', falsch, s4, true);
+  if (select count(*) from auth.login_requests
+       where link_hmac in (repeat('a1', 32), repeat('a2', 32)) and attempts = 1) <> 2 then
+    raise exception '907: Fehlversuch nicht bei allen offenen Anforderungen gezählt';
+  end if;
+  update auth.login_requests set used_at = now() where email = 'neu.test@probe-907.ch' and used_at is null;
+
+  -- Abgelaufene Anforderung: abgelehnt, auch für auth_link_email.
+  perform public.auth_request_login('neu.test@probe-907.ch', repeat('7', 63) || 'x', repeat('8', 64), true);
+  update auth.login_requests set expires_at = now() - interval '1 second' where link_hmac = repeat('7', 63) || 'x';
+  if public.auth_link_email(repeat('7', 63) || 'x') is not null then
+    raise exception '907: auth_link_email liefert die Adresse eines abgelaufenen Links';
+  end if;
+  select count(*) into n from public.auth_redeem_link(repeat('7', 63) || 'x', s4, true);
   if n <> 0 then raise exception '907: abgelaufener Link angenommen'; end if;
 
   -- Registrierung geschlossen, unbekannte Adresse: keine Mail, nichts angelegt.
