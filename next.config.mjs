@@ -23,19 +23,20 @@ const nextConfig = {
       {
         source: "/:path*",
         headers: [
-          // VORÜBERGEHEND 5 Minuten statt 2 Jahre und ohne Subdomains, für den
-          // Umzug zu nine (deploy/nine/cutover-reihenfolge.md, Schritt 0.3):
-          // Zwischen dem Umlegen der A-Records und dem neuen Zertifikat gibt es
-          // einige Minuten ohne gültiges Zertifikat. Mit dem Zweijahreswert
-          // zeigt jeder Browser, der zeugnio.ch kennt, dann eine Fehlerseite
-          // ohne «Trotzdem fortfahren»; jeder Besuch nach diesem Deploy
-          // ersetzt den alten Wert. Nach dem Umzug zurück auf
-          // "max-age=63072000; includeSubDomains" (Schritt 6.2).
+          // Stufe 1 nach dem Umzug zu nine (deploy/nine/cutover-reihenfolge.md,
+          // Schritt 6.2): 7 Tage, weiter ohne Subdomains. Seit 20.11.2026 kommt
+          // das Zertifikat von Let's Encrypt über nine (90 Tage, Erneuerung
+          // automatisch). Bewiesen ist die Erneuerung erst nach dem ersten
+          // Lauf, etwa Mitte Januar 2027. Fällt sie aus und läuft das
+          // Zertifikat ab, sperrt HSTS die Seite in jedem Browser, der sie
+          // kennt, ohne «Trotzdem fortfahren», und zwar so lange wie max-age.
+          // Darum erst nach der ersten Erneuerung Stufe 2:
+          // "max-age=63072000; includeSubDomains".
           // Kein `preload`: Preload ist praktisch irreversibel und würde
           // jeden Rollback verunmöglichen.
           {
             key: "Strict-Transport-Security",
-            value: "max-age=300",
+            value: "max-age=604800",
           },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
