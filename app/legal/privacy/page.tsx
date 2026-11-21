@@ -17,12 +17,11 @@ export const metadata = { title: "Datenschutz" };
 // Betrieb ändert (Anbieter, Fristen, Protokolle), ändert es hier mit.
 
 /**
- * Stand-Datum der Erklärung. ⚠ Geplanter Umzugstag (Cutover A, Fenster
- * Do 26.11.2026). BEIM MERGE auf den Tag setzen, an dem zeugnio.ch wirklich
- * von advisori01 ausgeliefert wird (cutover-reihenfolge.md 6.0). Verschiebt
- * sich das Fenster, wandert dieses Datum mit.
+ * Stand-Datum der Erklärung. Cutover A lief am 20.11.2026 (zeugnio.ch seit
+ * 16:48 von advisori01), die Supabase-Kopie ist seit 21.11.2026 gelöscht
+ * (5.10); seit diesem Tag gilt diese Fassung.
  */
-const UPDATED = "26. November 2026";
+const UPDATED = "21. November 2026";
 
 /**
  * Empfänger von Personendaten (Abschnitt 5). Die Liste setzt sich aus den
@@ -33,9 +32,16 @@ const UPDATED = "26. November 2026";
  * basis = null heisst: Der Anbieter bearbeitet die Daten nur in der Schweiz,
  * es gibt keine Bekanntgabe ins Ausland.
  *
- * Standorte Altstetten (Server) und Rümlang (Sicherungen): von Silvan am
- * 20.11.2026 bestätigt. Die Kopie der Daten bei Supabase wird nach dem Umzug
- * gelöscht (Entscheid Silvan 20.11.2026); darum nennt kein Eintrag sie.
+ * Standort Altstetten (Server): von Silvan am 20.11.2026 bestätigt. Die
+ * Sicherungen liegen heute verschlüsselt auf dem Server selbst plus in nines
+ * täglicher Serversicherung; die Zweitkopie im Object Storage (Rümlang, Kit
+ * B3) ist noch nicht bestellt. Erst mit B3 wieder «zweites Rechenzentrum in
+ * Rümlang» schreiben (hier, Abschnitt 9 und FAQ).
+ * Die Kopie der Daten bei Supabase ist seit 21.11.2026 gelöscht (5.10,
+ * Entscheid Silvan 20.11.2026). Supabases eigene Tagessicherungen (05:00)
+ * zeigten am 21.11. acht Einträge inkl. dem heutigen; die letzte mit Daten
+ * (21.11.) fällt darum spätestens am 29.11. weg. Danach den Satz dazu im
+ * Supabase-Eintrag streichen.
  *
  * Cloudflare: nines AVV (Anhang 3, Abschnitt B) sieht Cloudflare nur bei
  * Buchung vor; der Hub verlangt die Nennung (standards/datenschutz.md).
@@ -51,7 +57,7 @@ const NINE: Recipient = {
   name: "Nine Internet Solutions AG, Zürich",
   task: `Hosting der Anwendung, ${OWN_LOGIN ? "der Anmeldung, " : ""}der Datenbank und der Firmenlogos auf einem verwalteten Server`,
   location:
-    "Server im Rechenzentrum Zürich-Altstetten, verschlüsselte Sicherungen in einem zweiten Rechenzentrum in Rümlang (beide Schweiz). " +
+    "Server im Rechenzentrum Zürich-Altstetten. Die Datenbank wird stündlich verschlüsselt gesichert, zusätzlich sichert nine den Server täglich; alle Rechenzentren von nine liegen im Kanton Zürich (Schweiz). " +
     (NINE_ABROAD
       ? "Für Notfälle und Wartung ausserhalb der Bürozeiten kann die Tochtergesellschaft Nine Internet Solutions Ltd. aus Kanada auf den Server zugreifen; sie speichert dort keine Daten. Für Netz- und DDoS-Schutz führt nine zudem Cloudflare, Inc. (USA) als Unterauftragsbearbeiter, soweit dieser Dienst eingesetzt wird"
       : "Den Zugriff von Gesellschaften der nine-Gruppe ausserhalb der Schweiz haben wir ausgeschlossen. Dienste, für die nine Unterauftragsbearbeiter ausserhalb der Schweiz beizieht (etwa Cloudflare), nutzen wir nicht"),
@@ -64,7 +70,7 @@ const SUPABASE: Recipient = {
   name: "Supabase Pte. Ltd, Singapur (Supabase-Gruppe, USA)",
   task: "Anmeldung: Benutzerkonten mit E-Mail-Adresse, Anmeldesitzungen und Einmal-Codes",
   location:
-    "Anmeldung in Frankfurt (Deutschland). Betriebsprotokolle und Support können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur",
+    "Anmeldung in Frankfurt (Deutschland). Betriebsprotokolle und Support können ausserhalb der EU bearbeitet werden, namentlich in den USA und in Singapur. Die übrigen Daten aus der Zeit vor dem Umzug haben wir bei Supabase gelöscht; sie bleiben nur noch bis spätestens 29. November 2026 in Supabases eigenen Sicherungen",
   basis: "Standardvertragsklauseln der EU-Kommission mit Schweizer Ergänzung",
 };
 
@@ -418,8 +424,9 @@ export default function Page() {
                 Die Übertragung erfolgt verschlüsselt (TLS). Jede Firma sieht in
                 der Datenbank nur ihre eigenen Daten. Finalisierte Zeugnisse
                 werden mit einem SHA-256-Hash und einer Signatur versiegelt und
-                lassen sich danach nicht mehr verändern. Sicherungen der
-                Datenbank liegen verschlüsselt in einem zweiten Rechenzentrum in
+                lassen sich danach nicht mehr verändern. Die Datenbank wird
+                stündlich verschlüsselt gesichert, zusätzlich sichert unser
+                Hosting-Anbieter den Server täglich. Alle Sicherungen liegen in
                 der Schweiz.
               </p>
               <p>

@@ -51,7 +51,7 @@ type Faq = { q: string; a: ReactNode };
 function whereText(): string {
   const ownLogin = ANMELDUNG === "nine";
   const parts: string[] = [
-    `Anwendung, ${ownLogin ? "Anmeldung, " : ""}Datenbank und Firmenlogos liegen auf einem Server von nine.ch in Zürich, die Sicherungen in einem zweiten Rechenzentrum im Kanton Zürich.`,
+    `Anwendung, ${ownLogin ? "Anmeldung, " : ""}Datenbank und Firmenlogos liegen auf einem Server von nine.ch in Zürich, die Sicherungen ebenfalls bei nine in der Schweiz.`,
   ];
   if (AUSLANDZUGRIFF_NINE === "moeglich") {
     parts.push(
