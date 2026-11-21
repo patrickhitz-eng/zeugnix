@@ -19,6 +19,18 @@
 // Prozessliste und sind dort fuer jedes andere Konto auf dem Server lesbar.
 //
 // Eine bestehende postgrest.conf wird nur mit --force ersetzt.
+//
+// Fuer eine zweite Instanz (Testinstanz, deploy/nine/cutover-b-testinstanz.md) steuern vier
+// Umgebungsvariablen das Ergebnis; die letzten drei sind neu. Ohne sie entsteht genau die Datei
+// wie bisher:
+//   ZEUGNIO_SHARED_DIR      Ordner mit .env und postgrest.conf (Default ~/zeugnio/shared)
+//   POSTGREST_DB_URI        ganze Verbindungsadresse statt authenticator@127.0.0.1:5432, z. B. ein
+//                           Socket: postgresql:///zeugnio_test?host=%2F…%2Frun&port=5444&user=authenticator
+//                           Dann braucht es kein AUTHENTICATOR_PW.
+//   POSTGREST_SERVER_PORT   Port der Daten-API (Default aus der Vorlage: 3011)
+//   POSTGREST_ADMIN_PORT    Port fuer /live und /ready (Default aus der Vorlage: 3012)
+// Steht in der .env eine DATA_API_URL, muss ihr Port zur Daten-API passen, sonst bricht das
+// Skript ab: Die App fragte sonst eine andere PostgREST-Instanz als die hier konfigurierte.
 import { randomBytes } from "node:crypto";
 import { chmodSync, existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -36,17 +48,64 @@ const outFile = path.join(shared, "postgrest.conf");
 const template = path.join(path.dirname(fileURLToPath(import.meta.url)), "postgrest.conf.example");
 const force = process.argv.includes("--force");
 
+const dbUri = process.env.POSTGREST_DB_URI ?? "";
 const pw = process.env.AUTHENTICATOR_PW ?? "";
-if (pw.length < 16) {
+if (dbUri !== "") {
+  if (!/^postgres(ql)?:\/\//.test(dbUri)) fail("POSTGREST_DB_URI muss mit postgresql:// beginnen.");
+  if (/["\n$]/.test(dbUri)) fail("POSTGREST_DB_URI enthaelt \", $ oder einen Zeilenumbruch.");
+} else if (pw.length < 16) {
   fail("AUTHENTICATOR_PW fehlt oder ist kuerzer als 16 Zeichen. Aufruf siehe Kopf dieser Datei.");
 }
+
+/** Port aus der Umgebung oder null (dann gilt die Vorlage). */
+function portFromEnv(name) {
+  const raw = process.env[name] ?? "";
+  if (raw === "") return null;
+  if (!/^[0-9]+$/.test(raw) || Number(raw) < 1024 || Number(raw) > 65535) {
+    fail(`${name}="${raw}" ist keine Portnummer zwischen 1024 und 65535.`);
+  }
+  return raw;
+}
+const serverPort = portFromEnv("POSTGREST_SERVER_PORT");
+const adminPort = portFromEnv("POSTGREST_ADMIN_PORT");
+if (serverPort !== null && serverPort === adminPort) fail("POSTGREST_SERVER_PORT und POSTGREST_ADMIN_PORT sind gleich.");
 if (existsSync(outFile) && !force) {
-  fail(`${outFile} gibt es schon. Ersetzen nur mit --force (danach: systemctl --user restart postgrest).`);
+  fail(`${outFile} gibt es schon. Ersetzen nur mit --force (danach den Dienst neu starten, z. B. systemctl --user restart postgrest).`);
 }
 if (!existsSync(envFile)) fail(`${envFile} fehlt.`);
 
+// --- Vorlage lesen, Ports festlegen ----------------------------------------------------
+let conf = readFileSync(template, "utf8");
+const uriLine = /^db-uri = "postgres:\/\/authenticator:PASSWORT@/m;
+const fullUriLine = /^db-uri = ".*"$/m;
+const secretConfLine = /^jwt-secret = ".*"$/m;
+const serverPortLine = /^server-port = (\d+)$/m;
+const adminPortLine = /^admin-server-port = (\d+)$/m;
+if (![uriLine, secretConfLine, serverPortLine, adminPortLine].every((re) => re.test(conf))) {
+  fail("Die Vorlage hat nicht mehr die erwarteten Zeilen db-uri, jwt-secret, server-port und admin-server-port. Skript anpassen.");
+}
+const effectiveServerPort = serverPort ?? conf.match(serverPortLine)[1];
+const effectiveAdminPort = adminPort ?? conf.match(adminPortLine)[1];
+
 // --- JWT-Geheimnis aus der .env, sonst neu ------------------------------------------------
 let env = readFileSync(envFile, "utf8");
+
+// Vor jeder Aenderung: Passt DATA_API_URL zur Daten-API, die hier entsteht?
+const dataApiUrlVorher = env.match(/^DATA_API_URL=(["']?)(.*?)\1[ \t]*$/m)?.[2] ?? "";
+if (dataApiUrlVorher !== "") {
+  let apiPort = "";
+  try {
+    apiPort = new URL(dataApiUrlVorher).port;
+  } catch {
+    fail("DATA_API_URL in der .env ist keine gueltige Adresse.");
+  }
+  if (apiPort !== effectiveServerPort) {
+    fail(
+      `DATA_API_URL in der .env zeigt auf Port ${apiPort || "(keiner)"}, die Daten-API lauscht auf ` +
+        `${effectiveServerPort}. Die App fragte sonst eine andere PostgREST-Instanz.`,
+    );
+  }
+}
 const secretLine = /^DATA_API_JWT_SECRET=(["']?)(.*?)\1[ \t]*$/m;
 const match = env.match(secretLine);
 let secret = match?.[2] ?? "";
@@ -68,15 +127,16 @@ if (/["\\\n]/.test(secret)) fail("DATA_API_JWT_SECRET enthaelt \", \\ oder einen
 const dataApiUrl = env.match(/^DATA_API_URL=(["']?)(.*?)\1[ \t]*$/m)?.[2] ?? "";
 
 // --- Vorlage fuellen -------------------------------------------------------------------
-let conf = readFileSync(template, "utf8");
-const uriLine = /^db-uri = "postgres:\/\/authenticator:PASSWORT@/m;
-const secretConfLine = /^jwt-secret = ".*"$/m;
-if (!uriLine.test(conf) || !secretConfLine.test(conf)) {
-  fail("Die Vorlage hat nicht mehr die erwarteten Zeilen db-uri und jwt-secret. Skript anpassen.");
-}
+// Ersetzen mit Funktionen statt Zeichenketten: In einer Ersatz-Zeichenkette haette $& oder $1
+// eine Sonderbedeutung, und ein Geheimnis darf nie so umgedeutet werden.
+conf =
+  dbUri !== ""
+    ? conf.replace(fullUriLine, () => `db-uri = "${dbUri}"`)
+    : conf.replace(uriLine, () => `db-uri = "postgres://authenticator:${encodeURIComponent(pw)}@`);
 conf = conf
-  .replace(uriLine, `db-uri = "postgres://authenticator:${encodeURIComponent(pw)}@`)
-  .replace(secretConfLine, `jwt-secret = "${secret}"`);
+  .replace(secretConfLine, () => `jwt-secret = "${secret}"`)
+  .replace(serverPortLine, () => `server-port = ${effectiveServerPort}`)
+  .replace(adminPortLine, () => `admin-server-port = ${effectiveAdminPort}`);
 if (/PASSWORT|<eigenes Geheimnis/.test(conf)) fail("In der Konfiguration steht noch ein Platzhalter.");
 // Ein Dollarzeichen leitet in dieser Datei eine Umgebungsvariable ein, $(NAME). Ein einzelnes
 // ist ein Lesefehler, und PostgREST beendet sich beim Start sofort. Gemeldet wird nur die
@@ -92,9 +152,17 @@ writeFileSync(`${outFile}.neu`, conf, { mode: 0o600 });
 chmodSync(`${outFile}.neu`, 0o600);
 renameSync(`${outFile}.neu`, outFile);
 
+// Zusammenfassung ohne Passwort. Bei einem Socket stehen Benutzer, Ordner und Port in den
+// Parametern (host=, port=, user=) statt im Adressteil.
 const uri = new URL(conf.match(/^db-uri = "(.*)"$/m)[1]);
+const q = uri.searchParams;
+const uriUser = decodeURIComponent(uri.username) || q.get("user") || "?";
+const uriHost = q.get("host") || uri.hostname || "?";
+const uriPort = q.get("port") || uri.port || "5432";
+const uriPw = uri.password !== "" ? `Passwort ${decodeURIComponent(uri.password).length} Zeichen` : "ohne Passwort in der Adresse";
 console.log(`postgrest.conf geschrieben: ${outFile} (Rechte 600)`);
-console.log(`  db-uri:     ${uri.username}@${uri.hostname}:${uri.port}${uri.pathname}, Passwort ${pw.length} Zeichen`);
+console.log(`  db-uri:     ${uriUser}@${uriHost}:${uriPort}${uri.pathname}, ${uriPw}`);
+console.log(`  Ports:      Daten-API ${effectiveServerPort}, Verwaltung ${effectiveAdminPort} (nur 127.0.0.1)`);
 console.log(`  jwt-secret: ${secret.length} Zeichen, ${herkunft}`);
 // DATA_API_URL bleibt bis zum Cutover A (Schritt 5.5) leer: Solange sie leer ist, laufen alle
 // Daten weiter ueber Supabase. Gesetzt, wuerde die Anwendung schon die neue Datenbank lesen.
