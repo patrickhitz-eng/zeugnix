@@ -76,9 +76,14 @@ if (!["postgresql:", "postgres:"].includes(url.protocol)) {
 
 // Das Passwort geht über die Umgebung des Kindprozesses, nie über die Befehlszeile: dort
 // wäre es für jeden anderen Benutzer des Servers in der Prozessliste sichtbar.
+//
+// Ein Socket-Ordner statt eines Hosts steht wie bei libpq im Parameter host, z. B.
+//   postgresql://nmd_zeugnio:…@localhost:5444/zeugnio_test?host=%2Fhome%2F…%2Fpg%2Frun
+// So erreicht die Testinstanz (deploy/nine/cutover-b-testinstanz.md) ihren Wegwerf-Cluster,
+// der nur auf einem Socket lauscht. Ohne den Parameter gilt wie bisher der Host der Adresse.
 const childEnv = {
   ...process.env,
-  PGHOST: url.hostname || "127.0.0.1",
+  PGHOST: url.searchParams.get("host") || url.hostname || "127.0.0.1",
   PGPORT: url.port || "5432",
   PGUSER: decodeURIComponent(url.username),
   PGPASSWORD: decodeURIComponent(url.password),
