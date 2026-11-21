@@ -25,6 +25,7 @@
 #   env [--neu]        ~/zeugnio-test/shared/.env aus der Produktions-.env ableiten, Logos kopieren
 #   postgrest [--neu]  postgrest.conf schreiben, Dienst postgrest-zeugnio-test starten
 #   anmeldung-db       906 einspielen, 907 als Probe, PostgREST neu einlesen, Probe der Daten-API
+#   vor-deploy         unmittelbar vor jedem Deploy: Cluster, PostgREST, Arbeitsspeicher
 #   (danach: ~/kit/deploy.sh zeugnio-test, dann vhost umstellen, siehe Runbook)
 #
 # Im Betrieb:
@@ -158,9 +159,15 @@ pg_ready() {
 # statt dass das Stoppen auf sie wartet. KillMode=mixed schickt das Signal nur dem Hauptprozess,
 # der seine Kindprozesse selbst beendet (so steht es auch in der Unit von PostgreSQL selbst).
 pg_start() {
+  local pid
   pgb
   if pg_ready; then info "Test-Cluster laeuft schon (Socket $PG_RUN, Port $PG_PORT)"; return 0; fi
   [ -f "$PG_DATA/PG_VERSION" ] || fail "Kein Test-Cluster unter $PG_DATA. Zuerst: aufbau-db"
+  pid="$(pg_live_postmaster)"
+  [ -z "$pid" ] || fail "Der Postmaster des Test-Clusters laeuft schon (PID $pid), antwortet aber noch nicht. Eine Minute warten und start wiederholen; hilft das nicht: stopp, dann start."
+  # Nach einem OOM-Kill oder Absturz bleibt postmaster.pid liegen, und postgres verweigert den
+  # Start («lock file already exists»), sobald die alte PID wieder vergeben ist.
+  pg_clear_stale_pidfile
   systemctl --user reset-failed "$PG_UNIT" >/dev/null 2>&1 || true
   systemd-run --user --quiet --unit="$PG_UNIT" \
     --description="PostgreSQL Wegwerf-Cluster der zeugnio-Testinstanz" \
@@ -177,15 +184,83 @@ pg_start() {
 }
 
 pg_stop() {
+  local pid
   if systemctl --user is-active --quiet "$PG_UNIT" 2>/dev/null; then
-    systemctl --user stop "$PG_UNIT" || true
+    systemctl --user stop "$PG_UNIT" || warn "systemctl --user stop $PG_UNIT meldet einen Fehler (journalctl --user -u $PG_UNIT)"
   fi
   systemctl --user reset-failed "$PG_UNIT" >/dev/null 2>&1 || true
-  # Rueckfall, falls der Cluster anders gestartet wurde (z. B. von Hand mit pg_ctl).
-  if [ -f "$PG_DATA/postmaster.pid" ] && [ -f "$PG_DATA/PG_VERSION" ]; then
+  # Ein sauber beendeter Postmaster loescht postmaster.pid selbst. Liegt die Datei noch da, wurde
+  # der Cluster entweder anders gestartet (z. B. von Hand mit pg_ctl), oder er ist hart beendet
+  # worden (OOM-Kill, Absturz, harter Neustart) und die Datei ist verwaist.
+  [ -f "$PG_DATA/postmaster.pid" ] || return 0
+  # pg_ctl stop schickt der PID aus der Datei SIGINT, ohne zu pruefen, wer dahinter steckt. Nach
+  # einem harten Ende kann der Kernel diese PID laengst einem anderen Prozess von www-zeugnio
+  # gegeben haben: pm2, der App der Produktion, dem Dienst postgrest, dem Backup-Cron. Darum geht
+  # ein Signal nur an eine PID, die nachweislich der Postmaster des Test-Clusters ist.
+  pid="$(pg_live_postmaster)"
+  if [ -n "$pid" ]; then
     pgb
-    "$PGB/pg_ctl" -D "$PG_DATA" -m fast -w stop >/dev/null 2>&1 || true
+    info "Postmaster des Test-Clusters (PID $pid) laeuft ausserhalb von $PG_UNIT - pg_ctl stop"
+    "$PGB/pg_ctl" -D "$PG_DATA" -m fast -w stop || fail "pg_ctl stop ist gescheitert (Meldung oben). Nichts geloescht."
+  else
+    pg_clear_stale_pidfile
   fi
+}
+
+# Gehoert die PID nachweislich zum Test-Cluster? Zwei Merkmale zusammen:
+#   1. Der Prozess steht im Datenverzeichnis des Test-Clusters. Der Postmaster und jeder seiner
+#      Kindprozesse wechseln beim Start dorthin (chdir), ein fremder Prozess nie. Prozesse eines
+#      anderen Benutzers geben /proc/<pid>/cwd gar nicht preis und fallen damit heraus.
+#   2. Das Programm ist postgres. Damit faellt auch eine Shell heraus, die zufaellig in diesem
+#      Ordner steht (cd ~/zeugnio-test/pg/data).
+pg_is_test_process() {
+  local pid="$1" real comm exe
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  real="$(readlink -f "$PG_DATA" 2>/dev/null)" || return 1
+  [ -n "$real" ] && [ "$(readlink -f "/proc/$pid/cwd" 2>/dev/null)" = "$real" ] || return 1
+  comm="$(cat "/proc/$pid/comm" 2>/dev/null || true)"
+  [ "$comm" = "postgres" ] && return 0
+  exe="$(readlink "/proc/$pid/exe" 2>/dev/null || true)"
+  case "$exe" in */postgres | */postgres" (deleted)") return 0 ;; esac
+  return 1
+}
+
+# Die PID aus postmaster.pid, aber nur, wenn dahinter der Postmaster des Test-Clusters laeuft.
+# Sonst leer.
+pg_live_postmaster() {
+  local pid
+  [ -f "$PG_DATA/postmaster.pid" ] || return 0
+  # || true: Der Postmaster kann die Datei beim Herunterfahren genau jetzt loeschen.
+  pid="$(head -1 "$PG_DATA/postmaster.pid" 2>/dev/null | tr -dc '0-9' || true)"
+  pg_is_test_process "$pid" && echo "$pid"
+  return 0
+}
+
+# Alle postgres-Prozesse dieses Benutzers, die zum Test-Cluster gehoeren (Postmaster und Kinder).
+pg_data_pids() {
+  local p
+  for p in $(pgrep -u "$(id -u)" 2>/dev/null || true); do
+    pg_is_test_process "$p" && echo "$p"
+  done
+  return 0
+}
+
+# Eine postmaster.pid, hinter der kein Postmaster des Test-Clusters mehr steht, bekommt kein
+# Signal, sie wird nur entfernt. Aber nicht, solange noch Kindprozesse des abgestuerzten
+# Clusters laufen: Sie haengen am gemeinsamen Speicher, und ein zweiter Postmaster daneben
+# koennte die Daten beschaedigen. postgres selbst erkennt das nur, solange die Datei da ist.
+pg_clear_stale_pidfile() {
+  local pid others
+  [ -f "$PG_DATA/postmaster.pid" ] || return 0
+  [ -z "$(pg_live_postmaster)" ] || return 0
+  pid="$(head -1 "$PG_DATA/postmaster.pid" 2>/dev/null | tr -dc '0-9' || true)"
+  others="$(pg_data_pids | paste -sd ' ' -)"
+  if [ -n "$others" ]; then
+    warn "postmaster.pid nennt PID ${pid:-?}, das ist nicht der Postmaster des Test-Clusters."
+    fail "Im Datenverzeichnis laufen noch postgres-Prozesse des Test-Clusters (PID $others), Reste nach einem Absturz. Kein Signal gesendet, nichts geloescht. Diese PIDs gehoeren nachweislich zum Test-Cluster. Beenden mit: kill $others - dann denselben Befehl wiederholen."
+  fi
+  rm -f -- "$PG_DATA/postmaster.pid"
+  info "verwaiste postmaster.pid entfernt (PID ${pid:-?} ist nicht der Postmaster des Test-Clusters, darum kein Signal an sie)"
 }
 
 # --- Kleinigkeiten -----------------------------------------------------------------------------
@@ -223,11 +298,62 @@ wait_http() {
 
 need_file() { [ -f "$1" ] || fail "$1 fehlt${2:+ ($2)}."; }
 
+# --- Arbeitsspeicher ---------------------------------------------------------------------------
+# Der Build laeuft im Kit mit einem Speicherdeckel (systemd-run -p MemoryMax, BUILD_MEMORY_MAX).
+# Dieser Deckel schuetzt die Produktion aber nur, wenn der Server so viel wirklich frei hat. Sonst
+# ist der Speicher weg, bevor der Build seinen Deckel erreicht, und nicht der Deckel greift,
+# sondern der OOM-Killer des ganzen Servers. Der waehlt sein Opfer selbst: die App der
+# Produktion, PostgREST oder das PostgreSQL von nine und damit alle Produkte (Kommentar in
+# deploy.sh des Kits). Darum ist zu wenig freier Speicher hier ein Fehler, keine Warnung.
+TEST_MEM_MB=1000   # Testinstanz im Betrieb: Cluster (Deckel 1G, braucht weniger), PostgREST, App
+MEM_RESERVE_MB=500 # Luft fuer die App der Testinstanz nach dem Build und Schwankungen der Produktion
+
+# Speicherdeckel des Builds in MB, so wie deploy.sh ihn setzt (lib/common.sh: ohne Eintrag 3G).
+# Leer, wenn kit.conf den Deckel abschaltet (BUILD_MEMORY_MAX="") oder das Format unbekannt ist.
+build_cap_mb() {
+  local value="3G"
+  if grep -q '^BUILD_MEMORY_MAX=' "$KIT_CONF" 2>/dev/null; then value="$(kit_value BUILD_MEMORY_MAX)"; fi
+  if [[ "$value" =~ ^([0-9]+)G$ ]]; then echo $(( BASH_REMATCH[1] * 1024 ))
+  elif [[ "$value" =~ ^([0-9]+)M$ ]]; then echo "${BASH_REMATCH[1]}"
+  fi
+  return 0
+}
+
+# MemAvailable ist, was der Kernel ohne Auslagern noch hergeben kann (freier Speicher plus Cache,
+# den er verwerfen darf). Prueft es gegen den Bedarf; Rueckgabe 1, wenn es nicht reicht.
+mem_enough() {
+  local need="$1" what="$2" mem
+  mem="$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || true)"
+  if ! [[ "$mem" =~ ^[0-9]+$ ]]; then warn "MemAvailable nicht lesbar (/proc/meminfo)"; return 1; fi
+  info "Arbeitsspeicher verfuegbar: $mem MB, gebraucht: $need MB ($what)"
+  if [ "$mem" -lt "$need" ]; then
+    warn "zu wenig Arbeitsspeicher frei ($mem MB statt mindestens $need MB). Nicht weitermachen: Der Build koennte die Produktion treffen. Laeuft gerade ein anderer Build (pgrep -fa 'next build'), warten und neu pruefen; sonst zeigt free -m die Lage."
+    return 1
+  fi
+  return 0
+}
+
+# Laeuft schon ein Teil der Testinstanz, ist sein Speicher in MemAvailable bereits abgezogen.
+# Dann braucht es nur noch den Build plus Reserve, sonst zusaetzlich die Testinstanz selbst.
+mem_check_for_build() {
+  local cap
+  cap="$(build_cap_mb)"
+  if [ -z "$cap" ]; then
+    warn "kit.conf: BUILD_MEMORY_MAX ist leer oder nicht als <Zahl>G/<Zahl>M lesbar - ohne Speicherdeckel darf neben der Produktion kein Build laufen"
+    return 1
+  fi
+  if pg_ready || systemctl --user is-active --quiet "$API_UNIT" 2>/dev/null; then
+    mem_enough $(( cap + MEM_RESERVE_MB )) "Build bis $cap MB, Reserve $MEM_RESERVE_MB MB; Cluster und PostgREST laufen schon"
+  else
+    mem_enough $(( TEST_MEM_MB + cap )) "Testinstanz rund $TEST_MEM_MB MB, Build bis $cap MB"
+  fi
+}
+
 # --- vorpruefung -------------------------------------------------------------------------------
 cmd_vorpruefung() {
   require_user
   load_node
-  local ok=1 f name age branch eco_name avail mem
+  local ok=1 f name age branch eco_name avail
 
   log "Checkout ($REPO_DIR)"
   branch="$(repo_branch)"
@@ -324,9 +450,8 @@ cmd_vorpruefung() {
   avail="$(df -Pm "$HOME" | awk 'NR == 2 { print $4 }')"
   info "frei in $HOME: ${avail} MB (gebraucht: rund 3000 MB fuer zwei Versionen und die Datenbank)"
   [ "${avail:-0}" -ge 3000 ] || { warn "weniger als 3000 MB frei"; ok=0; }
-  mem="$(awk '/^MemAvailable:/ { print int($2 / 1024) }' /proc/meminfo 2>/dev/null || echo 0)"
-  info "Arbeitsspeicher verfuegbar: ${mem} MB (Testinstanz braucht rund 1000 MB, der Build kurz bis 3000 MB)"
-  [ "${mem:-0}" -ge 1500 ] || warn "weniger als 1500 MB Arbeitsspeicher frei - Build nicht parallel zu einem anderen starten"
+  # Vor dem Deploy (Schritt 7) prueft vor-deploy dasselbe nochmals, dann mit laufendem Cluster.
+  mem_check_for_build || ok=0
 
   log "Testinstanz ($TEST_DIR)"
   if [ -d "$TEST_DIR" ]; then
@@ -647,7 +772,24 @@ cmd_anmeldung_db() {
   else
     warn "$API_UNIT laeuft nicht - Reload und Probe uebersprungen. Zuerst: postgrest"
   fi
-  log "Fertig. Weiter mit: ~/kit/deploy.sh $TEST_APP (Runbook Schritt 6)"
+  log "Fertig. Weiter mit: vor-deploy && ~/kit/deploy.sh $TEST_APP (Runbook Schritt 7)"
+}
+
+# --- vor-deploy --------------------------------------------------------------------------------
+# Unmittelbar vor jedem ~/kit/deploy.sh zeugnio-test. Zwischen vorpruefung und Deploy liegen
+# Cluster, PostgREST und eine halbe Stunde; der Speicher von damals sagt nichts mehr.
+cmd_vor_deploy() {
+  require_user
+  local ok=1
+  log "Vor dem Deploy von $TEST_APP"
+  if pg_ready; then info "Test-Cluster laeuft (die Migrationen im Deploy brauchen ihn)"; else warn "Test-Cluster laeuft nicht. Zuerst: start"; ok=0; fi
+  if curl -fsS --max-time 3 "http://127.0.0.1:$API_ADMIN_PORT/ready" >/dev/null 2>&1; then
+    info "$API_UNIT bereit (der Hook post-migrate laedt ihn neu)"
+  else
+    warn "$API_UNIT ist nicht bereit. Zuerst: postgrest (oder start)"; ok=0
+  fi
+  mem_check_for_build || ok=0
+  if [ "$ok" = 1 ]; then log "Bereit fuer ~/kit/deploy.sh $TEST_APP"; else fail "Nicht deployen (WARNUNG-Zeilen oben)."; fi
 }
 
 # --- probe -------------------------------------------------------------------------------------
@@ -820,9 +962,9 @@ cmd_abbau() {
 
   log "3. Test-Cluster"
   pg_stop
-  if pgrep -u "$(id -u)" -f -- "-D $PG_DATA" >/dev/null 2>&1; then
-    fail "Ein postgres mit $PG_DATA laeuft noch (pgrep -af 'D $PG_DATA'). Erst stoppen, dann abbau --ja erneut."
-  fi
+  local rest
+  rest="$(pg_data_pids | paste -sd ' ' -)"
+  [ -z "$rest" ] || fail "postgres-Prozesse des Test-Clusters laufen noch (PID $rest). Ordner nicht geloescht. Beenden mit: kill $rest - dann abbau --ja erneut."
   info "gestoppt"
 
   log "4. Ordner $TEST_DIR"
@@ -859,6 +1001,7 @@ main() {
     env) cmd_env "$@" ;;
     postgrest) cmd_postgrest "$@" ;;
     anmeldung-db) cmd_anmeldung_db "$@" ;;
+    vor-deploy) cmd_vor_deploy "$@" ;;
     probe) cmd_probe "$@" ;;
     schalter) cmd_schalter "$@" ;;
     psql) cmd_psql "$@" ;;

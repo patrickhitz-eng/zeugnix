@@ -75,7 +75,36 @@ Ein paar Begriffe, die unten immer wieder vorkommen:
    `claude/cutover-b-eigene-anmeldung-c24dfc`). Das Kit klont für die Testinstanz genau diesen
    Branch. Fehlt dort der Stand aus Punkt 1, bricht das Deployment vor dem Umschalten ab
    («muss genau eine App namens zeugnio-test enthalten»). Geprüft wird das in Schritt 2.
-3. **Die Produktion läuft sauber:** `$HOME/kit/deploy.sh zeugnio --check` endet mit «Alles bereit.»
+3. **Die Produktion läuft sauber.** Fenster www-zeugnio:
+
+   ```bash
+   curl -sS http://127.0.0.1:3010/api/health; echo
+   systemctl --user is-active postgrest
+   pm2 describe zeugnio | grep -m1 -w status
+   ```
+
+   Erwartet: das Lebenszeichen mit `"status":"ok"`, dann `active`, dann `online`. Weicht eines
+   ab, heute keine Testinstanz: Erst muss die Produktion wieder stehen.
+
+   Zusätzlich die ganze Prüfung des Kits:
+
+   ```bash
+   $HOME/kit/deploy.sh zeugnio --check
+   tac "$HOME/zeugnio/logs/backup.log" | sed '/Start backup/q' | grep -F '[backup] FEHLER'
+   ```
+
+   **Stand 21.11.:** `--check` endet **nicht** mit «Alles bereit.», sondern mit «Fehler: Nicht
+   alle Voraussetzungen erfuellt». Das ist bekannt und hier in Ordnung, wenn es genau **eine**
+   WARNUNG-Zeile gibt, nämlich `backup: FEHLER … rc=3`. Der Mechanismus: Das Object Storage
+   (B3 in `kommunikation.md`) ist noch nicht bestellt, die Produktion verlangt aber eine
+   Zweitkopie (`BACKUP_OFFSITE="required"`). `db-backup.mjs` legt die Sicherung jede Stunde
+   trotzdem verschlüsselt auf den Server, meldet die fehlende Zweitkopie aber mit Rückgabewert 3.
+   `kit-cron.sh` hält jeden Rückgabewert ausser 0 als `FEHLER` in `backup.status` fest, und
+   `--check` wertet jede solche Zeile als Warnung. Der zweite Befehl zeigt die Fehlerzeilen des
+   letzten Sicherungslaufs. Erwartet ist genau eine, sie beginnt mit
+   `[backup] FEHLER: Keine Zweitkopie`. Steht dort etwas anderes (Journal, Uploads), oder gibt es
+   bei `--check` eine weitere WARNUNG-Zeile, ist das eine echte Abweichung: hier aufhören. Ist B3
+   erledigt, gilt wieder «Alles bereit.».
 4. **Zeit:** rund 45 Minuten Aufbau (davon 10 Minuten Build), 30 bis 60 Minuten Test,
    5 Minuten Abbau. Nicht gleichzeitig ein Deployment der Produktion starten: Es würde auf die
    serverweite Build-Sperre warten, und zwei Builds brauchen zusammen zu viel Arbeitsspeicher.
@@ -134,8 +163,19 @@ Voraussetzung 1, ist der Checkout aktuell), die kit.conf, ob `.env`, `backup.key
 Sicherung der Produktion lesbar sind und wie alt die jüngste ist, PostgreSQL 17, PostgREST, pm2,
 `systemctl --user`, ob die Ports 3013, 3014 und 3015 frei sind, Platz und Arbeitsspeicher.
 
+Zum Arbeitsspeicher: Gemessen wird `MemAvailable`, also was der Kernel ohne Auslagern noch
+hergeben kann. Gebraucht werden rund 4100 MB: die Testinstanz im Betrieb rund 1000 MB (Cluster,
+PostgREST, App) und der Build bis 3072 MB (Speicherdeckel `BUILD_MEMORY_MAX`, 3G). Der Deckel
+schützt die Produktion nur, wenn der Server so viel wirklich frei hat. Sonst ist der Speicher weg,
+bevor der Build seinen Deckel erreicht, und dann greift nicht der Deckel, sondern der
+**OOM-Killer** des ganzen Servers (das Notprogramm des Kernels, das bei vollem Speicher einen
+Prozess beendet). Der wählt sein Opfer selbst, im schlechtesten Fall das PostgreSQL von nine und
+damit alle Produkte. Darum ist zu wenig Speicher hier ein Fehler, keine Warnung.
+
 **Prüfung:** letzte Zeile `==> Vorpruefung ok.` Meldet sie «FEHLT: … ist main in den
-PR-#91-Branch gemergt?», ist Voraussetzung 2 noch nicht erfüllt. Dann hier aufhören.
+PR-#91-Branch gemergt?», ist Voraussetzung 2 noch nicht erfüllt. Meldet sie «zu wenig
+Arbeitsspeicher frei», heute keine Testinstanz (oder warten, bis ein laufender Build fertig ist,
+und neu prüfen). In beiden Fällen hier aufhören.
 
 ---
 
@@ -305,8 +345,15 @@ in der jüngsten Sicherung stehen.
 **Fenster www-zeugnio:**
 
 ```bash
-$HOME/kit/deploy.sh zeugnio-test
+bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" vor-deploy && $HOME/kit/deploy.sh zeugnio-test
 ```
+
+`vor-deploy` prüft unmittelbar vorher, ob Cluster und Daten-API laufen und ob der
+Arbeitsspeicher für den Build reicht. Die Vorprüfung aus Schritt 2 liegt eine halbe Stunde
+zurück, und seither belegen Cluster und PostgREST Speicher. Deren Anteil ist in `MemAvailable`
+jetzt schon abgezogen, darum braucht es hier nur noch den Build (bis 3072 MB) und 500 MB Reserve,
+zusammen 3572 MB. Das `&&` heisst: Das Deployment startet nur, wenn `vor-deploy` ohne Fehler
+endet. Meldet es «zu wenig Arbeitsspeicher frei», nicht deployen (siehe Schritt 2).
 
 Das ist dasselbe Kit wie für die Produktion, mit `apps/zeugnio-test/kit.conf`: frischer Klon
 des PR-#91-Branches nach `$HOME/zeugnio-test/releases/…`, `.env` verknüpft, `check-env`,
@@ -573,7 +620,7 @@ abgebaut, Ergebnis der Testfälle A bis G.
 | Was läuft, wie alt ist die Kopie? | `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" status` |
 | Server wurde neu gestartet | `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" start` |
 | Pause über Nacht (Daten bleiben, besser: abbauen) | `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" stopp` |
-| PR #91 hat neue Commits | `git -C "$HOME/zeugnio-test/setup" pull --ff-only`, dann `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" anmeldung-db` (906 ist wiederholbar), dann `$HOME/kit/deploy.sh zeugnio-test` |
+| PR #91 hat neue Commits | `git -C "$HOME/zeugnio-test/setup" pull --ff-only`, dann `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" anmeldung-db` (906 ist wiederholbar), dann `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" vor-deploy && $HOME/kit/deploy.sh zeugnio-test` |
 | Frische Kopie der Daten | `bash "$HOME/zeugnio-test/setup/deploy/nine/testinstanz.sh" aufbau-db --neu`, dann `start`, dann `anmeldung-db` |
 | Logs der App | `pm2 logs zeugnio-test --lines 100 --nostream` |
 | Logs der Daten-API | `journalctl --user -u postgrest-zeugnio-test -n 50 --no-pager` |
@@ -589,6 +636,9 @@ Testadresse Fehler. Die Produktion betrifft das nicht.
 |---|---|---|
 | `vorpruefung`: «FEHLT: … ist main in den PR-#91-Branch gemergt?» | Voraussetzung 2 fehlt | `main` in den Branch mergen (Session von PR #91), dann `git -C "$HOME/zeugnio-test/setup" pull --ff-only` |
 | `vorpruefung`: «GitHub hat einen neueren Stand» | Checkout veraltet | `git -C "$HOME/zeugnio-test/setup" pull --ff-only`; scheitert das (flacher Klon), `rm -rf "$HOME/zeugnio-test/setup"` und Schritt 2 neu |
+| `vorpruefung` oder `vor-deploy`: «zu wenig Arbeitsspeicher frei» | Der Build könnte den Server so füllen, dass der OOM-Killer die Produktion trifft | nicht weitermachen; läuft ein anderer Build (`pgrep -fa 'next build'`), warten und neu prüfen; sonst `free -m` ansehen |
+| `start`, `stopp`, `abbau`: «verwaiste postmaster.pid entfernt» | Der Test-Cluster wurde hart beendet (OOM-Kill, Absturz, harter Neustart). Die alte PID kann inzwischen einem Prozess der Produktion gehören, darum bekommt sie kein Signal | nichts, das Skript räumt die Datei weg und macht weiter |
+| `start`, `stopp`, `abbau`: «postgres-Prozesse des Test-Clusters laufen noch» | Reste eines abgestürzten Test-Clusters hängen noch am gemeinsamen Speicher | den angezeigten Befehl `kill …` mit den genannten PIDs ausführen (sie gehören nachweislich zum Test-Cluster), dann denselben Befehl wiederholen |
 | `aufbau-db`: «Einspielen gescheitert» | eine Anweisung im Auszug scheitert, nichts eingespielt | Meldung lesen; ganz in `$HOME/zeugnio-test/pg/log/restore.err` |
 | `postgrest`: «meldet sich nicht bereit» | Socket, Rechte von `authenticator` oder Konfiguration | `journalctl --user -u postgrest-zeugnio-test -n 50 --no-pager` |
 | `anmeldung-db`: 906 scheitert | Befund für PR #91 | Meldung in PR #91 eintragen |
