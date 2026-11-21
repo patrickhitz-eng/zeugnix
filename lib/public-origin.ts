@@ -69,3 +69,26 @@ export function publicOrigin(request: {
     production: process.env.NODE_ENV === "production",
   });
 }
+
+/**
+ * Die Altdomain zeugnix.ch auf zeugnio.ch weiterleiten, mit Pfad und Query,
+ * damit alte Links und QR-Codes (etwa /verify/…) weiter funktionieren.
+ * Bis zum Umzug machte das Vercel in den Domain-Einstellungen; nach Vercel
+ * (Schritt 6.4) zeigt zeugnix.ch auf advisori01 und die App leitet selbst um.
+ * Gibt die Zieladresse zurück oder null, wenn der Host keine Altdomain ist.
+ */
+const LEGACY_HOSTS = new Set(["zeugnix.ch", "www.zeugnix.ch"]);
+export const CANONICAL_ORIGIN = "https://zeugnio.ch";
+
+export function legacyHostRedirect(origin: string, pathAndSearch: string): string | null {
+  let host: string;
+  try {
+    host = new URL(origin).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (!LEGACY_HOSTS.has(host)) return null;
+  const target = new URL(pathAndSearch.startsWith("/") ? pathAndSearch : "/", CANONICAL_ORIGIN);
+  // Nur Pfad und Query übernehmen, nie einen anderen Host.
+  return CANONICAL_ORIGIN + target.pathname + target.search;
+}
