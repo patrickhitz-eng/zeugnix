@@ -1,0 +1,35 @@
+# systemd-Benutzerdienst fuer die Daten-API (PostgREST) der TESTINSTANZ von zeugnio.
+# Ablauf und Abbau: deploy/nine/cutover-b-testinstanz.md
+#
+# Eine Kopie von postgrest.service mit drei Unterschieden:
+#   - eigene Konfiguration ~/zeugnio-test/shared/postgrest.conf (Ports 3014 und 3015, Datenbank
+#     ist der Wegwerf-Cluster unter ~/zeugnio-test/pg, eigenes JWT-Geheimnis),
+#   - eigener Name, damit `systemctl --user reload postgrest` nie die Testinstanz trifft und
+#     umgekehrt,
+#   - KEIN [Install]-Abschnitt: Der Dienst laesst sich nicht `enable`n und startet darum nach
+#     einem Neustart des Servers nicht von selbst. Der Wegwerf-Cluster startet dann auch nicht,
+#     und ein Dienst ohne Datenbank faende nur Fehler. Nach einem Neustart:
+#       bash ~/zeugnio-test/setup/deploy/nine/testinstanz.sh start
+#
+# Installiert und gestartet wird er von testinstanz.sh (Unterbefehl postgrest), entfernt von
+# testinstanz.sh abbau.
+
+[Unit]
+Description=PostgREST data API (zeugnio Testinstanz)
+Documentation=https://postgrest.org/
+After=network-online.target
+Wants=network-online.target
+# Ohne Konfiguration gar nicht erst starten (z. B. nach dem Abbau).
+ConditionPathExists=%h/zeugnio-test/shared/postgrest.conf
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+# Dasselbe Programm wie die Produktion, nur lesend benutzt.
+ExecStart=%h/opt/postgrest/postgrest %h/zeugnio-test/shared/postgrest.conf
+ExecReload=/bin/kill -USR1 $MAINPID
+Restart=always
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
