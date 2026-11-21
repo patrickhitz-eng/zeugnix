@@ -5,7 +5,7 @@ import { clearedSessionCookie, sessionCookie } from "@/lib/auth/cookie";
 import { lookupSession } from "@/lib/auth/store";
 import { hmac, isTokenShape } from "@/lib/auth/tokens";
 import { logError } from "@/lib/log";
-import { publicOrigin } from "@/lib/public-origin";
+import { legacyHostRedirect, publicOrigin } from "@/lib/public-origin";
 
 /**
  * Middleware – robust gegen fehlende ENV-Variablen.
@@ -112,6 +112,10 @@ function buildCsp(nonce: string | null, isDev: boolean): string {
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   const isDev = process.env.NODE_ENV !== "production";
+
+  // Altdomain zeugnix.ch → zeugnio.ch, vor allem anderen (lib/public-origin.ts).
+  const legacy = legacyHostRedirect(publicOrigin(request), path + request.nextUrl.search);
+  if (legacy) return NextResponse.redirect(legacy, 308);
 
   const nonce = servesNonce(path) ? btoa(crypto.randomUUID()) : null;
   const csp = buildCsp(nonce, isDev);

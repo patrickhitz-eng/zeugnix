@@ -5,6 +5,7 @@ import QRCode from "qrcode";
 import { buildVerifyUrl } from "@/lib/hash/canonicalize";
 import { resolveTheme } from "@/lib/design/document-tokens";
 import { buildDocumentCss } from "@/lib/design/document-css";
+import { letterheadContactLines } from "@/lib/design/letterhead-lines";
 
 interface Company {
   name?: string;
@@ -172,7 +173,7 @@ export function CertificatePreview({
         <table style={css.letterhead}>
           <tbody>
             <tr>
-              <td style={{ verticalAlign: "top", width: "60%" }}>
+              <td style={{ verticalAlign: "top" }}>
                 {company.logo_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={company.logo_url} alt={company.name} style={css.logo} />
@@ -184,15 +185,16 @@ export function CertificatePreview({
                 {company.logo_url && (
                   <div style={css.letterheadCompanyName}>{company.name}</div>
                 )}
-                {company.address && <div>{company.address}</div>}
-                {(company.postal_code || company.city) && (
-                  <div>
-                    {company.postal_code} {company.city}
-                  </div>
-                )}
-                {company.phone && <div>{company.phone}</div>}
-                {company.email && <div>{company.email}</div>}
-                {company.website && <div>{company.website}</div>}
+                {letterheadContactLines({
+                  address: company.address,
+                  postalCode: company.postal_code,
+                  city: company.city,
+                  phone: company.phone,
+                  email: company.email,
+                  website: company.website,
+                }).map((line, i) => (
+                  <div key={i}>{line}</div>
+                ))}
               </td>
             </tr>
           </tbody>
@@ -236,7 +238,9 @@ export function CertificatePreview({
         {/* Unterschriftsblock */}
         {(company.signatory_1_name || company.signatory_2_name) && (
           <div>
-            {signatureMode !== "handwritten" && (
+            {signatureMode === "handwritten" ? (
+              <div style={css.signatureHandwrittenSpace} />
+            ) : (
               <div style={css.signaturesHeader}>Digital ausgestellt durch</div>
             )}
             <table style={css.signaturesWrap}>

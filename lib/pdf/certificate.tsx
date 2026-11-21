@@ -31,6 +31,7 @@ import type { TiptapDoc } from "@/lib/certificate/tiptap-plaintext";
 import { tiptapToPdf } from "./tiptap-to-pdf";
 import { resolveTheme, type DocumentTheme } from "@/lib/design/document-tokens";
 import { buildPdfStyles } from "@/lib/design/document-pdf-styles";
+import { letterheadContactLines } from "@/lib/design/letterhead-lines";
 
 // Auto-Silbentrennung abschalten: @react-pdf würde lange Wörter am Zeilenende
 // mit eingefügtem Bindestrich umbrechen ("Resultate" -> "Re-" + "sultate").
@@ -209,9 +210,16 @@ function CertificateDocument(props: DocProps) {
   // entfällt in diesem Modus).
   const isHandwritten = props.signatureMode === "handwritten";
 
-  const cityLine = [companyPostalCode, companyCity]
-    .filter((x) => x.length > 0)
-    .join(" ");
+  // Gebündelte Kontaktzeilen (Adresse · Telefon/E-Mail · Website) statt einer
+  // Zeile je Angabe – spart dem Briefkopf drei Zeilen.
+  const contactLines = letterheadContactLines({
+    address: companyAddress,
+    postalCode: companyPostalCode,
+    city: companyCity,
+    phone: companyPhone,
+    email: companyEmail,
+    website: companyWebsite,
+  });
 
   const verifyLink = "Echtheit prüfen: " + baseUrl.replace(/^https?:\/\//, "") + "/verify";
 
@@ -225,6 +233,37 @@ function CertificateDocument(props: DocProps) {
     .filter((p: string) => p.length > 0);
 
   const docTitle = certificateTitle + " - " + s(props.employeeFirstName) + " " + s(props.employeeLastName);
+
+  const hasSignatories = signatory1Name.length > 0 || signatory2Name.length > 0;
+  const hiddenBlocksInSignatureSpace = isHandwritten && hasSignatories;
+
+  // Unsichtbare, maschinenlesbare Prüfblöcke – AUSSERHALB der Body-Sentinels.
+  const hiddenBlocks = (
+    <>
+      {/* S1b: Meta-Block (Aussteller/Titel/Unterzeichnende) – ändert den
+          v1-Body-Hash nicht, deckt aber in v2 die materiellen Kopf-/
+          Unterschriftsdaten mit ab. */}
+      {metaBlockEncoded.length > 0 ? (
+        <View>
+          <Text style={styles.sentinel}>{META_SENTINEL_START}</Text>
+          <Text style={styles.sentinel}>{chunkForWrap(metaBlockEncoded)}</Text>
+          <Text style={styles.sentinel}>{META_SENTINEL_END}</Text>
+        </View>
+      ) : null}
+
+      {/* S2: Signatur-Block (Ed25519 über den v2-Hash), ausserhalb aller
+          Body-/Meta-Sentinels. Erlaubt der Prüfung, die Ausstellung offline
+          gegen den öffentlichen Plattform-Schlüssel zu verifizieren. Ändert
+          Body- und Meta-Hash nicht. */}
+      {signatureBlockEncoded.length > 0 ? (
+        <View>
+          <Text style={styles.sentinel}>{SIG_SENTINEL_START}</Text>
+          <Text style={styles.sentinel}>{chunkForWrap(signatureBlockEncoded)}</Text>
+          <Text style={styles.sentinel}>{SIG_SENTINEL_END}</Text>
+        </View>
+      ) : null}
+    </>
+  );
 
   return (
     <Document title={docTitle}>
@@ -242,11 +281,9 @@ function CertificateDocument(props: DocProps) {
             {companyLogoDataUrl ? (
               <Text style={styles.letterheadCompanyName}>{companyName}</Text>
             ) : null}
-            {companyAddress.length > 0 ? <Text>{companyAddress}</Text> : null}
-            {cityLine.length > 0 ? <Text>{cityLine}</Text> : null}
-            {companyPhone.length > 0 ? <Text>{companyPhone}</Text> : null}
-            {companyEmail.length > 0 ? <Text>{companyEmail}</Text> : null}
-            {companyWebsite.length > 0 ? <Text>{companyWebsite}</Text> : null}
+            {contactLines.map((line: string, i: number) => (
+              <Text key={"contact-" + i}>{line}</Text>
+            ))}
           </View>
         </View>
 
@@ -266,39 +303,32 @@ function CertificateDocument(props: DocProps) {
           <Text style={styles.sentinel}>{BODY_SENTINEL_END}</Text>
         </View>
 
-        {/* S1b: unsichtbarer Meta-Block (Aussteller/Titel/Unterzeichnende),
-            AUSSERHALB der Body-Sentinels – ändert den v1-Body-Hash nicht, deckt
-            aber in v2 die materiellen Kopf-/Unterschriftsdaten mit ab. */}
-        {metaBlockEncoded.length > 0 ? (
-          <View>
-            <Text style={styles.sentinel}>{META_SENTINEL_START}</Text>
-            <Text style={styles.sentinel}>{chunkForWrap(metaBlockEncoded)}</Text>
-            <Text style={styles.sentinel}>{META_SENTINEL_END}</Text>
-          </View>
-        ) : null}
-
-        {/* S2: unsichtbarer Signatur-Block (Ed25519 über den v2-Hash),
-            ausserhalb aller Body-/Meta-Sentinels. Erlaubt der Prüfung, die
-            Ausstellung offline gegen den öffentlichen Plattform-Schlüssel zu
-            verifizieren. Ändert Body- und Meta-Hash nicht. */}
-        {signatureBlockEncoded.length > 0 ? (
-          <View>
-            <Text style={styles.sentinel}>{SIG_SENTINEL_START}</Text>
-            <Text style={styles.sentinel}>{chunkForWrap(signatureBlockEncoded)}</Text>
-            <Text style={styles.sentinel}>{SIG_SENTINEL_END}</Text>
-          </View>
-        ) : null}
+        {/* Unsichtbare Prüfblöcke (siehe hiddenBlocks oben). Bei Unterschrift
+            von Hand stehen sie stattdessen in der Unterschriftsfläche. */}
+        {hiddenBlocksInSignatureSpace ? null : hiddenBlocks}
 
         {/* Signatures */}
-        {signatory1Name.length > 0 || signatory2Name.length > 0 ? (
-          <View>
+        {/* wrap={false}: Unterschriftsfläche, Linie und Namen bleiben auf
+            einer Seite. Passt der Block nicht mehr, wandert er geschlossen auf
+            die nächste, statt Fläche und Namen zu trennen. */}
+        {hasSignatories ? (
+          <View wrap={false}>
             {isHandwritten ? (
               // Leerraum als handschriftliche Unterschriftsfläche ÜBER der
               // Unterschriftslinie. marginTop ersetzt den entfallenden
-              // „Digital ausgestellt durch"-Kopf, height ist der Platz zum
+              // „Digital ausgestellt durch"-Kopf, minHeight ist der Platz zum
               // Unterschreiben. Masse aus den Tokens, damit der Word-Export
               // dieselbe Fläche aufzieht.
-              <View style={styles.signatureHandwrittenSpace} />
+              //
+              // Die unsichtbaren Prüfblöcke (weiss auf weiss) liegen OBEN in
+              // dieser Fläche, statt als eigener Streifen davor. Sie belegten
+              // dort rund 30pt Leerraum zusätzlich zur Fläche. Hier überschreibt
+              // die Unterschrift sie auf dem Papier, und die Fläche bleibt
+              // mindestens so hoch wie die Tokens verlangen. Die Reihenfolge im
+              // Text-Strom (Body → Meta → Signatur → Namen) ändert sich nicht.
+              <View style={styles.signatureHandwrittenSpace}>
+                {hiddenBlocksInSignatureSpace ? hiddenBlocks : null}
+              </View>
             ) : (
               <Text style={styles.signaturesHeader}>Digital ausgestellt durch</Text>
             )}
@@ -341,7 +371,12 @@ function CertificateDocument(props: DocProps) {
             Trennlinie über dem Hash sitzen (der Normalwert lässt sonst eine Lücke).
             Mastervorlage: ausgeschaltet entfällt nur dieser sichtbare Block. */}
         {props.showVerificationBlock !== false ? (
-        <View style={isHandwritten ? [styles.hashBlock, styles.hashBlockAfterHandwritten] : styles.hashBlock}>
+        // wrap={false}: Vorher brach der Block mitten durch (Label und Hash auf
+        // Seite 1, Erklärung und Prüflink auf Seite 2).
+        <View
+          wrap={false}
+          style={isHandwritten ? [styles.hashBlock, styles.hashBlockAfterHandwritten] : styles.hashBlock}
+        >
           <View style={styles.hashText}>
             <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
             <Text style={styles.hashValue}>{hash}</Text>

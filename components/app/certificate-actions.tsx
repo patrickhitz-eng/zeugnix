@@ -282,7 +282,7 @@ export function CertificateActions({
                 <p className="mt-1 text-[12px] leading-relaxed text-ink-600">
                   {lastInviteResult.emailSent
                     ? "Die Führungskraft erhält in wenigen Sekunden eine E-Mail mit dem Beurteilungslink."
-                    : "Bitte teilen Sie den unten stehenden Link manuell mit der Führungskraft, oder konfigurieren Sie Resend in den Vercel-Umgebungsvariablen."}
+                    : "Bitte teilen Sie den unten stehenden Link manuell mit der Führungskraft, oder hinterlegen Sie RESEND_API_KEY in der Server-Konfiguration (.env)."}
                 </p>
                 {lastInviteResult.emailError && (
                   <p className="mt-1 text-[11px] text-amber-700">

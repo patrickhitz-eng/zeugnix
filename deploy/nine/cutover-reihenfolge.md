@@ -21,7 +21,7 @@
 | `www` | **CNAME** auf `f7ce91cbe36539da.vercel-dns-016.com`, TTL 60 | Muss zum A-Record auf 5.148.171.221 werden; nine erwartet A-Records für beide Namen |
 | HSTS | **`max-age=63072000; includeSubDomains`**, live auf Apex und `www` (`next.config.mjs:30`) | Zwei Jahre Browser-Gedächtnis. Im Fenster ohne gültiges Zertifikat gibt es **kein „Trotzdem fortfahren"** |
 | HSTS-`preload` | **nicht gesetzt**, bewusst (`next.config.mjs:27-28`) | Rettet uns: der Pin steckt nur in Browsern, die wirklich da waren — Senken wirkt also |
-| CAA | **keine** | Let's Encrypt ist erlaubt, kein Blocker |
+| CAA | **keine**. **Korrektur 17.11.:** drei Einträge, `issue` für `letsencrypt.org`, `pki.goog` und `sectigo.com` (Windows kann CAA nicht abfragen; gemessen mit Rohabfrage, Cloudflare und Google) | Let's Encrypt ist erlaubt, kein Blocker |
 | Antwortende Region | `x-vercel-id: fra1` (Edge Frankfurt), `X-Vercel-Cache: HIT` | Sagt nur etwas über den Cache-Knoten; die Funktionsregion ist davon unberührt und bleibt zu prüfen |
 
 ---
@@ -218,6 +218,23 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - Der DNS-Eintrag `test` steht in der Vercel-Zone und muss mit zu Infomaniak (0.1a).
 - Nach dem Umzug entscheiden: `test.zeugnio.ch` als Testumgebung behalten oder vhost und DNS-Eintrag entfernen.
 - **Als Nächstes:** Vollprobe 3.1. Vorher klären, ob sie mit gesetztem `DATA_API_URL` läuft. Leer schreibt sie in die Live-Datenbank bei Supabase und prüft den Weg über PostgREST nicht.
+  **Geklärt:** Seit dem 12.11. meldet `/api/health` auf `test.zeugnio.ch` `datenquelle: eigene`. Die Testadresse liest und schreibt also schon über PostgREST in `nmd_zeugnio` auf advisori01 (Journal 12.11., am 20.11. nachgemessen). Die Sätze «`DATA_API_URL` bleibt bis 5.5 leer» weiter oben sind damit überholt; 5.5 bleibt der Schritt, in dem die echten Daten dazukommen.
+
+**Stand 21.11.: Cutover A abgeschlossen.** C2 grün, **5.10** erledigt (Supabase-Tabellen in `public` leer, `handle_new_user` dort stillgelegt, Bucket `company-logos` gelöscht; Supabases eigene Sicherungen mit Daten fallen bis 29.11. weg), **6.0** live (PR #88, Deploy `20261121-142919`). Supabase ist nur noch Anmeldung, mit Schreibschutz auf `public` bis Cutover B. Offen in Phase 6: AVV-Kunden informieren, 6.1 CAA, 6.2 HSTS, 6.3 Mail, 6.4 (erst `zeugnix.ch` umleiten, dann Vercel stilllegen). Dazu B3 und Cutover B (PR #91).
+
+**Stand 20.11. abends: Cutover A durch.** `zeugnio.ch` und `www.zeugnio.ch` laufen seit **16:48** von advisori01 (Journal 20.11.). Phase 4 und 5.1–5.9 am selben Nachmittag nach Drehbuch (PR #89), Integritätsprüfung bestanden (Hash, `canonical_content`; Signaturen waren in der Produktion keine vorhanden), Zertifikat von Let's Encrypt für beide Namen. Supabase ist seit 16:27 gegen Schreiben gesperrt und bleibt es bis 5.10. Kit-Crontab läuft.
+- **Sa 21.11. ab ca. 12:00:** C2 prüfen (keine Resolver mehr mit Vercels NS), dann **5.10** (Supabase-Kopie löschen, Freigabe Silvan), dann **6.0** (PR #88 mergen und auf advisori01 deployen: `~/kit/deploy.sh zeugnio main`; Vercel baut `main` zwar weiter, liefert aber nichts mehr aus ausser `zeugnix.ch`).
+- **Ab Mo 23.11.:** F1 (SPF/DMARC), CAA `pki.goog`, 6.2 HSTS hoch. Offen: B3, `zeugnix.ch` vor 6.4 umleiten.
+
+**Stand 20.11.: 0.1 fast fertig, 3.2 erledigt** (Journal 20.11., Ablauf in `dns-zone-zeugnio.md`).
+- **0.1d Transfer:** erledigt. Registrar laut RDAP Infomaniak Network SA.
+- **Vorfall:** Der Transfer hat die Nameserver ungefragt auf `nsany1/nsany2.infomaniak.com` gesetzt. Diese Server liefern nur Infomaniaks Parkzone aus (kein A, `v=spf1 -all`, `_dmarc p=reject`). Silvan hat sofort auf Vercel zurückgestellt. Die .ch-Registry veröffentlicht ihre Zone aber verzögert: Gegen 11:20 kam die Delegation auf `nsany` trotzdem heraus. Ab da lieferten Google und Cloudflare für `zeugnio.ch` keine Adresse mehr, bis die nächste Veröffentlichung auf `ns11/ns12` zeigt.
+- **0.1b Zone:** bei Infomaniak gefüllt. Sie liegt auf **`ns11/ns12.infomaniak.ch`**, nicht auf `nsany`. `zone-vergleich.ps1 -Neu ns11.infomaniak.ch` meldet BEREIT (Apex-TTL 300, DKIM gleich). Rest: CAA `pli.goog` statt `pki.goog`, nur ein Hinweis.
+- **0.1c Nameserver:** in der Registry seit ca. 11:20 `ns11/ns12.infomaniak.ch`, von .ch veröffentlicht um 11:38. Google und Cloudflare liefern seit 11:54 wieder Adressen, der Ausfall dauerte also etwa 11:20–11:54. **24 Stunden Ruhe bis Sa 21.11. ca. 12:00**, danach C2 prüfen (NS über 1.1.1.1, Seite, Anmeldelink) und F1.
+- **0.2 TTL:** in der neuen Zone 300 s (Apex, `www`, `test`). Wirkt, sobald die Delegation durch ist.
+- **3.2 Restore-Übung:** bestanden. Frische Sicherung `zeugnio-2026-11-20T10-28-36-restore-uebung` (73 KB), `restore-test.sh zeugnio`: entschlüsselt, ohne Fehler eingespielt, 24 Tabellen, `restore-check.sql` ok, 6 s. Beweist die Kette mit Testdaten; mit echten Daten prüft sie 5.4.
+- **Abgleich mit dem Prod-Schema (Pflicht vor Cutover A, aus 2.3):** bestanden (Journal 20.11.). Das Supabase-Datenbankpasswort wurde dafür neu gesetzt (Silvans Ablage), Pooler-Host ist **`aws-1-eu-central-1.pooler.supabase.com`** (nicht `aws-0`). Spalten, Bedingungen, Indizes, Zeilenregeln und RLS-Schalter: nichts, was nur in Prod steht. Die 33 Funktionen in `public` haben nach Bereinigung von Zeilenenden und Leerzeichen denselben Text, dieselben `SECURITY DEFINER`-Werte und denselben Suchpfad. Nur auf advisori01, wie gewollt: `schema_migrations`, 22× `service_role_alles` (901), `ensure_auth_user` (902), `debug_whoami` (900); die Vorgabewerte heissen dort `extensions.uuid_generate_v4()` statt `uuid_generate_v4()`, gleiche Funktion. Damit sind alle drei Punkte aus 2.3 erledigt bis auf die Probe 13c mit echten Daten, die im Fenster (5.4) läuft.
+- **Offen bleibt:** keine Zweitkopie der Sicherungen (Bucket B3). Das blockiert den Umzug nicht, wohl aber den Betrieb danach.
 
 **Am Tag des Upgrades** (Albis Run ist dabei kurz weg; am 30.10. so abgehakt, nur die Sicherung von 03:30 ist erst am 31.10. prüfbar):
 1. Gleich danach Albis Run durchklicken. Ab da ist der Rückfall auf 16 praktisch zu.
@@ -300,10 +317,11 @@ Fenster ganz wegnehmen könnte.
 | # | Schritt | Warum nicht früher |
 |---|---|---|
 | 6.0 | **Datenschutzerklärung umstellen:** `RECIPIENTS` in `app/legal/privacy/page.tsx` ändern. Vercel fällt weg, Supabase bleibt nur für die Anmeldung, neu kommt nine (Zürich-Altstetten, Sicherungen Rümlang, Notfall-Support aus Kanada). Das Stand-Datum nachführen. Kunden mit Auftragsbearbeitungsvertrag den Tag des Umzugs per E-Mail melden (AVV § 6) | Die Erklärung muss den Ist-Zustand beschreiben; vor dem Fenster stimmt die neue Fassung noch nicht |
-| 6.1 | CAA-Eintrag setzen (`issue "letsencrypt.org"`) | vorher würde er die Ausstellung behindern, wenn er falsch sitzt |
-| 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload` | erst wenn das Zertifikat sicher erneuert wird |
+| 6.1 | CAA auf `0 issue "letsencrypt.org"` reduzieren. Seit 17.11. bekannt: Vercel liefert drei CAA-Einträge, sie ziehen in 0.1 unverändert mit; `pki.goog` und `sectigo.com` braucht nur Vercel | vorher würde ein falscher Eintrag die Ausstellung behindern |
+| 6.2 | HSTS zurück auf zwei Jahre, `includeSubDomains`, weiter **ohne** `preload`. **In zwei Stufen (21.11.):** Stufe 1 `max-age=604800` (7 Tage, ohne Subdomains) gleich nach dem Umzug. Stufe 2 `max-age=63072000; includeSubDomains` erst nach der ersten automatischen Erneuerung des Let's-Encrypt-Zertifikats (ausgestellt 20.11., gültig bis 18.02.2027, Erneuerung also etwa Mitte Januar; prüfen mit dem `notBefore`-Datum) | erst wenn das Zertifikat sicher erneuert wird. Fällt die Erneuerung aus, sperrt HSTS die Seite so lange wie `max-age` |
 | 6.3 | mailomat.swiss: SMTP in Supabase Auth bzw. im eigenen Versand, dazu DKIM von mailomat eintragen und dessen `include` im Apex-SPF ergänzen. SPF und DMARC für Microsoft 365 setzt schon F1 (`docs/dns-spf-dmarc.md`). Danach die Resend-Einträge (`resend._domainkey`, `send`) entfernen. In `RECIPIENTS` Resend durch mailomat.swiss ersetzen (mailXpert GmbH, Zürich) | Mailwechsel im Cutover-Fenster wäre eine zweite Baustelle |
-| 6.4 | Vercel und Supabase stilllegen. **Vorher** `zeugnix.ch` auf advisori01 umleiten (siehe «Entscheid zur DNS-Zone») | erst nach einer Frist, in der der Rückweg offen bleibt; ohne die Umleitung wären alte Links und QR-Codes auf `zeugnix.ch` tot |
+| 6.0a | **Supabase-Kopie löschen, am Umzugstag** (Entscheid Silvan 20.11.): alle Tabellen im Schema `public` leeren und den Bucket `company-logos` löschen, sobald 5.8 und die Integritätsprüfung grün sind, vor dem Merge der neuen Erklärung (PR #88). Supabase Auth bleibt bis Cutover B. Ablauf im Drehbuch (PR #89). **Punkt ohne Rückkehr:** danach ist der Rückweg auf Vercel+Supabase zu, darum einzeln im Chat freigeben | die neue Erklärung nennt keine Kopie mehr; nach den ersten Schreibzugriffen auf advisori01 ginge der Rückweg ohnehin nur noch mit Datenverlust |
+| 6.4 | Vercel stilllegen, Supabase auf die Anmeldung beschränken (die Daten sind seit 6.0a weg). **Vorher** `zeugnix.ch` auf advisori01 umleiten (siehe «Entscheid zur DNS-Zone») | ohne die Umleitung wären alte Links und QR-Codes auf `zeugnix.ch` tot |
 
 ---
 
@@ -315,6 +333,7 @@ Fenster ganz wegnehmen könnte.
 | Phase 2.3 | PG 16 reaktivieren lassen — **gilt nur, solange nichts auf die 17 geschrieben wurde** |
 | Phase 5.5 | `.env` zurück, `pm2 restart`, Supabase `read_only` aufheben. Die Rücknahmezeilen gehören ins Runbook, nicht ins Gedächtnis |
 | Phase 5.6/5.7 | A-Records zurück auf Vercels zwei IPs, `www` zurück auf den CNAME. Wirkt nach einer TTL |
+| ab 6.0a | **kein Rückweg mehr** zu Vercel+Supabase: die Supabase-Daten sind gelöscht. Fehler werden auf advisori01 behoben; Notnagel ist der verschlüsselte Auszug vom Fenstermorgen (Restore wie in 3.2) |
 | Abbruchkriterien | Zertifikat nicht in 20 min · `/verify` nicht 200 · echte QR-URL tot · PDF > 30 s · Login bricht · Fehlerrate > 1 % über 10 min |
 
 ---
@@ -328,21 +347,34 @@ Registrar selbst (das wäre Vercel), nine (Abhängigkeit 4) und Hostpoint (gleic
 Grund für ein drittes Konto). Kontoinhaber bei Infomaniak: advisori, Domaininhaber
 advisori GmbH (Marktstart-Schritt 14).
 
+**Bestätigt 18.11.:** Der Kauf lief über Vercel (Beleg vom 24.07.2026, zusammen mit
+`zeugnio.com`). Die Domain liegt im Vercel-Team **«advisori GmbH»** (`advisori-gmb-h`). Dort
+geschehen 0.1a (Abgleich), 0.1c (Nameserver) und 0.1d (Transfer-Code). Registrar laut
+Registry ist die Key-Systems GmbH, über die Vercel `.ch` registriert. Das Projekt «zeugnix»
+liegt im Team «patrickhitz-eng's projects» und benutzt die Domain mit `_vercel`-Bestätigung.
+Darum erscheint `zeugnio.ch` in der Domainliste von Patricks Team nicht. **`zeugnio.com`**
+liegt im selben Team (Registrar Name.com, läuft bis 24.07.2027) und zeigt auf kein
+Deployment. Vor 6.4 entscheiden: übertragen oder auslaufen lassen.
+
 **Eine Regel trägt alles:** Die neue Zone steht vollständig, **bevor** die Nameserver auf
 sie zeigen. Ob der Registrar-Wechsel vor oder nach dem Nameserver-Wechsel kommt, ist egal.
 
 | # | Schritt | Gate |
 |---|---|---|
-| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird. Seit 11.11. zusätzlich `test` A `5.148.171.221` (Testname der Vollprobe): mitnehmen, solange es den vhost `test.zeugnio.ch` gibt. **Nach F1** (`docs/dns-spf-dmarc.md`) kommen dazu: TXT `MS=ms…` (M365-Bestätigung), MX auf Microsoft **statt** AWS, CNAME `autodiscover`, Apex-TXT SPF, CNAME `selector1._domainkey` und `selector2._domainkey`, TXT `_dmarc`. Ein `_dmarc` gibt es bei `zeugnio.ch` vor F1 nicht (das `p=none` gehört zu `zeugnix.ch`) | Liste vollständig, mit dem Vercel-Dashboard abgeglichen |
-| 0.1b | Bei Infomaniak die Zone mit genau diesen Einträgen anlegen, TTL der Apex-A-Records gleich auf 300 (ersetzt 0.2) | Abfrage direkt beim Infomaniak-Nameserver liefert dieselben Antworten wie Vercel |
+| 0.1a | Bei Vercel (Dashboard → Domains → zeugnio.ch) **alle** Einträge abschreiben. Gemessen am 3.11.: Apex A auf Vercel (Wert für fremde DNS aus dem Vercel-Projekt übernehmen), `www` CNAME `f7ce91cbe36539da.vercel-dns-016.com`, MX `inbound-smtp.eu-west-1.amazonaws.com`, TXT `resend._domainkey` (DKIM von Resend, ohne ihn scheitern die Anmeldemails), `send` mit MX `feedback-smtp.eu-west-1.amazonses.com` und TXT `v=spf1 include:amazonses.com ~all`. Dazu ein **Wildcard** `*` auf Vercel: nur übernehmen, wenn eine Subdomain wirklich gebraucht wird. Seit 11.11. zusätzlich `test` A `5.148.171.221` (Testname der Vollprobe): mitnehmen, solange es den vhost `test.zeugnio.ch` gibt. **Nach F1** (`docs/dns-spf-dmarc.md`) kommen dazu: TXT `MS=ms…` (M365-Bestätigung), MX auf Microsoft **statt** AWS, CNAME `autodiscover`, Apex-TXT SPF, CNAME `selector1._domainkey` und `selector2._domainkey`, TXT `_dmarc`. Ein `_dmarc` gibt es bei `zeugnio.ch` vor F1 nicht (das `p=none` gehört zu `zeugnix.ch`). **Stand 17.11.:** vollständige Liste mit Werten und TTL in `dns-zone-zeugnio.md`, gemessen direkt bei Vercels Nameservern. Neu dabei: vier Apex-Adressen aus einem Pool, drei CAA, zwei `_vercel`-TXT | Liste vollständig, mit dem Vercel-Dashboard abgeglichen. **Erledigt 18.11.** (Team «advisori GmbH», 13 Zeilen, keine fehlt; Apex ist dort ein `ALIAS` auf `cname.vercel-dns-017.com`) |
+| 0.1b | Bei Infomaniak die Zone mit genau diesen Einträgen anlegen, TTL der Apex-A-Records gleich auf 300 (ersetzt 0.2) | `zone-vergleich.ps1` meldet «BEREIT» (fragt Infomaniak und Vercel direkt) |
 | 0.1c | Nameserver auf Infomaniak umstellen. **Kein DNSSEC aktiv** (kein DS-Eintrag, gemessen 3.11.), der Wechsel braucht also keinen Schlüsseltausch | `NS zeugnio.ch` zeigt Infomaniak, Seite und Anmeldemail laufen |
 | 0.1d | Domain mit dem Transfer-Code aus Vercel zu Infomaniak übertragen, automatische Verlängerung und Zwei-Faktor-Anmeldung an | RDAP bei `rdap.nic.ch` zeigt das neue Registrierungsereignis |
 
 Lässt Infomaniak die Zone erst nach dem Transfer anlegen, gilt die Reihenfolge 0.1a, 0.1d
-(Nameserver bleiben bei Vercel), 0.1b, 0.1c.
+(Nameserver bleiben bei Vercel), 0.1b, 0.1c. **So ist es (Silvan, 18.11.):** Der Manager bietet
+für `zeugnio.ch` nur den Transfer an (CHF 5.40). Ablauf in Teilen A–C in `dns-zone-zeugnio.md`.
 
 **`zeugnix.ch` gehört mit dazu.** Die Altdomain hat eine eigene Zone (Nameserver
 `ch.pro.io`, `nl.pro.io`, `p.dnh.net`) und zeigt mit A `216.150.1.1` auf Vercel, das per 301
 auf `www.zeugnio.ch` weiterleitet. Ältere Links und QR-Codes nutzen sie. Bevor Vercel in 6.4
 abgeschaltet wird, muss `zeugnix.ch` auf advisori01 zeigen und dort weiterleiten
-(vhost-Alias oder eigener Redirect-vhost). Wer die Zone von `zeugnix.ch` verwaltet, ist offen.
+(vhost-Alias oder eigener Redirect-vhost). **Verwalter seit 18.11. bekannt:** Registrar und
+DNS ist die **Metanet AG** (RDAP, registriert 27.04.2026; SOA `ch.pro.io`). Dieselben
+Nameserver haben `lohnli.ch`, `headhunter.li`, `revisionsassistent.ch` und `notfallbox.org`,
+also vermutlich Patricks Metanet-Konto. Den Eintrag ändert darum Patrick.
