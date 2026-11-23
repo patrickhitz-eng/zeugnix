@@ -77,7 +77,12 @@ export function publicOrigin(request: {
  * (Schritt 6.4) zeigt zeugnix.ch auf advisori01 und die App leitet selbst um.
  * Gibt die Zieladresse zurück oder null, wenn der Host keine Altdomain ist.
  */
-const LEGACY_HOSTS = new Set(["zeugnix.ch", "www.zeugnix.ch"]);
+// www.zeugnio.ch gehört seit 23.11.2026 dazu: Seit Cutover B nehmen die Anmelde-Routen
+// POST nur mit `Origin: https://zeugnio.ch` an (lib/auth/origin.ts), und das
+// Sitzungs-Cookie __Host-zeugnio_session gilt nur für genau einen Host. Wer die
+// Seite unter www öffnete, bekam beim Anmelden 403 «Anfrage von fremder
+// Herkunft». nines vhost liefert www als Alias aus, darum leitet die App um.
+const LEGACY_HOSTS = new Set(["zeugnix.ch", "www.zeugnix.ch", "www.zeugnio.ch"]);
 export const CANONICAL_ORIGIN = "https://zeugnio.ch";
 
 export function legacyHostRedirect(origin: string, pathAndSearch: string): string | null {
