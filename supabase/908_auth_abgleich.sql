@@ -68,7 +68,13 @@
 
 begin;
 
-create temp table abgleich_quelle (
+-- Keine temporäre Tabelle: Auf advisori01 hat nmd_zeugnio kein Recht TEMPORARY
+-- auf der Datenbank (nine vergibt es nicht, gemessen am 23.11.). Darum eine
+-- gewöhnliche Tabelle im Schema auth, das PostgREST nicht ausliefert. Sie
+-- entsteht in derselben Transaktion und wird vor COMMIT wieder gelöscht, ist
+-- also für keine andere Verbindung je sichtbar. Bei ROLLBACK verschwindet sie
+-- von selbst.
+create table auth.abgleich_908 (
   id                 uuid primary key,
   email              text not null,
   -- Zeitstempel zuerst als Text: Je nach Export steht für «leer» nichts oder
@@ -76,24 +82,24 @@ create temp table abgleich_quelle (
   created_at         text,
   email_confirmed_at text,
   last_sign_in_at    text
-) on commit drop;
+);
 
 -- header match: Die erste Zeile muss genau die Spaltennamen in dieser
 -- Reihenfolge tragen. Eine CSV mit vertauschten Spalten bricht hier ab, statt
 -- Adressen und IDs zu verwechseln.
-\copy abgleich_quelle from pstdin with (format csv, header match)
+\copy auth.abgleich_908 from pstdin with (format csv, header match)
 
-update abgleich_quelle set email = lower(btrim(email));
+update auth.abgleich_908 set email = lower(btrim(email));
 
 do $$
 begin
   if to_regprocedure('public.auth_request_login(text,text,text,boolean)') is null then
     raise exception '908: 906_auth_eigen.sql fehlt. Zuerst 906 und 907, dann diese Datei.';
   end if;
-  if (select count(*) from abgleich_quelle) = 0 then
+  if (select count(*) from auth.abgleich_908) = 0 then
     raise exception '908: Die CSV-Datei ist leer. Kam sie über die Standardeingabe herein (< ~/auth-abgleich.csv)?';
   end if;
-  if exists (select 1 from abgleich_quelle group by email having count(*) > 1) then
+  if exists (select 1 from auth.abgleich_908 group by email having count(*) > 1) then
     raise exception '908: Die CSV-Datei enthält dieselbe Adresse mehrfach.';
   end if;
 end
@@ -101,27 +107,27 @@ $$;
 
 \echo
 \echo '=== 1  Anzahl ==='
-select (select count(*) from abgleich_quelle) as supabase,
+select (select count(*) from auth.abgleich_908) as supabase,
        (select count(*) from auth.users)      as advisori01_vorher;
 
 \echo
 \echo '=== 2  Gleiche Adresse, verschiedene ID (MUSS LEER SEIN, sonst Abbruch) ==='
 select q.email, q.id as supabase_id, u.id as advisori01_id
-  from abgleich_quelle q
+  from auth.abgleich_908 q
   join auth.users u on lower(u.email) = q.email and u.id <> q.id
  order by q.email;
 
 \echo
 \echo '=== 3  Gleiche ID, andere Adresse (wird auf die Supabase-Adresse gesetzt) ==='
 select q.id, u.email as advisori01_alt, q.email as supabase_neu
-  from abgleich_quelle q
+  from auth.abgleich_908 q
   join auth.users u on u.id = q.id and lower(u.email) <> q.email
  order by q.id;
 
 \echo
 \echo '=== 4  Fehlt auf advisori01 (wird angelegt) ==='
 select q.id, q.email, q.created_at
-  from abgleich_quelle q
+  from auth.abgleich_908 q
  where not exists (select 1 from auth.users u where u.id = q.id)
  order by q.created_at;
 
@@ -129,7 +135,7 @@ select q.id, q.email, q.created_at
 \echo '=== 5  Nur auf advisori01 (bleibt, nur zur Kenntnis) ==='
 select u.id, u.email, u.created_at
   from auth.users u
- where not exists (select 1 from abgleich_quelle q where q.id = u.id)
+ where not exists (select 1 from auth.abgleich_908 q where q.id = u.id)
  order by u.created_at;
 
 do $$
@@ -140,7 +146,7 @@ declare
   v_fehlt     integer;
 begin
   select count(*) into v_konflikte
-    from abgleich_quelle q
+    from auth.abgleich_908 q
     join auth.users u on lower(u.email) = q.email and u.id <> q.id;
   if v_konflikte > 0 then
     raise exception '908: % Adresse(n) gehören auf beiden Seiten verschiedenen Konten (Abschnitt 2). '
@@ -149,7 +155,7 @@ begin
 
   update auth.users u
      set email = q.email, updated_at = now()
-    from abgleich_quelle q
+    from auth.abgleich_908 q
    where u.id = q.id and lower(u.email) <> q.email;
   get diagnostics v_geaendert = row_count;
 
@@ -158,7 +164,7 @@ begin
          coalesce(nullif(q.created_at, '')::timestamptz, now()),
          coalesce(nullif(q.email_confirmed_at, '')::timestamptz, now()),
          nullif(q.last_sign_in_at, '')::timestamptz
-    from abgleich_quelle q
+    from auth.abgleich_908 q
    where not exists (select 1 from auth.users u where u.id = q.id)
   on conflict do nothing;
   get diagnostics v_angelegt = row_count;
@@ -166,7 +172,7 @@ begin
   -- Gegenprobe: Jede Person aus Supabase steht jetzt mit derselben ID und
   -- derselben Adresse auf advisori01.
   select count(*) into v_fehlt
-    from abgleich_quelle q
+    from auth.abgleich_908 q
    where not exists (select 1 from auth.users u where u.id = q.id and lower(u.email) = q.email);
   if v_fehlt > 0 then
     raise exception '908: Nach dem Abgleich fehlen noch % Person(en). Nichts geändert.', v_fehlt;
@@ -175,16 +181,19 @@ begin
   -- Ohne Profil kommt eine Person zwar hinein, sieht aber nichts. Das bricht
   -- nicht ab (es lag dann schon vorher so), wird aber gemeldet.
   select count(*) into v_fehlt
-    from abgleich_quelle q
+    from auth.abgleich_908 q
    where not exists (select 1 from public.profiles p where p.id = q.id);
   if v_fehlt > 0 then
     raise warning '908: % Person(en) ohne Profil in public.profiles. Vor dem Umschalten klären.', v_fehlt;
   end if;
 
   raise notice '908: % Adresse(n) angeglichen, % Person(en) angelegt. Supabase = advisori01 für alle % Personen.',
-    v_geaendert, v_angelegt, (select count(*) from abgleich_quelle);
+    v_geaendert, v_angelegt, (select count(*) from auth.abgleich_908);
 end
 $$;
+
+-- Die Hilfstabelle mit den Adressen darf nie mit COMMIT bestehen bleiben.
+drop table auth.abgleich_908;
 
 \if :{?ausfuehren}
 commit;
