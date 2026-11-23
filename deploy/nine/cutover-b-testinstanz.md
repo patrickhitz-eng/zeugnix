@@ -10,6 +10,10 @@
 > Tag.** Der Abbau (Schritt 10) löscht sie mit allem anderen.
 >
 > Werkzeug: `deploy/nine/testinstanz.sh`. Stand: 21.11.2026.
+>
+> **Überholt seit B2.** Cutover B lief am 23.11. ohne Testinstanz (Entscheid Silvan). Seit B2 gibt
+> es den Schalter `ZEUGNIO_AUTH` und die Supabase-Variablen im Code nicht mehr: `schalter`, T15 und
+> die Supabase-Attrappen unten bewirken nichts mehr. Für eine spätere Testinstanz zuerst anpassen.
 
 ---
 
