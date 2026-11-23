@@ -16,7 +16,7 @@ Schweizer Arbeitszeugnis-Plattform. HR erstellt das Zeugnis, die vorgesetzte Per
 - **Remotes:** `origin` = `patrickhitz-eng/zeugnix` mit PR-Fluss, `fork` = `silvinio0374/zeugnix_fork_silvan`.
   - Änderungen über einen Branch und einen PR.
   - Nie `git add -A`.
-- **Seit 20.11.2026:** Produktion auf nine advisori01 (eigenes Postgres 17 + PostgREST, Next.js über pm2/nginx). Supabase macht nur noch die Anmeldung, bis Cutover B (PR #91). Vercel ist seit 21.11. pausiert.
+- **Seit 20.11.2026:** Produktion auf nine advisori01 (eigenes Postgres 17 + PostgREST, Next.js über pm2/nginx). Seit 23.11. (Cutover B, PR #91) meldet zeugnio selbst an (`ZEUGNIO_AUTH=eigen`, Code oder Link per Mail über Resend). Supabase wird zur Laufzeit nicht mehr gebraucht; Pakete, Variablen und Projekt räumt B2 ab. Vercel ist seit 21.11. pausiert und seit 23.11. vom Repo getrennt.
   - **Ein Merge nach `main` geht nicht von selbst live.** Deploy auf advisori01 als `www-zeugnio`: `~/kit/deploy.sh zeugnio main`.
   - Migrationen ab 900 werden von Hand auf advisori01 eingespielt (`deploy/nine/`), nicht mehr in Supabase.
 - **Umzug:** in `deploy/nine/`:
