@@ -27,12 +27,11 @@ import { ALLES_SCHWEIZ, ANMELDUNG, AUSLANDZUGRIFF_NINE, MAIL } from "@/lib/legal
  *                     (Unterzeichnende sehen den Zeugnistext)
  *  - Empfänger/Orte:  ANMELDUNG, MAIL, AUSLANDZUGRIFF_NINE in lib/legal/hosting-phase.ts schalten
  *                     Datenschutz, diese Antwort und den Vertrauensstreifen
- *                     gemeinsam. RECIPIENTS in app/legal/privacy/page.tsx (seit dem Umzug:
- *                     nine in Zürich, Notfallzugriff aus Kanada, Supabase-
- *                     Anmeldung in Frankfurt, Resend über Irland, USA und
- *                     Singapur). Erlaubt: «gespeichert in der Schweiz». KEINE
- *                     Aussage «alles/nur in der Schweiz» oder «verlässt die
- *                     Schweiz nie», solange Supabase Auth und Resend laufen.
+ *                     gemeinsam. RECIPIENTS in app/legal/privacy/page.tsx (seit B2:
+ *                     nine in Zürich samt Anmeldung, Notfallzugriff aus Kanada,
+ *                     Resend über Irland und USA). Erlaubt: «gespeichert in der
+ *                     Schweiz». KEINE Aussage «alles/nur in der Schweiz» oder
+ *                     «verlässt die Schweiz nie», solange Resend läuft.
  *  - Preise:          components/sections/pricing.tsx, company-package.tsx,
  *                     app/legal/terms Ziffer 4 (kein Streichpreis, PBV Art. 16)
  *  - Export/Löschen:  app/(authed)/app/daten, app/api/companies/[id]/export

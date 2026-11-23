@@ -12,7 +12,8 @@
  * Abs. 1 lit. b, Art. 19 DSG) und Anhang 3 des Auftragsbearbeitungsvertrags
  * stimmt nicht.
  *
- * Grundzustand dieses Codes: nach dem Umzug zu nine (Cutover A).
+ * Grundzustand dieses Codes: nach dem Umzug zu nine (Cutover A) und der
+ * eigenen Anmeldung (Cutover B, B2); E-Mail weiter über Resend.
  */
 
 export type Anmeldung = "supabase" | "nine";
@@ -24,8 +25,19 @@ export type AuslandzugriffNine = "moeglich" | "ausgeschlossen";
  * "nine": eigene Anmeldung auf advisori01 (Cutover B). Umlegen, wenn die App
  * supabase.co nicht mehr aufruft (`connect-src` ohne Supabase) und das
  * Supabase-Projekt leer oder gelöscht ist.
+ *
+ * Stand B2 (Branch feat/b2-supabase-entfernen): steht auf "nine". Die App ruft
+ * Supabase seit Cutover B (23.11.2026) nicht mehr auf, und seit B2 enthält der
+ * Code auch keinen Supabase-Weg mehr. ABER: Das Supabase-Projekt besteht noch
+ * (Benutzerkonten mit E-Mail-Adressen in Supabase Auth, dazu Supabases eigene
+ * Sicherungen). Darum geht dieser Stand ERST LIVE, WENN DAS SUPABASE-PROJEKT
+ * GELÖSCHT IST (Plan cutover-b § 8, Punkt 4). Vorher nicht deployen, sonst
+ * nennt die Datenschutzerklärung einen Empfänger nicht mehr, der noch Daten
+ * hält. Beim Deploy auch das Stand-Datum (UPDATED) in
+ * app/legal/privacy/page.tsx und Anhang 3 des Auftragsbearbeitungsvertrags
+ * nachführen.
  */
-export const ANMELDUNG: Anmeldung = "supabase";
+export const ANMELDUNG: Anmeldung = "nine";
 
 /**
  * "resend": Mailversand und Empfang @zeugnio.ch über Resend (Irland/USA).
