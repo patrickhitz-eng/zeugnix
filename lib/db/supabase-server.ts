@@ -1,121 +1,70 @@
-import { createServerClient } from "@supabase/ssr";
-import { createClient as createPlainClient, type SupabaseClient } from "@supabase/supabase-js";
+import { PostgrestClient } from "@supabase/postgrest-js";
 import { cookies } from "next/headers";
 
-import { authMode } from "@/lib/auth/config";
 import { getSessionUser } from "@/lib/auth/session";
-import { createDataApiFetch } from "./rest-rewrite";
+import { createDataApiFetch, dataApiBase } from "./rest-rewrite";
 
 /**
- * Server-seitiger Supabase-Client für Server Components, Server Actions
- * und Route Handlers. Liest und schreibt Auth-Cookies automatisch.
+ * Datenclients für Server Components, Server Actions und Route Handler.
  *
- * Ist DATA_API_URL gesetzt, gehen die Datenzugriffe (/rest/v1/…) an die eigene
- * Daten-API auf demselben Server, die Anmeldung weiterhin an Supabase. Ist die
- * Variable leer, verhält sich alles wie vorher – siehe lib/db/rest-rewrite.ts.
+ * Beide sprechen direkt mit der eigenen Daten-API (PostgREST auf advisori01, Adresse in
+ * DATA_API_URL). Die Bibliothek ist @supabase/postgrest-js, dieselbe, die supabase-js
+ * intern für `.from()` und `.rpc()` benutzt hat. Darum bleiben alle Abfragen im Code
+ * Wort für Wort gleich; nur die Teile von supabase-js, die mit Supabase selbst sprachen
+ * (Anmeldung, Storage), gibt es nicht mehr (B2, Plan cutover-b § 8).
  *
- * Mit der eigenen Anmeldung (ZEUGNIO_AUTH=eigen, Cutover B) ist dieser Client
- * nur noch ein Datenclient: keine Supabase-Cookies, keine Sitzung, kein
- * Auffrischen bei Supabase. Wer angemeldet ist, sagt getSessionUser()
- * (lib/auth/session.ts). Die Person für eine Anfrage NIE über
- * `supabase.auth.getUser()` erfragen, sondern immer über getSessionUser().
+ * Wer angemeldet ist, sagt getSessionUser() (lib/auth/session.ts). Aus dieser geprüften
+ * Identität stellt lib/db/rest-rewrite.ts pro Anfrage ein kurzlebiges Token für PostgREST
+ * aus. Die Datei heisst aus historischen Gründen noch «supabase-server»; mit Supabase hat
+ * sie nichts mehr zu tun.
  */
-export async function createClient(): Promise<SupabaseClient> {
-  if (authMode() === "eigen") return createEigenDataClient();
 
-  const cookieStore = await cookies();
+/**
+ * Der Datenclient. Ohne Datenbank-Typen (wie bisher mit supabase-js): Spalten sind `any`.
+ * `schema: "public"` setzt supabase-js ebenfalls, darum gehen dieselben Kopfzeilen
+ * (Accept-Profile/Content-Profile) an PostgREST wie vorher.
+ */
+export type DataClient = PostgrestClient<any, any, "public", any>;
 
-  // Der Fetch-Wrapper braucht die GEPRÜFTE Identität. Er fragt erst bei der ersten
-  // Datenanfrage nach, und zwar bei getSessionUser(): Das ist derselbe Aufruf von
-  // `supabase.auth.getUser()` (Netzwerkaufruf zum Auth-Server, die einzige belastbare
-  // Quelle; das Cookie selbst ist keine, siehe lib/db/rest-rewrite.ts), aber nur einmal
-  // pro Anfrage gemerkt (lib/auth/request-memo.ts). Vorher fragte jeder Datenclient
-  // selbst bei Supabase nach, zusätzlich zur Route.
-  const dataFetch = createDataApiFetch({
-    resolveIdentity: async () => {
-      const user = await getSessionUser();
-      return user ? { role: "authenticated", sub: user.id } : null;
-    },
-  });
-
-  const client = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      ...(dataFetch ? { global: { fetch: dataFetch } } : {}),
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    },
-  );
-
-  return client as unknown as SupabaseClient;
+function dataClient(fetch: typeof globalThis.fetch): DataClient {
+  return new PostgrestClient(dataApiBase(), { schema: "public", fetch }) as DataClient;
 }
 
 /**
- * Datenclient für die eigene Anmeldung. Die Identität für PostgREST kommt aus
- * getSessionUser(), also aus auth.sessions, nicht aus einem Cookie-Inhalt.
- * Ohne Supabase-Cookies kann supabase-js auch keine alte Sitzung bei Supabase
- * auffrischen wollen: nach Tag B geht von hier keine Anfrage mehr an Supabase.
+ * Client im Namen der angemeldeten Person. Die Zeilensicherheit in der Datenbank
+ * entscheidet, was sie sieht: angemeldet als `authenticated` mit ihrer ID, sonst `anon`.
+ *
+ * Die Person für eine Anfrage nie aus einem Cookie oder dem Anfragerumpf ableiten,
+ * sondern immer über getSessionUser().
  */
-function createEigenDataClient(): SupabaseClient {
-  const dataFetch = createDataApiFetch({
-    resolveIdentity: async () => {
-      const user = await getSessionUser();
-      return user ? { role: "authenticated", sub: user.id } : null;
-    },
-  });
-  if (!dataFetch) {
-    // Ohne eigene Daten-API gäbe es keine Anmeldetabellen, und ein Rückfall auf
-    // Supabase schriebe still in die alte Datenbank. check-env fängt das ab.
-    throw new Error("ZEUGNIO_AUTH=eigen braucht DATA_API_URL (eigene Daten-API auf advisori01).");
-  }
-  return createPlainClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-    global: { fetch: dataFetch },
-  });
+export async function createClient(): Promise<DataClient> {
+  // Bindet den Client sofort an die Anfrage, wie bis Cutover B der Supabase-Weg es tat.
+  // Ohne diese Zeile fiele `cookies()` erst bei der ersten Abfrage an, in
+  // getSessionUser(). Beim Vorrendern im Build ist das ein Signal an Next («diese Seite
+  // ist dynamisch»), und rest-rewrite.ts würde es als «Identität nicht auflösbar»
+  // abfangen und die Abfrage als anon gegen die Datenbank schicken. So bricht Next das
+  // Vorrendern ab, bevor eine Abfrage hinausgeht.
+  await cookies();
+  return dataClient(
+    createDataApiFetch({
+      resolveIdentity: async () => {
+        const user = await getSessionUser();
+        return user ? { role: "authenticated", sub: user.id } : null;
+      },
+    }),
+  );
 }
 
 /**
- * Service-Role-Client für Operationen, die RLS umgehen müssen
- * (z.B. Manager-Invitation-Token-Validierung, Webhook-Verarbeitung).
- * NUR auf Server-Seite verwenden – NIEMALS Service Key zum Client schicken.
+ * Service-Client für Operationen, die die Zeilensicherheit umgehen müssen
+ * (z. B. Einladungs-Token prüfen, Cleanup, Widerruf). Feste Rolle `service_role`, keine
+ * Benutzeridentität. NUR auf dem Server verwenden.
+ *
+ * Rückgabetyp bewusst `any`, genau wie vorher: supabase-js wurde hier per `require`
+ * geladen, und alle Aufrufer sind ohne Typprüfung der Zeilen geschrieben (z. B.
+ * zusammengesetzte select-Texte, die der Typ-Parser von postgrest-js ablehnt). Das zu
+ * typisieren ist ein eigener Schritt, nicht Teil von B2.
  */
-export function createServiceClient() {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error("SUPABASE_SERVICE_ROLE_KEY not set");
-  }
-
-  const { createClient } = require("@supabase/supabase-js");
-  // Feste Rolle, keine Benutzeridentität: service_role besitzt die Tabellen und umgeht
-  // damit die Zeilensicherheit. Der Supabase-Schlüssel erreicht die eigene Daten-API nie –
-  // er ist im neuen Format ohnehin kein JWT und würde dort mit 401 abgewiesen.
-  const dataFetch = createDataApiFetch({ role: "service_role" });
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-      // Auch der Service-Client muss umgelenkt werden, sonst schreiben Widerruf,
-      // PII-Cleanup und Webhooks nach dem Cutover weiter in die alte Datenbank –
-      // und zwar geräuschlos, weil beide Datenbanken dasselbe Schema haben.
-      ...(dataFetch ? { global: { fetch: dataFetch } } : {}),
-    },
-  );
+export function createServiceClient(): any {
+  return dataClient(createDataApiFetch({ role: "service_role" }));
 }

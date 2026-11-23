@@ -17,19 +17,6 @@ const env = process.env;
 const onVercel = Boolean(env.VERCEL);
 const target = onVercel ? "Vercel" : "Server (nine.ch)";
 
-/** Liest den role-Anspruch aus einem JWT, ohne die Signatur zu prüfen und ohne den Wert
- *  irgendwo auszugeben. Gibt null zurück, wenn es kein JWT ist. */
-function jwtRole(token) {
-  const parts = token.split(".");
-  if (parts.length !== 3) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
-    return typeof payload.role === "string" ? payload.role : null;
-  } catch {
-    return null;
-  }
-}
-
 function nonEmpty(name) {
   const value = env[name];
   return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
@@ -71,86 +58,26 @@ if (!onVercel) {
             "Daten den Server verlassen.",
         );
       }
-      if (host.endsWith(".pooler.supabase.com") && url.port === "6543") {
+      if (host.endsWith(".supabase.com") || host.endsWith(".supabase.co")) {
         errors.push(
-          "DATABASE_URL nutzt den Supabase Transaction Pooler (Port 6543). Damit " +
-            "scheitern Migrationen – die Zeichenfolge des Session Pooler (Port 5432) nehmen.",
+          "DATABASE_URL zeigt auf Supabase. Die Daten liegen seit Cutover A auf advisori01; " +
+            "Migrationen und Sicherung gehören an die Datenbank auf 127.0.0.1.",
         );
       }
     }
   }
 }
 
-// --- Supabase: Adresse ------------------------------------------------------------------
-// Das ist die Prüfung, die einen stillen Totalausfall verhindert. Näheres in
-// lib/db/rest-rewrite.ts: wird diese Adresse umgebogen, läuft die Anmeldung ins 404 und
-// zugleich ändert sich der Name des Sitzungs-Cookies, was jede Anmeldung entwertet.
-const supabaseUrl = nonEmpty("NEXT_PUBLIC_SUPABASE_URL");
-if (!supabaseUrl) {
-  errors.push("NEXT_PUBLIC_SUPABASE_URL fehlt.");
-} else {
-  let url;
-  try {
-    url = new URL(supabaseUrl);
-  } catch {
-    errors.push("NEXT_PUBLIC_SUPABASE_URL ist keine gültige Adresse.");
-  }
-  if (url && !url.hostname.endsWith(".supabase.co") && !env.ZEUGNIO_OWN_AUTH) {
-    errors.push(
-      `NEXT_PUBLIC_SUPABASE_URL zeigt auf ${url.hostname} und nicht auf Supabase. Solange ` +
-        "die Anmeldung über Supabase läuft, muss hier die Supabase-Adresse stehen: " +
-        "supabase-js leitet daraus auch die Anmelde-Endpunkte UND den Namen des " +
-        "Sitzungs-Cookies ab. Die Daten werden über DATA_API_URL umgelenkt, nicht hier. " +
-        "Erst wenn die eigene Anmeldung steht (Cutover B), diese Prüfung mit " +
-        "ZEUGNIO_OWN_AUTH=1 abschalten.",
-    );
-  }
-}
-
-// --- Supabase: Schlüssel ----------------------------------------------------------------
-const anonKey = nonEmpty("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-const serviceKey = nonEmpty("SUPABASE_SERVICE_ROLE_KEY");
-const dataApi = nonEmpty("DATA_API_URL");
-
-if (!anonKey) errors.push("NEXT_PUBLIC_SUPABASE_ANON_KEY fehlt.");
-if (!serviceKey) errors.push("SUPABASE_SERVICE_ROLE_KEY fehlt.");
-if (anonKey && serviceKey && anonKey === serviceKey) {
-  errors.push(
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY und SUPABASE_SERVICE_ROLE_KEY sind identisch. Der " +
-      "Service-Schlüssel umgeht die Zeilensicherheit und läge damit im Browser.",
-  );
-}
-
-// Vertauschte Schlüssel sehen im Dashboard fast gleich aus. Der Anspruch im Token sagt es
-// eindeutig – und der Rollenname ist kein Geheimnis, er darf hier stehen.
-for (const [name, value, expected] of [
-  ["NEXT_PUBLIC_SUPABASE_ANON_KEY", anonKey, "anon"],
-  ["SUPABASE_SERVICE_ROLE_KEY", serviceKey, "service_role"],
-]) {
-  if (!value) continue;
-  const role = jwtRole(value);
-  if (role === null) {
-    // Neues Schlüsselformat (sb_publishable_… / sb_secret_…). Für die eigene Daten-API spielt
-    // das keine Rolle: lib/db/rest-rewrite.ts stellt dort eigene Token mit
-    // DATA_API_JWT_SECRET aus und schickt den Supabase-Schlüssel gar nicht mit. Prüfbar
-    // bleibt die Verwechslung - am Präfix, das kein Geheimnis ist.
-    const wrongPrefix = expected === "anon" ? "sb_secret_" : "sb_publishable_";
-    if (value.startsWith(wrongPrefix)) {
-      errors.push(
-        `${name} beginnt mit ${wrongPrefix}. Die Schlüssel sind vertauscht – das ist ` +
-          "entweder ein Datenleck oder eine App ohne Rechte.",
-      );
-    }
-  } else if (role !== expected) {
-    errors.push(
-      `${name} trägt die Rolle "${role}", erwartet ist "${expected}". Die Schlüssel sind ` +
-        "vertauscht – das ist entweder ein Datenleck oder eine App ohne Rechte.",
-    );
-  }
-}
-
 // --- Eigene Daten-API -------------------------------------------------------------------
-if (dataApi) {
+// Die Anwendung liest und schreibt nur über PostgREST auf derselben Maschine
+// (lib/db/supabase-server.ts). Ohne DATA_API_URL gibt es keine Daten und keine Anmeldung.
+const dataApi = nonEmpty("DATA_API_URL");
+if (!dataApi) {
+  errors.push(
+    "DATA_API_URL fehlt. Ohne eigene Daten-API (PostgREST auf 127.0.0.1) gibt es weder " +
+      "Daten noch Anmeldung.",
+  );
+} else {
   let url;
   try {
     url = new URL(dataApi);
@@ -158,7 +85,7 @@ if (dataApi) {
     errors.push("DATA_API_URL ist keine gültige Adresse.");
   }
   if (url) {
-    const isLoopback = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "::1";
+    const isLoopback = url.hostname === "127.0.0.1" || url.hostname === "localhost" || url.hostname === "[::1]";
     if (!isLoopback) {
       errors.push(
         `DATA_API_URL zeigt auf ${url.hostname}. Die Daten-API darf nur über 127.0.0.1 ` +
@@ -170,60 +97,61 @@ if (dataApi) {
       errors.push("DATA_API_URL bitte ohne Pfad angeben (nur Schema, Host und Port).");
     }
   }
+}
 
-  // Das Geheimnis, mit dem die Anwendung die Zugangstoken für die Daten-API ausstellt.
-  // Es muss identisch zu jwt-secret in ~/zeugnio/shared/postgrest.conf sein – stimmt es
-  // nicht, antwortet die Daten-API auf JEDE Anfrage mit 401, und zwar sofort nach dem
-  // Umschalten. Siehe lib/db/rest-rewrite.ts, warum nicht das Supabase-Geheimnis.
-  const apiSecret = nonEmpty("DATA_API_JWT_SECRET");
-  if (!apiSecret) {
-    errors.push(
-      "DATA_API_JWT_SECRET fehlt, obwohl DATA_API_URL gesetzt ist. Erzeugen mit " +
-        "openssl rand -base64 48 und denselben Wert als jwt-secret in postgrest.conf " +
-        "eintragen.",
-    );
-  } else if (apiSecret.length < 32) {
-    errors.push("DATA_API_JWT_SECRET ist zu kurz (mindestens 32 Zeichen).");
-  } else if (apiSecret === anonKey || apiSecret === serviceKey) {
-    errors.push(
-      "DATA_API_JWT_SECRET ist identisch mit einem Supabase-Schlüssel. Es muss ein " +
-        "eigener Wert sein – sonst hängt die eigene Daten-API wieder an Supabase.",
-    );
-  }
-} else if (!onVercel) {
+// Das Geheimnis, mit dem die Anwendung die Zugangstoken für die Daten-API ausstellt.
+// Es muss identisch zu jwt-secret in ~/zeugnio/shared/postgrest.conf sein – stimmt es
+// nicht, antwortet die Daten-API auf JEDE Anfrage mit 401. Siehe lib/db/rest-rewrite.ts.
+const apiSecret = nonEmpty("DATA_API_JWT_SECRET");
+if (!apiSecret) {
+  errors.push(
+    "DATA_API_JWT_SECRET fehlt. Erzeugen mit openssl rand -base64 48 und denselben Wert " +
+      "als jwt-secret in postgrest.conf eintragen.",
+  );
+} else if (apiSecret.length < 32) {
+  errors.push("DATA_API_JWT_SECRET ist zu kurz (mindestens 32 Zeichen).");
+}
+
+// --- Anmeldung ---------------------------------------------------------------------------
+// zeugnio meldet seit Cutover B selbst an (lib/auth/*). Die HMAC-Werte von Link, Code und
+// Sitzung brauchen ein eigenes Geheimnis. Ein fehlendes Geheimnis wäre kein harmloser
+// Fehler: ohne Schlüssel liessen sich die 6-stelligen Codes aus einem Datenbankauszug in
+// Sekunden durchprobieren.
+const authSecret = nonEmpty("ZEUGNIO_AUTH_SECRET");
+if (!authSecret) {
+  errors.push(
+    "ZEUGNIO_AUTH_SECRET fehlt. Ohne Geheimnis kann sich niemand anmelden. Erzeugen mit: " +
+      "node -e \"console.log(require('crypto').randomBytes(48).toString('base64'))\"",
+  );
+} else if (authSecret.length < 32) {
+  errors.push("ZEUGNIO_AUTH_SECRET ist zu kurz (mindestens 32 Zeichen).");
+} else if ([apiSecret, nonEmpty("CRON_SECRET")].includes(authSecret)) {
+  errors.push("ZEUGNIO_AUTH_SECRET ist identisch mit einem anderen Geheimnis. Es muss ein eigener Wert sein.");
+}
+
+// Den Schalter ZEUGNIO_AUTH (supabase|eigen) gibt es seit B2 nicht mehr, es gilt nur noch
+// die eigene Anmeldung. Eine stehengebliebene Zeile stört nicht, niemand liest sie. Sie
+// könnte aber glauben machen, mit "supabase" gäbe es einen Rückweg. Darum ein Hinweis.
+if (nonEmpty("ZEUGNIO_AUTH") !== null) {
   warnings.push(
-    "DATA_API_URL ist nicht gesetzt: die App liest und schreibt weiterhin bei Supabase, " +
-      "also nicht in der Schweiz. Das ist vor dem Cutover der richtige Zustand.",
+    "ZEUGNIO_AUTH steht noch in der .env. Der Schalter wird seit B2 nicht mehr gelesen " +
+      "(es gilt nur die eigene Anmeldung); die Zeile kann weg.",
   );
 }
 
-// --- Anmeldung (Cutover B) ---------------------------------------------------------------
-// ZEUGNIO_AUTH schaltet zwischen Supabase Auth und der eigenen Anmeldung (lib/auth/config.ts).
-// Die eigene Anmeldung braucht die eigene Daten-API (die Anmeldetabellen liegen nur auf
-// advisori01, Migration 906) und ein eigenes Geheimnis für die HMAC-Werte von Link, Code und
-// Sitzung. Ein fehlendes Geheimnis wäre kein harmloser Fehler: ohne Schlüssel liessen sich
-// die 6-stelligen Codes aus einem Datenbankauszug in Sekunden durchprobieren.
-const authModeRaw = (nonEmpty("ZEUGNIO_AUTH") ?? "supabase").toLowerCase();
-if (!["supabase", "eigen"].includes(authModeRaw)) {
-  errors.push(`ZEUGNIO_AUTH ist "${authModeRaw}" – erlaubt sind nur "supabase" und "eigen".`);
-} else if (authModeRaw === "eigen") {
-  if (!dataApi) {
-    errors.push("ZEUGNIO_AUTH=eigen, aber DATA_API_URL fehlt. Die eigene Anmeldung läuft nur gegen die Datenbank auf advisori01.");
-  }
-  const authSecret = nonEmpty("ZEUGNIO_AUTH_SECRET");
-  if (!authSecret) {
-    errors.push(
-      "ZEUGNIO_AUTH_SECRET fehlt, obwohl ZEUGNIO_AUTH=eigen. Erzeugen mit: " +
-        "node -e \"console.log(require('crypto').randomBytes(48).toString('base64'))\"",
-    );
-  } else if (authSecret.length < 32) {
-    errors.push("ZEUGNIO_AUTH_SECRET ist zu kurz (mindestens 32 Zeichen).");
-  } else if ([nonEmpty("DATA_API_JWT_SECRET"), anonKey, serviceKey, nonEmpty("CRON_SECRET")].includes(authSecret)) {
-    errors.push("ZEUGNIO_AUTH_SECRET ist identisch mit einem anderen Geheimnis. Es muss ein eigener Wert sein.");
-  }
-  if (onVercel) {
-    errors.push("ZEUGNIO_AUTH=eigen auf Vercel: die eigene Anmeldung ist nur für advisori01 gedacht.");
-  }
+// Supabase-Variablen aus der Zeit vor B2: Der Code liest sie nicht mehr. Nur der Name
+// wird genannt, nie ein Wert.
+const supabaseLeftovers = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "ZEUGNIO_OWN_AUTH",
+].filter((name) => nonEmpty(name) !== null);
+if (supabaseLeftovers.length > 0) {
+  warnings.push(
+    `${supabaseLeftovers.join(", ")} ${supabaseLeftovers.length > 1 ? "stehen" : "steht"} noch in der .env. Der Code liest sie ` +
+      "seit B2 nicht mehr; die Zeilen können weg.",
+  );
 }
 
 // --- Öffentliche Adresse ----------------------------------------------------------------
@@ -305,17 +233,12 @@ if (uploadDir && !onVercel) {
 
 // --- E-Mail ------------------------------------------------------------------------------
 if (!nonEmpty("RESEND_API_KEY")) {
-  // Mit der eigenen Anmeldung schickt zeugnio auch die Anmelde-Mail selbst. Ohne Schlüssel
-  // antwortet /api/auth/anfordern zwar «Mail ist unterwegs», aber es kommt keine an, und
-  // niemand kann sich mehr anmelden. Darum hier ein Fehler statt einer Warnung.
-  if (authModeRaw === "eigen") {
-    errors.push(
-      "RESEND_API_KEY fehlt, obwohl ZEUGNIO_AUTH=eigen. Die Anmelde-Mails gehen dann nicht hinaus, " +
-        "und niemand kann sich anmelden.",
-    );
-  } else {
-    warnings.push("RESEND_API_KEY fehlt – Einladungen an Vorgesetzte werden nicht verschickt.");
-  }
+  // zeugnio schickt die Anmelde-Mail selbst. Ohne Schlüssel antwortet /api/auth/anfordern
+  // zwar «Mail ist unterwegs», aber es kommt keine an, und niemand kann sich mehr anmelden.
+  // Darum ein Fehler statt einer Warnung.
+  errors.push(
+    "RESEND_API_KEY fehlt. Die Anmelde-Mails gehen dann nicht hinaus, und niemand kann sich anmelden.",
+  );
 } else if (!nonEmpty("EMAIL_FROM")) {
   warnings.push("EMAIL_FROM fehlt, obwohl ein Mailversand konfiguriert ist.");
 }

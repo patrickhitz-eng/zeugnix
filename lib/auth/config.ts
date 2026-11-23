@@ -1,30 +1,19 @@
 /**
- * zeugnio – Schalter und feste Werte der Anmeldung
+ * zeugnio – feste Werte der Anmeldung
  * ----------------------------------------------------------------------------
- * Bis Cutover B meldet Supabase Auth an, danach zeugnio selbst (Plan
- * .claude/plans/2026-10-30-cutover-b-eigene-anmeldung.md). Beide Wege stecken
- * im selben Code; welcher gilt, entscheidet EINE Variable:
+ * zeugnio meldet seit Cutover B (23.11.2026) selbst an: Code oder Link per
+ * Mail, Sitzung in auth.sessions auf advisori01 (Plan
+ * .claude/plans/2026-10-30-cutover-b-eigene-anmeldung.md). Den Schalter
+ * ZEUGNIO_AUTH, mit dem bis dahin Supabase Auth anmeldete, gibt es seit B2
+ * nicht mehr. Steht er noch in einer .env, liest ihn niemand;
+ * scripts/check-env.mjs weist darauf hin.
  *
- *   ZEUGNIO_AUTH=supabase   (Vorgabe, auch wenn die Variable fehlt)
- *   ZEUGNIO_AUTH=eigen      (Tag B, nur auf advisori01)
- *
- * Darum kann der Code gefahrlos in main: solange niemand den Schalter kippt,
- * verhält sich die Anwendung wie vorher. Am Tag B ändert sich nur die Zeile in
- * shared/.env, dann wird neu gestartet.
- *
- * «eigen» braucht zusätzlich die eigene Daten-API (DATA_API_URL, nach
- * Cutover A gesetzt) und ZEUGNIO_AUTH_SECRET. scripts/check-env.mjs prüft das
- * vor dem Deployment.
+ * Die Anmeldung braucht die eigene Daten-API (DATA_API_URL) und
+ * ZEUGNIO_AUTH_SECRET. scripts/check-env.mjs prüft beides vor dem Deployment.
  *
  * Eigenes Modul ohne Server-Abhängigkeiten, damit `npm run test:auth` es direkt
  * laden kann.
  */
-
-export type AuthMode = "supabase" | "eigen";
-
-export function authMode(): AuthMode {
-  return process.env.ZEUGNIO_AUTH?.trim().toLowerCase() === "eigen" ? "eigen" : "supabase";
-}
 
 /**
  * Name des Sitzungs-Cookies. Das Präfix `__Host-` lässt der Browser nur zu,

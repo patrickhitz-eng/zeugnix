@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/db/supabase-server";
+import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { deleteCompanyLogos } from "@/lib/uploads/delete-company-logos";
 import { deletionErrorStatus } from "@/lib/loeschen/rpc-error";
@@ -39,6 +39,6 @@ export async function POST(
     return NextResponse.json({ error: status === 500 ? "Löschen fehlgeschlagen." : error.message }, { status });
   }
 
-  await deleteCompanyLogos(createServiceClient(), data?.company_ids ?? [id], data?.logo_urls ?? []);
+  await deleteCompanyLogos(data?.company_ids ?? [id]);
   return NextResponse.json({ ok: true, registered: data?.registered ?? 0 });
 }

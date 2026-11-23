@@ -1,36 +1,37 @@
 /**
- * Prüft die Token-Brücke zur eigenen Daten-API (lib/db/rest-rewrite.ts).
+ * Prüft die Zugangstoken für die eigene Daten-API (lib/db/rest-rewrite.ts) und den
+ * Datenclient darauf (@supabase/postgrest-js, wie in lib/db/supabase-server.ts).
  *
  * Diese Datei stellt Zugangsdaten für die Datenbank aus. Ein Fehler darin ist entweder ein
  * Datenleck oder ein Totalausfall, und beides würde man im Betrieb erst spät merken –
  * „die App startet" sagt darüber nichts. Darum wird hier nicht das Verhalten im Groben
  * geprüft, sondern jede einzelne Zusage:
  *
- *   1. Umgelenkt wird NUR der Datenpfad. Anmeldung und Storage müssen unberührt bleiben,
- *      sonst bricht die Anmeldung oder die Logos verschwinden.
+ *   1. Das Token geht NUR an die eigene Daten-API, nie an eine fremde Adresse.
  *   2. Die Signatur ist echtes HS256 über Kopf und Rumpf – hier unabhängig nachgerechnet,
  *      nicht mit derselben Funktion, die sie erzeugt hat.
  *   3. Die Rolle kommt aus der geprüften Identität, und im Zweifel ist sie `anon`.
  *      Niemals `authenticated` auf Verdacht.
- *   4. Der Supabase-Schlüssel erreicht die Daten-API nicht.
- *   5. Ohne eigenes Geheimnis gibt es einen Fehler, keinen stillen Rückfall auf Supabase.
+ *   4. Ein mitgegebener Schlüssel (apikey, Authorization) erreicht die Daten-API nicht.
+ *   5. Der Datenclient baut dieselben Adressen und Kopfzeilen wie vorher supabase-js
+ *      hinter der Umleitung (`/tabelle`, `/rpc/funktion`, Accept-/Content-Profile: public).
+ *   6. Ohne Adresse oder Geheimnis gibt es einen Fehler, keinen stillen Rückfall.
  *
  * Ausführen: npm run test:dataapi
  */
 import { createHmac } from "node:crypto";
+import { PostgrestClient } from "@supabase/postgrest-js";
 
-const SUPABASE = "https://projekt.supabase.co";
 const DATA_API = "http://127.0.0.1:3011";
 const SECRET = "test-geheimnis-nur-fuer-diesen-lauf";
 const USER_ID = "11111111-1111-1111-1111-111111111111";
 
 // Vor dem ersten Aufruf setzen. Das Modul liest die Umgebung in den Funktionen, nicht beim
 // Laden – ein statischer Import ist darum unproblematisch.
-process.env.NEXT_PUBLIC_SUPABASE_URL = SUPABASE;
 process.env.DATA_API_URL = DATA_API;
 process.env.DATA_API_JWT_SECRET = SECRET;
 
-import { createDataApiFetch, dataApiTarget } from "../lib/db/rest-rewrite";
+import { createDataApiFetch, dataApiBase, dataApiTarget, serviceDataApi } from "../lib/db/rest-rewrite";
 
 let passed = 0;
 let failed = 0;
@@ -42,6 +43,15 @@ function check(name: string, condition: boolean, detail?: string) {
   } else {
     console.log(`  ✗ ${name}${detail ? ` — ${detail}` : ""}`);
     failed++;
+  }
+}
+
+function throws(fn: () => unknown): boolean {
+  try {
+    fn();
+    return false;
+  } catch {
+    return true;
   }
 }
 
@@ -91,47 +101,51 @@ async function main() {
   }) as typeof fetch;
 
   try {
-    console.log("\nToken-Brücke zur Daten-API\n");
+    console.log("\nZugangstoken für die Daten-API\n");
 
-    // --- 1. Was umgelenkt wird, und was nicht ------------------------------------------
-    console.log("Umlenkung:");
-    const svc = createDataApiFetch({ role: "service_role" })!;
+    // --- 1. Wohin ein Token geht ------------------------------------------------------
+    console.log("Ziel:");
+    const svc = createDataApiFetch({ role: "service_role" });
 
-    await svc(`${SUPABASE}/rest/v1/certificates?select=id`, { headers: { apikey: "sb_secret_x" } });
+    await svc(`${DATA_API}/certificates?select=id`, { headers: { apikey: "sb_secret_x" } });
     check(
-      "Datenpfad geht an die eigene API, ohne das Präfix /rest/v1",
+      "Anfrage an die Daten-API geht unverändert an dieselbe Adresse",
       last()?.url === `${DATA_API}/certificates?select=id`,
       last()?.url,
     );
+    check("…und trägt ein Token", bearer().split(".").length === 3);
 
     captured = null;
-    await svc(`${SUPABASE}/auth/v1/user`, { headers: { apikey: "sb_publishable_x" } });
-    check("Anmeldung bleibt bei Supabase", last()?.url === `${SUPABASE}/auth/v1/user`, last()?.url);
-
-    captured = null;
-    await svc(`${SUPABASE}/storage/v1/object/company-logos/x.png`);
+    await svc("https://fremde-domain.example/certificates", {
+      headers: { Authorization: "Bearer bleibt" },
+    });
     check(
-      "Storage bleibt bei Supabase",
-      last()?.url === `${SUPABASE}/storage/v1/object/company-logos/x.png`,
-      last()?.url,
+      "Fremde Adresse bekommt KEIN Token",
+      last()?.url === "https://fremde-domain.example/certificates" &&
+        last()?.headers.get("Authorization") === "Bearer bleibt",
+      String(last()?.headers.get("Authorization")),
     );
 
     captured = null;
-    await svc("https://fremde-domain.example/rest/v1/certificates");
+    await svc("http://127.0.0.1:30110/certificates");
     check(
-      "Fremde Adresse mit gleichem Pfad wird NICHT umgelenkt",
-      last()?.url === "https://fremde-domain.example/rest/v1/certificates",
-      last()?.url,
+      "Ähnliche Adresse (gleicher Anfang, anderer Port) bekommt kein Token",
+      last()?.headers.get("Authorization") === null,
+      String(last()?.headers.get("Authorization")),
     );
 
     captured = null;
-    await svc(new Request(`${SUPABASE}/rest/v1/companies`, { method: "POST", body: "{}" }));
-    check("Request-Objekt wird ebenfalls umgelenkt", last()?.url === `${DATA_API}/companies`, last()?.url);
+    await svc(new Request(`${DATA_API}/companies`, { method: "POST", body: "{}" }));
+    check(
+      "Request-Objekt: gleiche Adresse, mit Token",
+      last()?.url === `${DATA_API}/companies` && bearer().split(".").length === 3,
+      last()?.url,
+    );
 
     // --- 2. Form und Signatur des Tokens -----------------------------------------------
     console.log("\nToken:");
     captured = null;
-    await svc(`${SUPABASE}/rest/v1/certificates`);
+    await svc(`${DATA_API}/certificates`);
     const token = inspect(bearer());
 
     check("drei Teile (Kopf, Rumpf, Signatur)", token.parts === 3);
@@ -152,16 +166,16 @@ async function main() {
 
     const angemeldet = createDataApiFetch({
       resolveIdentity: async () => ({ role: "authenticated", sub: USER_ID }),
-    })!;
+    });
     captured = null;
-    await angemeldet(`${SUPABASE}/rest/v1/x`);
+    await angemeldet(`${DATA_API}/x`);
     let t = inspect(bearer());
     check("Angemeldet: role=authenticated", t.payload.role === "authenticated", t.payload.role);
     check("Angemeldet: sub ist die Benutzer-ID (auth.uid() liest ihn)", t.payload.sub === USER_ID);
 
-    const abgemeldet = createDataApiFetch({ resolveIdentity: async () => null })!;
+    const abgemeldet = createDataApiFetch({ resolveIdentity: async () => null });
     captured = null;
-    await abgemeldet(`${SUPABASE}/rest/v1/x`);
+    await abgemeldet(`${DATA_API}/x`);
     t = inspect(bearer());
     check("Niemand angemeldet: role=anon", t.payload.role === "anon", t.payload.role);
 
@@ -169,11 +183,11 @@ async function main() {
     // herauskommen. Im Zweifel sieht die Zeilensicherheit nichts.
     const kaputt = createDataApiFetch({
       resolveIdentity: async () => {
-        throw new Error("Auth-Server nicht erreichbar");
+        throw new Error("Sitzung nicht nachschlagbar");
       },
-    })!;
+    });
     captured = null;
-    await kaputt(`${SUPABASE}/rest/v1/x`);
+    await kaputt(`${DATA_API}/x`);
     t = inspect(bearer());
     check(
       "Identität nicht auflösbar: role=anon, nicht authenticated",
@@ -187,16 +201,28 @@ async function main() {
         aufrufe++;
         return { role: "authenticated", sub: USER_ID };
       },
-    })!;
-    await einmal(`${SUPABASE}/rest/v1/a`);
-    await einmal(`${SUPABASE}/rest/v1/b`);
-    await einmal(`${SUPABASE}/rest/v1/c`);
-    check("getUser() wird pro Client nur einmal aufgerufen", aufrufe === 1, `${aufrufe} Aufrufe`);
+    });
+    await einmal(`${DATA_API}/a`);
+    await einmal(`${DATA_API}/b`);
+    await einmal(`${DATA_API}/c`);
+    check("Identität wird pro Client nur einmal aufgelöst", aufrufe === 1, `${aufrufe} Aufrufe`);
 
-    // --- 4. Der Supabase-Schlüssel darf nicht mitreisen --------------------------------
+    const ohneAngabe = createDataApiFetch();
+    captured = null;
+    await ohneAngabe(`${DATA_API}/x`);
+    t = inspect(bearer());
+    check("Weder Rolle noch Identität angegeben: role=anon", t.payload.role === "anon", t.payload.role);
+
+    const direkt = inspect(serviceDataApi().authorization.replace(/^Bearer /, ""));
+    check(
+      "serviceDataApi (Anmeldung, lib/auth/store.ts): role=service_role, gültige Signatur",
+      direkt.payload.role === "service_role" && direkt.signatureOk && direkt.payload.sub === undefined,
+    );
+
+    // --- 4. Mitgegebene Schlüssel reisen nicht mit -------------------------------------
     console.log("\nZugangsdaten:");
     captured = null;
-    await svc(`${SUPABASE}/rest/v1/x`, {
+    await svc(`${DATA_API}/x`, {
       headers: { apikey: "sb_secret_geheim", Authorization: "Bearer sb_secret_geheim" },
     });
     check("apikey-Kopfzeile ist entfernt", last()?.headers.get("apikey") === null);
@@ -206,35 +232,71 @@ async function main() {
       bearer().slice(0, 12),
     );
 
-    // Gegenprobe: bei einer NICHT umgelenkten Anfrage bleiben die Kopfzeilen, wie sie
-    // waren – sonst könnte sich die Anmeldung nicht mehr ausweisen.
+    // --- 5. Der Datenclient ------------------------------------------------------------
+    console.log("\nDatenclient (postgrest-js):");
+    const client = new PostgrestClient(dataApiBase(), {
+      schema: "public",
+      fetch: createDataApiFetch({
+        resolveIdentity: async () => ({ role: "authenticated", sub: USER_ID }),
+      }),
+    });
     captured = null;
-    await svc(`${SUPABASE}/auth/v1/user`, { headers: { apikey: "sb_publishable_x" } });
+    await client.from("certificates").select("id").eq("status", "final");
     check(
-      "bei Anmelde-Anfragen bleibt apikey erhalten",
-      last()?.headers.get("apikey") === "sb_publishable_x",
-      String(last()?.headers.get("apikey")),
+      ".from() geht an /tabelle direkt unter der Wurzel",
+      last()?.url === `${DATA_API}/certificates?select=id&status=eq.final`,
+      last()?.url,
+    );
+    check(
+      "Accept-Profile: public (wie bisher mit supabase-js)",
+      last()?.headers.get("Accept-Profile") === "public",
+      String(last()?.headers.get("Accept-Profile")),
+    );
+    t = inspect(bearer());
+    check(
+      "Datenclient trägt das Token der Person",
+      t.signatureOk && t.payload.role === "authenticated" && t.payload.sub === USER_ID,
     );
 
-    // --- 5. Fehlende Konfiguration -----------------------------------------------------
+    captured = null;
+    await client.rpc("zeugnio_company_role", { p_company_id: "x" });
+    check(
+      ".rpc() geht an /rpc/funktion",
+      last()?.url === `${DATA_API}/rpc/zeugnio_company_role`,
+      last()?.url,
+    );
+    check(
+      "Content-Profile: public bei .rpc()",
+      last()?.headers.get("Content-Profile") === "public",
+      String(last()?.headers.get("Content-Profile")),
+    );
+
+    // --- 6. Fehlende Konfiguration -----------------------------------------------------
     console.log("\nKonfiguration:");
     check("dataApiTarget nennt die eigene Adresse", dataApiTarget() === DATA_API, dataApiTarget());
 
     delete process.env.DATA_API_JWT_SECRET;
-    let threw = false;
-    try {
-      createDataApiFetch({ role: "service_role" });
-    } catch {
-      threw = true;
-    }
-    check("ohne DATA_API_JWT_SECRET: Fehler, kein stiller Rückfall auf Supabase", threw);
+    check(
+      "ohne DATA_API_JWT_SECRET: Fehler, kein Rückfall",
+      throws(() => createDataApiFetch({ role: "service_role" })) && throws(() => serviceDataApi()),
+    );
     process.env.DATA_API_JWT_SECRET = SECRET;
 
     delete process.env.DATA_API_URL;
     check(
-      "ohne DATA_API_URL: kein eigenes fetch, alles läuft wie vorher",
-      createDataApiFetch({ role: "service_role" }) === undefined,
+      "ohne DATA_API_URL: Fehler, kein Rückfall",
+      throws(() => createDataApiFetch({ role: "service_role" })) &&
+        throws(() => serviceDataApi()) &&
+        throws(() => dataApiBase()),
     );
+    check(
+      "ohne DATA_API_URL: dataApiTarget meldet das, ohne zu werfen",
+      dataApiTarget() === "(keine Adresse konfiguriert)",
+      dataApiTarget(),
+    );
+
+    process.env.DATA_API_URL = `${DATA_API}/`;
+    check("Schrägstrich am Ende wird abgeschnitten", dataApiBase() === DATA_API, dataApiBase());
     process.env.DATA_API_URL = DATA_API;
   } finally {
     globalThis.fetch = realFetch;

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
 import { RETENTION, cutoffIso } from "@/lib/retention";
 import { logError } from "@/lib/log";
-import { authMode } from "@/lib/auth/config";
 
 /**
  * GET /api/cron/pii-cleanup  (H4 – PII-Minimierung, ab Schritt 17 alle Fristen)
@@ -65,10 +64,8 @@ export async function GET(req: NextRequest) {
     .lt("delete_after", new Date().toISOString())
     .select("certificate_id");
 
-  // Eigene Anmeldung (906): Anforderungen nach 24 h und abgelaufene Sitzungen löschen.
-  // Nur mit ZEUGNIO_AUTH=eigen; vorher gibt es die Funktion auf Supabase gar nicht.
-  const { data: authCleanup, error: authErr } =
-    authMode() === "eigen" ? await supabase.rpc("auth_cleanup") : { data: null, error: null };
+  // Anmeldung (906): Anforderungen nach 24 h und abgelaufene Sitzungen löschen.
+  const { data: authCleanup, error: authErr } = await supabase.rpc("auth_cleanup");
 
   const errors = [verificationsErr, analysesErr, signoffsErr, registerErr, authErr].filter(Boolean);
   if (errors.length > 0) {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { authSecret } from "@/lib/auth/config";
 import { sessionCookie } from "@/lib/auth/cookie";
-import { rejectForeignOrigin, rejectTooManyRedeems, rejectUnlessEigen } from "@/lib/auth/route-guard";
+import { rejectForeignOrigin, rejectTooManyRedeems } from "@/lib/auth/route-guard";
 import { redeemCode } from "@/lib/auth/store";
 import { codeHmac, hmac, isCodeShape, isPlausibleEmail, newToken, normalizeEmail } from "@/lib/auth/tokens";
 import { logError } from "@/lib/log";
@@ -26,7 +26,7 @@ const UNGUELTIG =
   "Dieser Code stimmt nicht oder ist nicht mehr gültig. Prüfen Sie die Eingabe oder fordern Sie einen neuen Code an.";
 
 export async function POST(req: NextRequest) {
-  const blocked = rejectUnlessEigen() ?? rejectForeignOrigin(req) ?? (await rejectTooManyRedeems(req));
+  const blocked = rejectForeignOrigin(req) ?? (await rejectTooManyRedeems(req));
   if (blocked) return blocked;
 
   const body = (await req.json().catch(() => null)) as { email?: unknown; code?: unknown } | null;

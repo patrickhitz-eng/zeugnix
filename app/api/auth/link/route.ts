@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { authSecret } from "@/lib/auth/config";
 import { sessionCookie } from "@/lib/auth/cookie";
-import { rejectForeignOrigin, rejectTooManyRedeems, rejectUnlessEigen } from "@/lib/auth/route-guard";
+import { rejectForeignOrigin, rejectTooManyRedeems } from "@/lib/auth/route-guard";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { redeemLink } from "@/lib/auth/store";
 import { hmac, isTokenShape, newToken } from "@/lib/auth/tokens";
@@ -34,7 +34,7 @@ function redirectTo(req: NextRequest, path: string): NextResponse {
 }
 
 export async function POST(req: NextRequest) {
-  const blocked = rejectUnlessEigen() ?? rejectForeignOrigin(req) ?? (await rejectTooManyRedeems(req));
+  const blocked = rejectForeignOrigin(req) ?? (await rejectTooManyRedeems(req));
   if (blocked) return blocked;
 
   const form = await req.formData().catch(() => null);

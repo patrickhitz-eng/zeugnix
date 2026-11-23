@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataClient } from "@/lib/db/supabase-server";
 
 /**
  * Rollen und Rechte pro Firma (Marktstart Schritt 23, Migration 033).
@@ -113,7 +113,7 @@ export function roleAllows(role: CompanyRole | null | undefined, permission: Com
 
 /** Rolle der angemeldeten Person in dieser Firma, oder null ohne Zugriff. */
 export async function getCompanyRole(
-  supabase: SupabaseClient,
+  supabase: DataClient,
   companyId: string | null | undefined,
 ): Promise<CompanyRole | null> {
   if (!companyId) return null;
@@ -134,7 +134,7 @@ export async function getCompanyRole(
  * Feinrechten (Migration 035, Funktion zeugnio_permissions).
  */
 export async function getCompanyPermissions(
-  supabase: SupabaseClient,
+  supabase: DataClient,
   companyId: string | null | undefined,
 ): Promise<Set<CompanyPermission>> {
   if (!companyId) return new Set();
@@ -158,7 +158,7 @@ export async function getCompanyPermissions(
  * Schutz gegen einen fehlenden Login; massgeblich ist die Sitzung.
  */
 export async function userHasCompanyPermission(
-  supabase: SupabaseClient,
+  supabase: DataClient,
   companyId: string | null | undefined,
   userId: string | null | undefined,
   permission: CompanyPermission,

@@ -1,64 +1,34 @@
 import { createHmac } from "node:crypto";
 
 /**
- * Lenkt die Datenzugriffe von supabase-js auf unsere eigene Daten-API um — und stellt
- * dafür eigene Zugangstoken aus.
+ * Zugangstoken für die eigene Daten-API (PostgREST auf advisori01).
  *
- * WARUM DIE UMLENKUNG NICHT ÜBER DIE URL LÄUFT
+ * Die Anwendung spricht mit der Datenbank nur über PostgREST, und PostgREST lässt nur
+ * Anfragen mit einem gültigen JWT durch. Diese Datei stellt diese Token aus, kurzlebig und
+ * mit dem eigenen Geheimnis DATA_API_JWT_SECRET (derselbe Wert steht als jwt-secret in
+ * postgrest.conf). PostgREST liest daraus die Rolle (`anon`, `authenticated`,
+ * `service_role`), und die Funktion auth.uid() in der Datenbank liest `sub`. Alle Regeln
+ * der Zeilensicherheit hängen an diesen zwei Angaben.
  *
- * Der naheliegende Weg wäre, `NEXT_PUBLIC_SUPABASE_URL` auf die eigene Adresse zu setzen.
- * Das wäre ein Fehler mit zwei Folgen, und beide fallen erst im Betrieb auf:
+ * Bis B2 (Plan cutover-b § 8) lenkte diese Datei ausserdem die Anfragen von supabase-js
+ * von der Supabase-Adresse auf DATA_API_URL um. Seit der Datenclient
+ * (lib/db/supabase-server.ts) @supabase/postgrest-js direkt auf DATA_API_URL setzt, gibt
+ * es nichts mehr umzulenken: Hier bleibt nur das Ausstellen der Token.
  *
- *  1. supabase-js leitet aus dieser EINEN Basis-Adresse *alle* Endpunkte ab — also auch
- *     `/auth/v1` (Anmeldung) und `/storage/v1`. Unsere Daten-API kennt nur die Tabellen.
- *     Jede Anmeldung liefe damit in ein 404.
- *  2. Der Name des Sitzungs-Cookies wird aus dem ersten Label des Hostnamens gebildet
- *     (`sb-<label>-auth-token`). Eine neue Adresse heisst also neuer Cookie-Name, und das
- *     entwertet in derselben Sekunde stillschweigend jede bestehende Anmeldung.
+ * WOHER DIE IDENTITÄT KOMMT
  *
- * Darum bleibt die Supabase-Adresse stehen und nur der Datenpfad wird umgelenkt: alles
- * unter `/rest/v1/` geht an `DATA_API_URL`, alles andere unverändert an Supabase.
- *
- * WARUM WIR EIGENE TOKEN AUSSTELLEN
- *
- * Zuerst war geplant, einfach das Supabase-JWT-Geheimnis in PostgREST einzutragen. Dann
- * hätte die eigene Daten-API genau die Token akzeptiert, die Supabase ohnehin ausstellt.
- * Dieser Weg ist am 1. Oktober 2026 weggefallen, aus zwei unabhängigen Gründen:
- *
- *  - Die API-Schlüssel des Projekts haben das neue Format (`sb_publishable_…`,
- *    `sb_secret_…`). Das sind undurchsichtige Zeichenketten, keine JWTs. Der
- *    Service-Client schickt seinen Schlüssel als Bearer-Token — PostgREST würde ihn als
- *    JWT prüfen und jede Anfrage mit 401 abweisen.
- *  - Die Sitzungs-Token werden auf asymmetrische ES256-Schlüssel umgestellt. Ein
- *    HS256-Geheimnis gibt es damit nicht mehr dauerhaft. Das JWKS liesse sich in PostgREST
- *    nur als Datei hinterlegen (es nimmt keine URL) — bei jeder Rotation des
- *    Signaturschlüssels stünde die Daten-API still, bis jemand eine Datei kopiert.
- *
- * Die Lösung ist kleiner als beide Umwege: Die Prüfung findet schon statt, bevor wir
- * etwas tun. `supabase.auth.getUser()` fragt den Auth-Server über das Netz, und der
- * Rückgabewert ist laut Supabase-Dokumentation „authentic and can be used to base
- * authorization rules on" — unabhängig davon, mit welchem Verfahren das Token signiert
- * war. Aus dieser geprüften Identität stellen wir ein eigenes, kurzlebiges HS256-Token für
- * PostgREST aus. PostgREST sieht damit nur Token aus unserer Hand, und welcher Algorithmus
- * bei Supabase gilt, ist gleichgültig.
- *
- * WAS HIER AUSDRÜCKLICH NICHT PASSIERT
- *
- * Das eingehende Supabase-Token wird NICHT ausgelesen, um daraus `sub` zu übernehmen. Das
- * wäre der naheliegende Weg und ein Totalverlust: Das Token kommt aus einem Cookie, und
- * Cookies bestimmt der Browser. Wer sich eines mit fremdem `sub` schreibt, bekäme von uns
- * ein gültiges Token für dieses Konto. Die Identität kommt ausschliesslich aus
- * `getUser()`.
+ * Nie aus einem Cookie-Inhalt oder dem Rumpf einer Anfrage. Wer sich ein Cookie mit fremder
+ * Kennung schreibt, bekäme sonst ein gültiges Token für dieses Konto. Die Identität kommt
+ * aus `getSessionUser()` (lib/auth/session.ts), und die schlägt die Sitzung in
+ * auth.sessions nach. Das Cookie ist dort nur der Schlüssel, unter dem nachgeschlagen wird.
  *
  * VERHALTEN OHNE KONFIGURATION
  *
- * Ist `DATA_API_URL` leer oder nicht gesetzt, gibt `createDataApiFetch()` `undefined`
- * zurück. Die aufrufende Stelle übergibt dann kein eigenes `fetch`, und supabase-js
- * verhält sich exakt wie vorher.
+ * Fehlt DATA_API_URL oder DATA_API_JWT_SECRET, gibt es einen Fehler. Einen Rückfall gibt es
+ * nicht mehr: Supabase hält keine Daten mehr, und eine App ohne Datenbank soll laut
+ * scheitern statt leer zu antworten. scripts/check-env.mjs fängt beides vor dem
+ * Deployment ab.
  */
-
-/** PostgREST erwartet die Tabelle direkt unter der Wurzel, ohne dieses Präfix. */
-const REST_PREFIX = "/rest/v1";
 
 /**
  * Lebensdauer der ausgestellten Token. Sie verlassen den Server nie — sie gehen über
@@ -85,7 +55,7 @@ export interface DataApiFetchOptions {
   role?: DataApiRole;
   /**
    * Auflösung der angemeldeten Person für den Benutzer-Client. MUSS aus einer geprüften
-   * Quelle kommen (`auth.getUser()`), nie aus dem Cookie oder dem eingehenden Token.
+   * Quelle kommen (`getSessionUser()`), nie aus dem Cookie oder dem Anfragerumpf.
    * Gibt `null` zurück, wenn niemand angemeldet ist — dann gilt `anon`.
    */
   resolveIdentity?: () => Promise<DataApiIdentity | null>;
@@ -116,7 +86,7 @@ function mintToken(identity: DataApiIdentity, secret: string): string {
   return `${signingInput}.${signature}`;
 }
 
-function dataApiBase(): string | null {
+function configuredBase(): string | null {
   const raw = process.env.DATA_API_URL?.trim();
   if (!raw) return null;
   try {
@@ -128,53 +98,50 @@ function dataApiBase(): string | null {
   }
 }
 
-function supabaseOrigin(): string | null {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!raw) return null;
-  try {
-    return new URL(raw).origin;
-  } catch {
-    return null;
+/**
+ * Adresse der eigenen Daten-API (nur Schema, Host und Port). Wirft, wenn sie fehlt: Ohne
+ * sie gibt es keine Daten, und ein stiller Rückfall wäre schlimmer als ein Fehler.
+ */
+export function dataApiBase(): string {
+  const base = configuredBase();
+  if (!base) {
+    throw new Error("DATA_API_URL fehlt oder ist ungültig: ohne eigene Daten-API gibt es keine Daten.");
   }
+  return base;
 }
 
-/**
- * Baut die Zieladresse, falls diese Anfrage eine Datenanfrage an Supabase ist.
- * Gibt `null` zurück, wenn nichts umzulenken ist — dann läuft die Anfrage unverändert.
- */
-function rewriteUrl(url: string, from: string, to: string): string | null {
-  if (!url.startsWith(from)) return null;
-  const rest = url.slice(from.length);
-  if (!rest.startsWith(`${REST_PREFIX}/`) && rest !== REST_PREFIX) return null;
-  return to + rest.slice(REST_PREFIX.length);
-}
-
-/**
- * Gibt ein `fetch` zurück, das Datenanfragen auf die eigene Daten-API umlenkt und dabei
- * die Zugangsdaten austauscht — oder `undefined`, wenn keine eigene Daten-API
- * konfiguriert ist.
- */
-export function createDataApiFetch(options: DataApiFetchOptions = {}): typeof fetch | undefined {
-  const to = dataApiBase();
-  const from = supabaseOrigin();
-  if (!to || !from) return undefined;
-
-  const configuredSecret = process.env.DATA_API_JWT_SECRET?.trim();
-  if (!configuredSecret) {
-    // Absichtlich ein Fehler und kein stiller Rückfall auf Supabase: ein Rückfall würde
-    // nach dem Umzug weiter in die alte Datenbank schreiben, und zwar geräuschlos, weil
-    // beide dasselbe Schema haben. scripts/check-env.mjs fängt das vor dem Deployment ab.
+function dataApiSecret(): string {
+  const secret = process.env.DATA_API_JWT_SECRET?.trim();
+  if (!secret) {
+    // Absichtlich ein Fehler: ohne Geheimnis kein Token, und ohne Token antwortet PostgREST
+    // auf jede Anfrage mit 401. scripts/check-env.mjs fängt das vor dem Deployment ab.
     throw new Error(
-      "DATA_API_URL ist gesetzt, DATA_API_JWT_SECRET fehlt. Ohne eigenes Geheimnis kann " +
-        "kein Zugangstoken für die Daten-API ausgestellt werden.",
+      "DATA_API_JWT_SECRET fehlt. Ohne eigenes Geheimnis kann kein Zugangstoken für die " +
+        "Daten-API ausgestellt werden.",
     );
   }
-  // Eigener Name nach der Prüfung: `headersFor` unten ist eine Funktionsdeklaration und
-  // wird hochgezogen, darum trägt TypeScript die Einengung aus dem `if` nicht hinein.
-  const secret: string = configuredSecret;
+  return secret;
+}
 
-  // Die Identität wird pro Client einmal aufgelöst, nicht pro Anfrage: `getUser()` ist ein
-  // Netzwerkaufruf zum Auth-Server, und eine Route stellt oft mehrere Abfragen.
+/** Gehört die Adresse zur eigenen Daten-API? Nur dorthin darf ein Token gehen. */
+function isDataApiUrl(url: string, base: string): boolean {
+  return url === base || url.startsWith(`${base}/`) || url.startsWith(`${base}?`);
+}
+
+/**
+ * Gibt ein `fetch` für den Datenclient zurück, das jeder Anfrage an die eigene Daten-API
+ * ein frisch ausgestelltes Token mitgibt. Anfragen an andere Adressen gehen unverändert
+ * und ohne Token hinaus (der Datenclient stellt keine, aber ein Token gehört nie an
+ * eine fremde Adresse).
+ *
+ * Wirft, wenn DATA_API_URL oder DATA_API_JWT_SECRET fehlt.
+ */
+export function createDataApiFetch(options: DataApiFetchOptions = {}): typeof fetch {
+  const base = dataApiBase();
+  const secret = dataApiSecret();
+
+  // Die Identität wird pro Client einmal aufgelöst, nicht pro Anfrage: eine Route stellt
+  // oft mehrere Abfragen, und die Antwort ändert sich innerhalb einer Anfrage nicht.
   let identityOnce: Promise<DataApiIdentity> | null = null;
 
   async function identity(): Promise<DataApiIdentity> {
@@ -195,11 +162,11 @@ export function createDataApiFetch(options: DataApiFetchOptions = {}): typeof fe
     return identityOnce;
   }
 
-  /** Ersetzt die Zugangsdaten. Der Supabase-Schlüssel darf die Daten-API nie erreichen. */
+  /** Setzt das Token. Ein mitgegebener Authorization-Kopf wird ersetzt, nicht ergänzt. */
   async function headersFor(original: HeadersInit | undefined): Promise<Headers> {
     const headers = new Headers(original);
     headers.set("Authorization", `Bearer ${mintToken(await identity(), secret)}`);
-    // PostgREST ignoriert apikey, aber der Supabase-Schlüssel hat hier nichts zu suchen.
+    // PostgREST ignoriert apikey; ein solcher Kopf hat an der Daten-API nichts zu suchen.
     headers.delete("apikey");
     return headers;
   }
@@ -207,18 +174,17 @@ export function createDataApiFetch(options: DataApiFetchOptions = {}): typeof fe
   return async function dataApiFetch(input, init) {
     try {
       if (typeof input === "string" || input instanceof URL) {
-        const target = rewriteUrl(String(input), from, to);
-        if (!target) return await fetch(input, init);
-        return await fetch(target, { ...init, headers: await headersFor(init?.headers) });
+        const url = String(input);
+        if (!isDataApiUrl(url, base)) return await fetch(input, init);
+        return await fetch(url, { ...init, headers: await headersFor(init?.headers) });
       }
 
-      // Request-Objekt: Adresse tauschen, alles andere übernehmen.
-      const target = rewriteUrl(input.url, from, to);
-      if (!target) return await fetch(input, init);
+      // Request-Objekt: alles übernehmen, nur die Kopfzeilen ersetzen.
+      if (!isDataApiUrl(input.url, base)) return await fetch(input, init);
       const headers = await headersFor(init?.headers ?? input.headers);
-      return await fetch(new Request(target, input), { ...init, headers });
+      return await fetch(new Request(input), { ...init, headers });
     } catch (error) {
-      // Ein Fehler im Umlenken darf nie wie ein Datenbankfehler aussehen.
+      // Ein Fehler beim Ausstellen darf nie wie ein Datenbankfehler aussehen.
       console.error("[rest-rewrite] Anfrage fehlgeschlagen:", error);
       throw error;
     }
@@ -226,18 +192,14 @@ export function createDataApiFetch(options: DataApiFetchOptions = {}): typeof fe
 }
 
 /**
- * Direkter Zugang zur eigenen Daten-API für die eigene Anmeldung (lib/auth/store.ts).
- * Sie ruft die auth_*-Funktionen aus supabase/906_auth_eigen.sql als service_role auf,
- * ohne supabase-js – auch aus der Middleware heraus, wo jeder Umweg Zeit kostet.
- * Gibt `null` zurück, wenn keine eigene Daten-API eingerichtet ist.
+ * Direkter Zugang zur eigenen Daten-API für die Anmeldung (lib/auth/store.ts). Sie ruft
+ * die auth_*-Funktionen aus supabase/906_auth_eigen.sql als service_role auf, mit einem
+ * einfachen fetch – auch aus der Middleware heraus, wo jeder Umweg Zeit kostet.
+ * Wirft, wenn DATA_API_URL oder DATA_API_JWT_SECRET fehlt.
  */
-export function serviceDataApi(): { base: string; authorization: string } | null {
+export function serviceDataApi(): { base: string; authorization: string } {
   const base = dataApiBase();
-  if (!base) return null;
-  const secret = process.env.DATA_API_JWT_SECRET?.trim();
-  if (!secret) {
-    throw new Error("DATA_API_URL ist gesetzt, DATA_API_JWT_SECRET fehlt.");
-  }
+  const secret = dataApiSecret();
   return { base, authorization: `Bearer ${mintToken({ role: "service_role" }, secret)}` };
 }
 
@@ -246,5 +208,5 @@ export function serviceDataApi(): { base: string; authorization: string } | null
  * Gibt keine Zugangsdaten zurück, nur die Adresse.
  */
 export function dataApiTarget(): string {
-  return dataApiBase() ?? supabaseOrigin() ?? "(keine Adresse konfiguriert)";
+  return configuredBase() ?? "(keine Adresse konfiguriert)";
 }

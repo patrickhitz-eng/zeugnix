@@ -1,8 +1,7 @@
 "use client";
 
 /**
- * Abmelden über den Server (POST /api/auth/abmelden), für beide Stellungen des
- * Schalters ZEUGNIO_AUTH. Das Sitzungs-Cookie der eigenen Anmeldung ist
+ * Abmelden über den Server (POST /api/auth/abmelden). Das Sitzungs-Cookie ist
  * HttpOnly; der Browser kann es gar nicht selbst löschen.
  */
 export function SignOutButton() {
