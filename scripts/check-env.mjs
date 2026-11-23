@@ -197,6 +197,35 @@ if (dataApi) {
   );
 }
 
+// --- Anmeldung (Cutover B) ---------------------------------------------------------------
+// ZEUGNIO_AUTH schaltet zwischen Supabase Auth und der eigenen Anmeldung (lib/auth/config.ts).
+// Die eigene Anmeldung braucht die eigene Daten-API (die Anmeldetabellen liegen nur auf
+// advisori01, Migration 906) und ein eigenes Geheimnis für die HMAC-Werte von Link, Code und
+// Sitzung. Ein fehlendes Geheimnis wäre kein harmloser Fehler: ohne Schlüssel liessen sich
+// die 6-stelligen Codes aus einem Datenbankauszug in Sekunden durchprobieren.
+const authModeRaw = (nonEmpty("ZEUGNIO_AUTH") ?? "supabase").toLowerCase();
+if (!["supabase", "eigen"].includes(authModeRaw)) {
+  errors.push(`ZEUGNIO_AUTH ist "${authModeRaw}" – erlaubt sind nur "supabase" und "eigen".`);
+} else if (authModeRaw === "eigen") {
+  if (!dataApi) {
+    errors.push("ZEUGNIO_AUTH=eigen, aber DATA_API_URL fehlt. Die eigene Anmeldung läuft nur gegen die Datenbank auf advisori01.");
+  }
+  const authSecret = nonEmpty("ZEUGNIO_AUTH_SECRET");
+  if (!authSecret) {
+    errors.push(
+      "ZEUGNIO_AUTH_SECRET fehlt, obwohl ZEUGNIO_AUTH=eigen. Erzeugen mit: " +
+        "node -e \"console.log(require('crypto').randomBytes(48).toString('base64'))\"",
+    );
+  } else if (authSecret.length < 32) {
+    errors.push("ZEUGNIO_AUTH_SECRET ist zu kurz (mindestens 32 Zeichen).");
+  } else if ([nonEmpty("DATA_API_JWT_SECRET"), anonKey, serviceKey, nonEmpty("CRON_SECRET")].includes(authSecret)) {
+    errors.push("ZEUGNIO_AUTH_SECRET ist identisch mit einem anderen Geheimnis. Es muss ein eigener Wert sein.");
+  }
+  if (onVercel) {
+    errors.push("ZEUGNIO_AUTH=eigen auf Vercel: die eigene Anmeldung ist nur für advisori01 gedacht.");
+  }
+}
+
 // --- Öffentliche Adresse ----------------------------------------------------------------
 const siteUrl = nonEmpty("NEXT_PUBLIC_SITE_URL");
 if (!siteUrl) {
@@ -276,7 +305,17 @@ if (uploadDir && !onVercel) {
 
 // --- E-Mail ------------------------------------------------------------------------------
 if (!nonEmpty("RESEND_API_KEY")) {
-  warnings.push("RESEND_API_KEY fehlt – Einladungen an Vorgesetzte werden nicht verschickt.");
+  // Mit der eigenen Anmeldung schickt zeugnio auch die Anmelde-Mail selbst. Ohne Schlüssel
+  // antwortet /api/auth/anfordern zwar «Mail ist unterwegs», aber es kommt keine an, und
+  // niemand kann sich mehr anmelden. Darum hier ein Fehler statt einer Warnung.
+  if (authModeRaw === "eigen") {
+    errors.push(
+      "RESEND_API_KEY fehlt, obwohl ZEUGNIO_AUTH=eigen. Die Anmelde-Mails gehen dann nicht hinaus, " +
+        "und niemand kann sich anmelden.",
+    );
+  } else {
+    warnings.push("RESEND_API_KEY fehlt – Einladungen an Vorgesetzte werden nicht verschickt.");
+  }
 } else if (!nonEmpty("EMAIL_FROM")) {
   warnings.push("EMAIL_FROM fehlt, obwohl ein Mailversand konfiguriert ist.");
 }

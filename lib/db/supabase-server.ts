@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createPlainClient, type SupabaseClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
+import { authMode } from "@/lib/auth/config";
+import { getSessionUser } from "@/lib/auth/session";
 import { createDataApiFetch } from "./rest-rewrite";
 
 /**
@@ -10,23 +13,28 @@ import { createDataApiFetch } from "./rest-rewrite";
  * Ist DATA_API_URL gesetzt, gehen die Datenzugriffe (/rest/v1/…) an die eigene
  * Daten-API auf demselben Server, die Anmeldung weiterhin an Supabase. Ist die
  * Variable leer, verhält sich alles wie vorher – siehe lib/db/rest-rewrite.ts.
+ *
+ * Mit der eigenen Anmeldung (ZEUGNIO_AUTH=eigen, Cutover B) ist dieser Client
+ * nur noch ein Datenclient: keine Supabase-Cookies, keine Sitzung, kein
+ * Auffrischen bei Supabase. Wer angemeldet ist, sagt getSessionUser()
+ * (lib/auth/session.ts). Die Person für eine Anfrage NIE über
+ * `supabase.auth.getUser()` erfragen, sondern immer über getSessionUser().
  */
-export async function createClient() {
+export async function createClient(): Promise<SupabaseClient> {
+  if (authMode() === "eigen") return createEigenDataClient();
+
   const cookieStore = await cookies();
 
-  // Der Fetch-Wrapper braucht die GEPRÜFTE Identität, und die liefert ausgerechnet der
-  // Client, den er selbst bedient. Darum dieser Platzhalter: er wird gesetzt, sobald der
-  // Client steht, und der Wrapper fragt erst bei der ersten Datenanfrage nach – dann ist
-  // er längst gefüllt. `getUser()` ist ein Netzwerkaufruf zum Auth-Server und damit die
-  // einzige belastbare Quelle; das Cookie selbst ist keine (siehe lib/db/rest-rewrite.ts).
-  let self: ReturnType<typeof createServerClient> | null = null;
-
+  // Der Fetch-Wrapper braucht die GEPRÜFTE Identität. Er fragt erst bei der ersten
+  // Datenanfrage nach, und zwar bei getSessionUser(): Das ist derselbe Aufruf von
+  // `supabase.auth.getUser()` (Netzwerkaufruf zum Auth-Server, die einzige belastbare
+  // Quelle; das Cookie selbst ist keine, siehe lib/db/rest-rewrite.ts), aber nur einmal
+  // pro Anfrage gemerkt (lib/auth/request-memo.ts). Vorher fragte jeder Datenclient
+  // selbst bei Supabase nach, zusätzlich zur Route.
   const dataFetch = createDataApiFetch({
     resolveIdentity: async () => {
-      if (!self) return null;
-      const { data, error } = await self.auth.getUser();
-      if (error || !data.user) return null;
-      return { role: "authenticated", sub: data.user.id };
+      const user = await getSessionUser();
+      return user ? { role: "authenticated", sub: user.id } : null;
     },
   });
 
@@ -54,8 +62,31 @@ export async function createClient() {
     },
   );
 
-  self = client;
-  return client;
+  return client as unknown as SupabaseClient;
+}
+
+/**
+ * Datenclient für die eigene Anmeldung. Die Identität für PostgREST kommt aus
+ * getSessionUser(), also aus auth.sessions, nicht aus einem Cookie-Inhalt.
+ * Ohne Supabase-Cookies kann supabase-js auch keine alte Sitzung bei Supabase
+ * auffrischen wollen: nach Tag B geht von hier keine Anfrage mehr an Supabase.
+ */
+function createEigenDataClient(): SupabaseClient {
+  const dataFetch = createDataApiFetch({
+    resolveIdentity: async () => {
+      const user = await getSessionUser();
+      return user ? { role: "authenticated", sub: user.id } : null;
+    },
+  });
+  if (!dataFetch) {
+    // Ohne eigene Daten-API gäbe es keine Anmeldetabellen, und ein Rückfall auf
+    // Supabase schriebe still in die alte Datenbank. check-env fängt das ab.
+    throw new Error("ZEUGNIO_AUTH=eigen braucht DATA_API_URL (eigene Daten-API auf advisori01).");
+  }
+  return createPlainClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+    global: { fetch: dataFetch },
+  });
 }
 
 /**

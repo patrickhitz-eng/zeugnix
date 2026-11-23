@@ -15,6 +15,12 @@
 // Schreibversuch als anon muss scheitern.
 //
 // Aufruf als www-zeugnio im Checkout:  node deploy/nine/postgrest-probe.mjs
+//
+// Cutover B (eigene Anmeldung): Nach 906 und `systemctl --user reload postgrest`
+//   node deploy/nine/postgrest-probe.mjs --auth-eigen
+// prueft zusaetzlich, dass PostgREST die Funktionen auth_* kennt (Schema-Cache neu gelesen)
+// und dass nur service_role sie aufrufen darf. Ohne Reload antwortet PostgREST mit 404, und
+// nach dem Umschalten koennte sich niemand anmelden.
 import { createHmac, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -111,6 +117,26 @@ const checks = [
     return [r.status === 401, `HTTP ${r.status} (erwartet 401)`];
   }],
 ];
+
+// Cutover B: nur mit --auth-eigen, vorher gibt es die Funktionen nicht. auth_link_email liest
+// nur; mit einem zufaelligen Wert findet sie nichts und liefert null.
+if (process.argv.includes("--auth-eigen")) {
+  const zufall = createHmac("sha256", randomUUID()).update("probe").digest("hex");
+  checks.push(
+    ["auth_* bekannt und fuer service_role aufrufbar (906 + Reload)", async () => {
+      const r = await call(`${api}/rpc/auth_link_email`, { auth: asService, method: "POST", body: { p_link_hmac: zufall } });
+      return [r.status === 200 && r.json === null, `HTTP ${r.status}${r.status === 404 ? " (Schema-Cache alt: systemctl --user reload postgrest)" : ""}`];
+    }],
+    ["auth_* fuer anon gesperrt", async () => {
+      const r = await call(`${api}/rpc/auth_link_email`, { auth: asAnon, method: "POST", body: { p_link_hmac: zufall } });
+      return [[401, 403, 404].includes(r.status), `HTTP ${r.status} (erwartet 401, 403 oder 404)`];
+    }],
+    ["auth_* fuer authenticated gesperrt", async () => {
+      const r = await call(`${api}/rpc/auth_link_email`, { auth: asAuth, method: "POST", body: { p_link_hmac: zufall } });
+      return [[401, 403, 404].includes(r.status), `HTTP ${r.status} (erwartet 401, 403 oder 404)`];
+    }],
+  );
+}
 
 console.log(`Daten-API ${api}, Admin ${admin}\n`);
 let fehler = 0;

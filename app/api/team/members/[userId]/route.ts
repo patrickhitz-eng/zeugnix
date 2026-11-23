@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage } from "@/lib/auth/ownership";
 import { isUuid, parseMemberUpdate, TEAM_MANAGER_ROLES } from "@/lib/team/invitations";
 import { logError } from "@/lib/log";
@@ -30,9 +31,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
   if (!isUuid(userId)) return NextResponse.json({ error: "Ungültige Person." }, { status: 400 });
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
   const parsed = parseMemberUpdate(await req.json().catch(() => null));

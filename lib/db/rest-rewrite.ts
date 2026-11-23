@@ -226,6 +226,22 @@ export function createDataApiFetch(options: DataApiFetchOptions = {}): typeof fe
 }
 
 /**
+ * Direkter Zugang zur eigenen Daten-API für die eigene Anmeldung (lib/auth/store.ts).
+ * Sie ruft die auth_*-Funktionen aus supabase/906_auth_eigen.sql als service_role auf,
+ * ohne supabase-js – auch aus der Middleware heraus, wo jeder Umweg Zeit kostet.
+ * Gibt `null` zurück, wenn keine eigene Daten-API eingerichtet ist.
+ */
+export function serviceDataApi(): { base: string; authorization: string } | null {
+  const base = dataApiBase();
+  if (!base) return null;
+  const secret = process.env.DATA_API_JWT_SECRET?.trim();
+  if (!secret) {
+    throw new Error("DATA_API_URL ist gesetzt, DATA_API_JWT_SECRET fehlt.");
+  }
+  return { base, authorization: `Bearer ${mintToken({ role: "service_role" }, secret)}` };
+}
+
+/**
  * Nur für den Gesundheitstest und die Fehlersuche: wohin gehen die Daten gerade?
  * Gibt keine Zugangsdaten zurück, nur die Adresse.
  */

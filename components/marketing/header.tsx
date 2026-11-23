@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/logo";
-import { createClient } from "@/lib/db/supabase-client";
 import { siteConfig } from "@/lib/site-config";
 
 const nav = [
@@ -29,18 +28,16 @@ export function Header() {
   // /app/dashboard z.B. auf /verify wechseln, hatten keinen Weg zurück in die
   // App. Bewusst nur clientseitig geprüft (keine Middleware-Änderung nötig)
   // und defensiv wie überall sonst auf öffentlichen Seiten: darf nie crashen.
+  // Seit Cutover B über /api/auth/status statt direkt bei Supabase: das
+  // Sitzungs-Cookie ist HttpOnly, und der Browser spricht nicht mehr mit Supabase.
   useEffect(() => {
     let active = true;
-    try {
-      createClient()
-        .auth.getUser()
-        .then(({ data }) => {
-          if (active) setLoggedIn(!!data.user);
-        })
-        .catch(() => {});
-    } catch {
-      // Supabase nicht konfiguriert/erreichbar -> als ausgeloggt behandeln.
-    }
+    fetch("/api/auth/status", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { angemeldet: false }))
+      .then((data: { angemeldet?: boolean }) => {
+        if (active) setLoggedIn(data.angemeldet === true);
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };

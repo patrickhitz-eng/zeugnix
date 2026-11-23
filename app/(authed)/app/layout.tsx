@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/db/supabase-server";
+import { getSessionUser } from "@/lib/auth/session";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { TERMS_VERSION } from "@/lib/legal/terms";
@@ -14,9 +15,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   if (!user) redirect("/login");
 
