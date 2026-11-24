@@ -1,6 +1,6 @@
 # B3: Zweitkopie der Sicherungen ausser Haus
 
-> Stand: 24.11.2026 · **Vorbereitet, noch nicht live.** Das Kit ist angepasst (Kit-Commit `587bb18`, lokal in `$HOME\advisori-advisori01-kit`, noch nicht auf advisori01). Es fehlen der Bucket und dein Entscheid zur Überwachung.
+> Stand: 24.11.2026 · **Entscheid Silvan 24.11.: nine Object Storage in es34 mit Versionierung, Alarm über healthchecks.io.** · **Vorbereitet, noch nicht live.** Das Kit ist angepasst (Kit-Commit `587bb18`, lokal in `$HOME\advisori-advisori01-kit`, noch nicht auf advisori01). Es fehlen der Bucket und dein Entscheid zur Überwachung.
 > Gehört zu `cutover-reihenfolge.md` (B3) und zum Journal `kommunikation.md`.
 
 ## Warum
@@ -96,7 +96,22 @@ Die Schritte führst du aus, ich begleite jeden einzeln. Zugangsdaten gehören i
    - `zeugnio-backup-server` mit der Rolle `writer`, für advisori01.
    - `zeugnio-backup-notfall` mit der Rolle `reader`, nur für deinen Rechner im Ernstfall.
    - Beide Schlüsselpaare in deine Ablage.
-3. **Lifecycle-Regeln** über `nctl` (nines Befehlszeile, im Cockpit gibt es diese Einstellung nicht): die fünf Regeln aus der Tabelle in 3. Den genauen Befehl schauen wir zusammen mit `nctl update bucket --help` nach. Die Syntax ist hier nicht geprüft.
+3. **Lifecycle-Regeln** über `nctl`, nines Befehlszeile. Im Cockpit gibt es diese Einstellung nicht.
+   - Installieren: das Windows-Archiv der neuesten Version von github.com/ninech/nctl/releases laden und entpacken. Dann `nctl auth login` (Anmeldung wie im Cockpit).
+   - Zuerst die Hilfe ansehen, damit wir die Flags gegen deine Version prüfen:
+   ```powershell
+   nctl update bucket --help
+   ```
+   - Dann die fünf Regeln. In PowerShell trennt `;` Befehle, darum steht jede Regel in einfachen Anführungszeichen. `update` ergänzt Regeln pro Präfix, ersetzt also keine anderen:
+   ```powershell
+   nctl update bucket advisori-zeugnio-backup --lifecycle-policy 'prefix=zeugnio/stuendlich/;expire-after-days=3;is-live=true' --lifecycle-policy 'prefix=zeugnio/taeglich/;expire-after-days=14;is-live=true' --lifecycle-policy 'prefix=zeugnio/woechentlich/;expire-after-days=56;is-live=true' --lifecycle-policy 'prefix=zeugnio/anlass/;expire-after-days=30;is-live=true' --lifecycle-policy 'prefix=zeugnio/;expire-after-days=14;is-live=false'
+   ```
+   ```powershell
+   nctl get bucket advisori-zeugnio-backup -o yaml
+   ```
+   - In der Ausgabe stehen die fünf Regeln, `versioning: true` und die zwei Benutzer.
+   - `is-live=false` gilt für alte Versionen. Die 14 Tage laufen ab dem Moment, in dem eine Version durch Löschen oder Ablauf zur alten wird.
+   - Format laut nctl-Quelle (`internal/bucket/lifecycle.go`), aus der Doku übernommen; an der Version auf deinem Rechner noch nicht geprüft.
 4. **Kit auf den Server bringen.** Das Kit-Repo hat kein Remote, darum geht es als Bundle: ein ganzes Repo in einer Datei. PowerShell:
 
    ```powershell
