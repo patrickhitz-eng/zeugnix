@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { companyNameKey } from "@/lib/loeschen/confirm";
 import {
   BRAND_THEMES,
   BUILTIN_THEMES,
@@ -41,12 +42,15 @@ interface Props {
   company?: Company;
   /** Compact-Modus: nur Pflichtfelder, sonst alles */
   compact?: boolean;
+  /** Beim Anlegen: Namen der sichtbaren Firmen, um vor einem Doppel zu warnen. */
+  existingNames?: string[];
 }
 
-export function CompanyForm({ company, compact = false }: Props) {
+export function CompanyForm({ company, compact = false, existingNames = [] }: Props) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [duplicate, setDuplicate] = useState<{ key: string; name: string } | null>(null);
   const [logoUrl, setLogoUrl] = useState(company?.logo_url ?? "");
   // Ausgewählte, noch nicht hochgeladene Datei plus lokale Vorschau. Das Logo
   // geht erst nach dem Speichern zum Server: beim Anlegen einer neuen Firma gibt
@@ -100,6 +104,18 @@ export function CompanyForm({ company, compact = false }: Props) {
 
     const form = e.currentTarget;
     const fd = new FormData(form);
+
+    // Doppel beim Anlegen: einmal warnen, beim zweiten Klick mit demselben Namen
+    // anlegen. Nur ein Hinweis, keine Sperre; zwei Firmen dürfen gleich heissen.
+    if (!isEdit) {
+      const key = companyNameKey((fd.get("name") as string) ?? "");
+      const existing = existingNames.find((n) => companyNameKey(n) === key);
+      if (key && existing && duplicate?.key !== key) {
+        setDuplicate({ key, name: existing });
+        setSubmitting(false);
+        return;
+      }
+    }
 
     // Immer vorhandene Felder. Im compact-Modus werden Logo, Kontakt- und
     // Unterzeichner-Felder NICHT gerendert – diese dürfen dann auch nicht ins
@@ -193,6 +209,7 @@ export function CompanyForm({ company, compact = false }: Props) {
       if (!isEdit) {
         form.reset();
         setLogoUrl("");
+        setDuplicate(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Speichern fehlgeschlagen.");
@@ -601,6 +618,14 @@ export function CompanyForm({ company, compact = false }: Props) {
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
           {error}
+        </div>
+      )}
+
+      {duplicate && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900">
+          Die Firma «{duplicate.name}» gibt es schon. Ihre Daten finden Sie weiter oben auf
+          dieser Seite. Wollen Sie wirklich eine zweite Firma mit diesem Namen anlegen,
+          klicken Sie nochmals auf «Firma anlegen».
         </div>
       )}
 

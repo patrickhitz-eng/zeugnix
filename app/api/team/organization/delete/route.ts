@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { deleteCompanyLogos } from "@/lib/uploads/delete-company-logos";
 import { deletionErrorStatus } from "@/lib/loeschen/rpc-error";
+import { confirmationMatches } from "@/lib/loeschen/confirm";
 import { logError } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -24,8 +25,8 @@ export async function POST(req: NextRequest) {
   const orgId = typeof body?.organizationId === "string" ? body.organizationId : "";
   const { data: org } = await supabase.from("organizations").select("name").eq("id", orgId).maybeSingle();
   if (!org) return NextResponse.json({ error: "Organisation nicht gefunden" }, { status: 404 });
-  if (typeof body?.confirmName !== "string" || body.confirmName.trim() !== String(org.name).trim()) {
-    return NextResponse.json({ error: "Bitte den Namen der Organisation genau so eingeben, wie er angezeigt wird." }, { status: 400 });
+  if (!confirmationMatches(body?.confirmName, String(org.name))) {
+    return NextResponse.json({ error: `Der eingegebene Name stimmt nicht mit «${org.name}» überein.` }, { status: 400 });
   }
 
   const { data, error } = await supabase.rpc("zeugnio_delete_organization", { p_org_id: orgId });
