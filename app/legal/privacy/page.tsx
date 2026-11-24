@@ -20,6 +20,10 @@ export const metadata = { title: "Datenschutz" };
  * Stand-Datum der Erklärung. Cutover A lief am 20.11.2026 (zeugnio.ch seit
  * 16:48 von advisori01), die Supabase-Kopie ist seit 21.11.2026 gelöscht
  * (5.10); seit diesem Tag gilt diese Fassung.
+ *
+ * B2 (ANMELDUNG = "nine"): Vor dem Merge auf den Tag setzen, an dem diese
+ * Fassung deployt wird, frühestens der Tag, an dem das Supabase-Projekt
+ * gelöscht ist (deploy/nine/b2-supabase-loeschen.md, Schritt 4).
  */
 const UPDATED = "21. November 2026";
 
@@ -37,11 +41,11 @@ const UPDATED = "21. November 2026";
  * täglicher Serversicherung; die Zweitkopie im Object Storage (Rümlang, Kit
  * B3) ist noch nicht bestellt. Erst mit B3 wieder «zweites Rechenzentrum in
  * Rümlang» schreiben (hier, Abschnitt 9 und FAQ).
- * Die Kopie der Daten bei Supabase ist seit 21.11.2026 gelöscht (5.10,
- * Entscheid Silvan 20.11.2026). Supabases eigene Tagessicherungen (05:00)
- * zeigten am 21.11. acht Einträge inkl. dem heutigen; die letzte mit Daten
- * (21.11.) fällt darum spätestens am 29.11. weg. Danach den Satz dazu im
- * Supabase-Eintrag streichen.
+ * Supabase: Die Kopie der Daten ist seit 21.11.2026 gelöscht (5.10), die
+ * Anmeldung läuft seit Cutover B (23.11.2026) auf advisori01. Mit
+ * ANMELDUNG = "nine" fällt der Supabase-Eintrag weg; das stimmt erst, wenn
+ * das Supabase-Projekt gelöscht ist (deploy/nine/b2-supabase-loeschen.md).
+ * Der Eintrag SUPABASE bleibt nur als Rückweg des Schalters im Code.
  *
  * Cloudflare: nines AVV (Anhang 3, Abschnitt B) sieht Cloudflare nur bei
  * Buchung vor; der Hub verlangt die Nennung (standards/datenschutz.md).
