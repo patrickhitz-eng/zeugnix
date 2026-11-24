@@ -222,7 +222,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
     <form onSubmit={onSubmit} className="space-y-6">
       {/* Logo */}
       {!compact && (
-        <div className="card p-5">
+        <div id="stammdaten" className="card scroll-mt-6 p-5">
           <div className="text-[13px] font-medium tracking-tight">
             Firmenlogo
           </div>
@@ -281,7 +281,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
       )}
 
       {/* Stammdaten */}
-      <div className="card p-5">
+      <div id={compact ? "stammdaten" : undefined} className="card scroll-mt-6 p-5">
         <div className="mb-4 text-[13px] font-medium tracking-tight">
           Stammdaten
         </div>
@@ -356,7 +356,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
 
       {/* Unterzeichnende */}
       {!compact && (
-        <div className="card p-5">
+        <div id="unterzeichnende" className="card scroll-mt-6 p-5">
           <div className="mb-1 text-[13px] font-medium tracking-tight">
             Unterzeichnende Personen
           </div>
@@ -412,7 +412,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
 
       {/* Dokument-Stil (Theme) */}
       {!compact && (
-        <div className="card p-5">
+        <div id="vorlage" className="card scroll-mt-6 p-5">
           <div className="mb-1 text-[13px] font-medium tracking-tight">
             Stil der Zeugnisse
           </div>
