@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { deleteCompanyLogos } from "@/lib/uploads/delete-company-logos";
 import { deletionErrorStatus } from "@/lib/loeschen/rpc-error";
+import { confirmationMatches } from "@/lib/loeschen/confirm";
 import { logError } from "@/lib/log";
 
 export const runtime = "nodejs";
@@ -28,8 +29,8 @@ export async function POST(
   const body = (await req.json().catch(() => null)) as { confirmName?: unknown } | null;
   const { data: company } = await supabase.from("companies").select("name").eq("id", id).maybeSingle();
   if (!company) return NextResponse.json({ error: "Firma nicht gefunden" }, { status: 404 });
-  if (typeof body?.confirmName !== "string" || body.confirmName.trim() !== company.name.trim()) {
-    return NextResponse.json({ error: "Bitte den Firmennamen genau so eingeben, wie er angezeigt wird." }, { status: 400 });
+  if (!confirmationMatches(body?.confirmName, company.name)) {
+    return NextResponse.json({ error: `Der eingegebene Name stimmt nicht mit «${company.name}» überein.` }, { status: 400 });
   }
 
   const { data, error } = await supabase.rpc("zeugnio_delete_company", { p_company_id: id });

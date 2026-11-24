@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { getCompanyPermissions } from "@/lib/auth/ownership";
@@ -115,6 +116,15 @@ export default async function CompanyPage() {
                   loginIsFreeMail={loginIsFreeMail}
                 />
                 <CompanyForm company={c} />
+                {/* Löschen selbst bleibt auf «Daten», neben dem Export, der vorher
+                    kommen soll. Hier nur der Weg dorthin: Wer eine doppelt
+                    erfasste Firma loswerden will, sucht zuerst auf dieser Seite. */}
+                <p className="text-[12.5px] text-ink-600">
+                  Doppelt erfasst oder nicht mehr gebraucht?{" "}
+                  <Link href={`/app/daten#firma-${c.id}`} className="font-medium text-red-700 underline">
+                    Firma exportieren oder löschen
+                  </Link>
+                </p>
               </div>
               )}
             </div>
@@ -143,7 +153,7 @@ export default async function CompanyPage() {
             Weitere Firma anlegen
           </summary>
           <div className="mt-5">
-            <CompanyForm />
+            <CompanyForm existingNames={companies.map((c: any) => c.name)} />
           </div>
         </details>
       )}
