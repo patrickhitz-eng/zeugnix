@@ -1,162 +1,71 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
-import { getCompanyPermissions } from "@/lib/auth/ownership";
-import { CompanyForm } from "@/components/forms/company-form";
-import {
-  CompanyDomainControls,
-  type CompanyDomain,
-} from "@/components/forms/company-domain-controls";
-import { emailDomain, isFreeMailDomain } from "@/lib/company/domain";
+import { loadCompanyOverview } from "@/lib/company/overview";
+import { CompanyList } from "@/components/app/company-list";
+import { NewCompanyButton, NewCompanyForm } from "@/components/app/new-company";
 
-export const metadata = { title: "Firma" };
+export const metadata = { title: "Firmen" };
 
+/**
+ * Firmenübersicht. Früher standen hier alle Firmen mit dem ganzen Formular
+ * untereinander (bei fünf Marken rund 45 Karten). Jetzt: eine Liste, und jede
+ * Firma hat ihre eigene Seite (/app/company/[id]).
+ *
+ * - keine Firma: Formular für die erste Firma (oder Hinweis für Mitglieder)
+ * - genau eine Firma: direkt deren Seite, eine Liste mit einer Zeile hilft niemandem
+ * - mehrere: Liste, alphabetisch, bei mehreren Organisationen gruppiert
+ */
 export default async function CompanyPage() {
   const supabase = await createClient();
-
-  // Ein-Klick-Vorschlag für die Domain-Bestätigung: die Domain der (per
-  // Magic-Link bestätigten) Anmelde-Adresse, ausser es ist eine Freemail-Domain.
   const user = await getSessionUser();
-  const loginDomain = emailDomain(user?.email);
-  const loginIsFreeMail = isFreeMailDomain(loginDomain);
-  const suggestedDomain = loginDomain && !loginIsFreeMail ? loginDomain : null;
+  if (!user) return null;
 
-  const { data: companies } = await supabase
-    .from("companies")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const overview = await loadCompanyOverview(supabase, user.id);
+  const all = overview.groups.flatMap((g) => g.companies);
 
-  const hasCompanies = companies && companies.length > 0;
+  if (all.length === 1) redirect(`/app/company/${all[0]!.id}`);
 
-  // Rollen (Migration 033): Firmendaten pflegt nur ein Admin der Organisation.
-  // Wer nur eingeladenes Mitglied ist, sieht die Firmen, ändert sie aber nicht
-  // und legt keine neuen an. Wer noch zu keiner Organisation gehört, legt mit
-  // der ersten Firma seine eigene an.
-  const { data: myOrgs } = await supabase
-    .from("organization_members")
-    .select("organization_id, role")
-    .eq("user_id", user?.id ?? "")
-    .is("deactivated_at", null);
-  const adminOrgIds = new Set(
-    (myOrgs ?? []).filter((m: any) => m.role === "admin").map((m: any) => m.organization_id),
-  );
-  const canCreate = (myOrgs ?? []).length === 0 || adminOrgIds.size > 0;
-
-  // Feinrecht «Firmendaten und Vorlage» (Migration 035): auch ohne Admin-Rolle.
-  const companyEditable = new Set<string>();
-  for (const c of companies ?? []) {
-    if (adminOrgIds.has(c.organization_id)) continue;
-    if ((await getCompanyPermissions(supabase, c.id)).has("company")) companyEditable.add(c.id);
-  }
-
-  // Domains aller sichtbaren Firmen laden (RLS: nur eigene) und je Firma gruppieren.
-  const companyIds = (companies ?? []).map((c: any) => c.id);
-  const domainsByCompany = new Map<string, CompanyDomain[]>();
-  if (companyIds.length > 0) {
-    const { data: allDomains } = await supabase
-      .from("company_domains")
-      .select("company_id, domain, method, status, verified_at")
-      .in("company_id", companyIds)
-      .order("domain", { ascending: true });
-    for (const d of allDomains ?? []) {
-      const list = domainsByCompany.get(d.company_id) ?? [];
-      list.push({
-        domain: d.domain,
-        method: d.method,
-        status: d.status,
-        verified_at: d.verified_at,
-      });
-      domainsByCompany.set(d.company_id, list);
-    }
+  if (all.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="headline-display text-[28px] leading-tight">Firma</h1>
+          <p className="mt-2 max-w-2xl text-[14px] text-ink-600">
+            Stammdaten, Logo und unterzeichnende Personen erscheinen im Briefkopf und
+            Unterschriftsblock der Arbeitszeugnisse.
+          </p>
+        </div>
+        {overview.canCreate ? (
+          <div className="card max-w-xl p-6">
+            <h2 className="mb-1 text-[16px] font-medium tracking-tight">Erste Firma anlegen</h2>
+            <p className="mb-5 text-[12.5px] text-ink-500">
+              Name und Adresse genügen. Logo, Unterzeichnende und Vorlage ergänzen Sie danach.
+            </p>
+            <NewCompanyForm existingNames={[]} />
+          </div>
+        ) : (
+          <p className="text-[13.5px] text-ink-600">
+            Ihnen ist noch keine Firma freigegeben. Das macht der Admin Ihrer Organisation unter «Team».
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="headline-display text-[28px] leading-tight">Firma</h1>
-        <p className="mt-2 text-[14px] text-ink-600">
-          Stammdaten, Logo und unterzeichnende Personen. Diese werden im
-          Briefkopf und Unterschriftsblock der Arbeitszeugnisse verwendet.
-        </p>
-      </div>
-
-      {hasCompanies && (
-        <div className="space-y-8">
-          {companies.map((c: any) => (
-            <div key={c.id}>
-              <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-[16px] font-medium tracking-tight">
-                  {c.name}
-                </h2>
-                {c.has_employer_badge && (
-                  <span className="rounded-full bg-navy-100 px-2.5 py-1 text-[10.5px] font-medium text-navy-800">
-                    Verified Certificate Employer
-                  </span>
-                )}
-              </div>
-              {!adminOrgIds.has(c.organization_id) ? (
-                companyEditable.has(c.id) ? (
-                  <div className="space-y-3">
-                    <p className="rounded-md border border-ink-200 bg-white px-4 py-3 text-[12.5px] text-ink-600">
-                      Sie pflegen Firmendaten, Logo und Vorlage dieser Firma. Die Domain bestätigt der Admin Ihrer Organisation.
-                    </p>
-                    <CompanyForm company={c} />
-                  </div>
-                ) : (
-                  <p className="rounded-md border border-ink-200 bg-white px-4 py-3 text-[12.5px] text-ink-600">
-                    Firmendaten, Logo und Unterzeichnende pflegt der Admin Ihrer Organisation.
-                  </p>
-                )
-              ) : (
-              <div className="space-y-6">
-                <CompanyDomainControls
-                  companyId={c.id}
-                  initialDomains={domainsByCompany.get(c.id) ?? []}
-                  suggestedDomain={suggestedDomain}
-                  loginIsFreeMail={loginIsFreeMail}
-                />
-                <CompanyForm company={c} />
-                {/* Löschen selbst bleibt auf «Daten», neben dem Export, der vorher
-                    kommen soll. Hier nur der Weg dorthin: Wer eine doppelt
-                    erfasste Firma loswerden will, sucht zuerst auf dieser Seite. */}
-                <p className="text-[12.5px] text-ink-600">
-                  Doppelt erfasst oder nicht mehr gebraucht?{" "}
-                  <Link href={`/app/daten#firma-${c.id}`} className="font-medium text-red-700 underline">
-                    Firma exportieren oder löschen
-                  </Link>
-                </p>
-              </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {!hasCompanies && !canCreate && (
-        <p className="text-[13.5px] text-ink-600">
-          Ihnen ist noch keine Firma freigegeben. Das macht der Admin Ihrer Organisation unter «Team».
-        </p>
-      )}
-
-      {!hasCompanies && canCreate && (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="mb-4 text-[16px] font-medium tracking-tight">
-            Erste Firma anlegen
-          </h2>
-          <CompanyForm />
+          <h1 className="headline-display text-[28px] leading-tight">Firmen</h1>
+          <p className="mt-2 max-w-2xl text-[14px] text-ink-600">
+            Jede Firma hat eigenes Logo, eigene Unterzeichnende und eine eigene Vorlage.
+            Klicken Sie auf eine Firma, um sie zu öffnen.
+          </p>
         </div>
-      )}
-
-      {hasCompanies && canCreate && (
-        <details className="rounded-md border border-ink-200 bg-white p-5">
-          <summary className="cursor-pointer text-[13px] font-medium">
-            Weitere Firma anlegen
-          </summary>
-          <div className="mt-5">
-            <CompanyForm existingNames={companies.map((c: any) => c.name)} />
-          </div>
-        </details>
-      )}
+        {overview.canCreate && <NewCompanyButton existingNames={all.map((c) => c.name)} />}
+      </div>
+      <CompanyList groups={overview.groups} total={overview.total} />
     </div>
   );
 }
