@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { confirmationMatches } from "@/lib/loeschen/confirm";
 
 export interface DataCompany {
   id: string;
@@ -39,6 +40,13 @@ async function post(url: string, body: unknown): Promise<{ ok: boolean; error?: 
   return { ok: true, registered: result.registered };
 }
 
+/** «2 Mitarbeitende, 3 Zeugnisse»: damit beim Löschen eines Doppels klar ist, welcher Eintrag Daten hat. */
+function countLabel(company: DataCompany): string {
+  const people = company.employees.length;
+  const certificates = company.employees.reduce((sum, e) => sum + e.certificates, 0);
+  return `${people} ${people === 1 ? "Person" : "Personen"}, ${certificates} ${certificates === 1 ? "Zeugnis" : "Zeugnisse"}`;
+}
+
 /**
  * Bestätigung durch Abtippen: Ein Löschknopf, der nach einem Klick zuschlägt,
  * ist bei «ganze Firma» zu leicht getroffen. Der Server prüft dieselbe Eingabe.
@@ -67,7 +75,8 @@ function ConfirmDelete({
     );
   }
 
-  const matches = typed.trim().toLowerCase() === expected.trim().toLowerCase();
+  // Dieselbe Regel wie auf dem Server (lib/loeschen/confirm.ts).
+  const matches = confirmationMatches(typed, expected);
   return (
     <div className="mt-2 rounded-md border border-red-200 bg-red-50/60 p-4">
       <p className="text-[13px] text-red-800">{hint}</p>
@@ -136,7 +145,7 @@ export function DataManager({ companies, organizations, userEmail }: Props) {
       )}
 
       {companies.map((company) => (
-        <section key={company.id} className="card p-5">
+        <section key={company.id} id={`firma-${company.id}`} className="card scroll-mt-6 p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-[16px] font-medium tracking-tight">{company.name}</h2>
             {company.canSeal && (
@@ -189,7 +198,9 @@ export function DataManager({ companies, organizations, userEmail }: Props) {
               <ConfirmDelete
                 label="Firma löschen"
                 expected={company.name}
-                hint="Löscht die Firma mit allen Mitarbeitenden, Zeugnissen, Entwürfen, Zugängen und dem Logo. Laden Sie vorher den Export herunter. Ausgestellte Zeugnisse bleiben ohne Namen und Text prüfbar."
+                hint={`Löscht die Firma mit allen Mitarbeitenden, Zeugnissen, Entwürfen, Zugängen und dem Logo.${
+                  company.canSeal ? ` Betroffen: ${countLabel(company)}.` : ""
+                } Laden Sie vorher den Export herunter. Ausgestellte Zeugnisse bleiben ohne Namen und Text prüfbar.`}
                 onConfirm={async (typed) => {
                   const result = await post(`/api/companies/${company.id}/delete`, { confirmName: typed });
                   if (!result.ok) return result.error ?? "Löschen fehlgeschlagen.";
