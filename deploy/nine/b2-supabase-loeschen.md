@@ -121,13 +121,13 @@ alle E-Mail-Adressen. So sieht niemand eine Adresse, und trotzdem fällt jede Ab
 | Storage | 3 Buckets (`certificates`, `uploads`, `reports`), 0 Dateien |
 | Edge Functions | keine |
 | MD5 der Konto-IDs | `d11b0ec203713d947f487fd57d7234e1` |
-| MD5 der E-Mail-Adressen (klein geschrieben) | `ddb6c82490d6f939185c1dd306186aac` |
+| MD5 der E-Mail-Adressen (klein geschrieben, Sortierung `C`) | `5a2e9ec9612bd224f4f86c839417492c` |
 
 **nine-Seite** (im Server-Fenster aus 1). Gezählt werden nur Konten, die schon vor Cutover B
 (23.11., 12:45) existierten; wer sich seither zum ersten Mal angemeldet hat, steht nicht bei Supabase:
 
 ```bash
-psql -w -X -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -c "select count(*) as konten, md5(string_agg(id::text, ',' order by id)) as md5_ids, md5(string_agg(lower(email), ',' order by lower(email))) as md5_emails from auth.users where created_at < '2026-11-23 11:45+00'"
+psql -w -X -h 127.0.0.1 -U nmd_zeugnio -d nmd_zeugnio -c "select count(*) as konten, md5(string_agg(id::text, ',' order by id)) as md5_ids, md5(string_agg(lower(email), ',' order by lower(email) collate "C"))) as md5_emails from auth.users where created_at < '2026-11-23 11:45+00'"
 ```
 
 | Ergebnis | Bedeutung |
