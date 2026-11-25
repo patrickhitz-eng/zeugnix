@@ -16,6 +16,7 @@ import {
   readHashFromFragment,
   sha256,
 } from "../lib/hash/canonicalize";
+import { isIssuerConfirmed, isSignoffOnVerifiedDomain } from "../lib/verify/issuer";
 
 let passed = 0;
 let failed = 0;
@@ -72,6 +73,41 @@ async function main() {
     "Query-Wert wird gleich normalisiert",
     normalizeVerifyHash(legacy.searchParams.get("hash")) === hash,
   );
+
+  // Sicherheitstest 24.11.2026, H3: Wer gilt als bestätigt?
+  console.log("\nAussteller-Bestätigung (lib/verify/issuer.ts)");
+  check("ohne Domain nicht bestätigt", !isIssuerConfirmed({ verifiedDomain: null }));
+  check("mit verifizierter Domain bestätigt", isIssuerConfirmed({ verifiedDomain: "firma.ch" }));
+  check("ohne Angaben nicht bestätigt", !isIssuerConfirmed(null));
+  check(
+    "Freigabe an der Domain zählt",
+    isSignoffOnVerifiedDomain("ceo@firma.ch", "firma.ch"),
+  );
+  check(
+    "Freigabe an Subdomain zählt",
+    isSignoffOnVerifiedDomain("ceo@hr.firma.ch", "firma.ch"),
+  );
+  check(
+    "Gross-/Kleinschreibung egal",
+    isSignoffOnVerifiedDomain("CEO@Firma.CH", "firma.ch"),
+  );
+  check(
+    "Freigabe an Gmail zählt nicht",
+    !isSignoffOnVerifiedDomain("ceo@gmail.com", "firma.ch"),
+  );
+  check(
+    "ähnliche Domain zählt nicht (firma.ch.evil.com)",
+    !isSignoffOnVerifiedDomain("ceo@firma.ch.evil.com", "firma.ch"),
+  );
+  check(
+    "ähnliche Domain zählt nicht (evilfirma.ch)",
+    !isSignoffOnVerifiedDomain("ceo@evilfirma.ch", "firma.ch"),
+  );
+  check(
+    "ohne verifizierte Domain zählt keine Freigabe",
+    !isSignoffOnVerifiedDomain("ceo@firma.ch", null),
+  );
+  check("ohne Adresse zählt nichts", !isSignoffOnVerifiedDomain(null, "firma.ch"));
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen`);
   if (failed > 0) process.exit(1);

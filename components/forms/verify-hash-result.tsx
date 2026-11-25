@@ -7,6 +7,12 @@ import type {
   HashLookupOutcome,
 } from "@/lib/hash/canonicalize";
 import { RegisterNote } from "@/components/forms/register-note";
+import {
+  IssuerNotConfirmedNotice,
+  SealedTextBlock,
+  SignatoryConfirmation,
+} from "@/components/forms/verify-shared";
+import { isIssuerConfirmed } from "@/lib/verify/issuer";
 
 export type HashLookupState =
   | { kind: "loading" }
@@ -163,12 +169,11 @@ function RegisteredFields({
               {c.signatory1Name}
               {c.signatory1Role ? `, ${c.signatory1Role}` : ""}
             </dd>
-            {c.signatory1ConfirmedAt && (
-              <dd className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${pill}`}>
-                <CheckIcon />
-                Per E-Mail freigegeben · {c.signatory1ConfirmedAt}
-              </dd>
-            )}
+            <SignatoryConfirmation
+                confirmedAt={c.signatory1ConfirmedAt}
+                unverifiedAt={c.signatory1ConfirmedUnverifiedAt}
+                pillClass={pill}
+              />
           </Field>
         )}
         {c.signatory2Name && (
@@ -177,12 +182,11 @@ function RegisteredFields({
               {c.signatory2Name}
               {c.signatory2Role ? `, ${c.signatory2Role}` : ""}
             </dd>
-            {c.signatory2ConfirmedAt && (
-              <dd className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${pill}`}>
-                <CheckIcon />
-                Per E-Mail freigegeben · {c.signatory2ConfirmedAt}
-              </dd>
-            )}
+            <SignatoryConfirmation
+                confirmedAt={c.signatory2ConfirmedAt}
+                unverifiedAt={c.signatory2ConfirmedUnverifiedAt}
+                pillClass={pill}
+              />
           </Field>
         )}
       </dl>
@@ -326,11 +330,9 @@ export function VerifyHashResult({
   }
 
   // verified
-  // Als bestätigt gilt der Aussteller nur mit verifizierter Firmen-Domain (V1)
-  // oder per E-Mail freigegebener Unterschrift (V2), wie beim PDF-Abgleich.
-  const issuerConfirmed = Boolean(
-    c.verifiedDomain || c.signatory1ConfirmedAt || c.signatory2ConfirmedAt,
-  );
+  // Bestätigt ist der Aussteller nur mit verifizierter Firmen-Domain, wie beim
+  // PDF-Abgleich (lib/verify/issuer.ts, Sicherheitstest 24.11.2026, H3).
+  const issuerConfirmed = isIssuerConfirmed(c);
   return (
     <div className="card overflow-hidden">
       <ResultHeader
@@ -342,22 +344,13 @@ export function VerifyHashResult({
       <div className="space-y-4 p-6">
         <p className="text-[14px] leading-relaxed text-ink-700">
           Zu diesem QR-Code ist auf zeugnio.ch ein gültiges Arbeitszeugnis
-          registriert. Vergleichen Sie die Angaben mit dem Dokument, das vor
-          Ihnen liegt.
+          registriert. Vergleichen Sie die Angaben und den versiegelten Text
+          mit dem Dokument, das vor Ihnen liegt.
         </p>
         {c.signatureState === "invalid" && <InvalidSignatureWarning />}
-        {!issuerConfirmed && (
-          <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
-            <strong>Aussteller nicht bestätigt.</strong> Die ausstellende Firma
-            hat weder ihre E-Mail-Domain bei zeugnio verifiziert, noch haben die
-            Unterzeichnenden das Zeugnis per E-Mail freigegeben. Bestätigt ist
-            nur, dass dieses Zeugnis so registriert wurde, nicht, dass es vom
-            genannten Arbeitgeber stammt. Klären Sie das im Zweifel direkt beim
-            Arbeitgeber.
-          </div>
-        )}
+        {!issuerConfirmed && <IssuerNotConfirmedNotice />}
         <RegisteredFields c={c} tone="petrol" />
-        <QrLimitNotice />
+        {c.sealedText ? <SealedTextBlock text={c.sealedText} source="qr" /> : <QrLimitNotice />}
         <HashBox hash={outcome.hash} />
       </div>
     </div>

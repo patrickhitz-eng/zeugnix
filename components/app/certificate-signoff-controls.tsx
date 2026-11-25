@@ -110,9 +110,10 @@ export function CertificateSignoffControls({
       </div>
       <p className="mb-4 text-[12px] text-ink-500">
         Lassen Sie die unterzeichnenden Personen das Zeugnis per E-Mail
-        bestätigen. Die Bestätigung wird identitätsgebunden festgehalten und
-        erscheint als zusätzliches Echtheitssignal auf dem Zeugnis und in der
-        öffentlichen Prüfung. Das Finalisieren ist auch ohne Freigabe möglich.
+        bestätigen. Die Bestätigung wird festgehalten und erscheint auf dem
+        Zeugnis und in der öffentlichen Prüfung. Als Beleg für die Person gilt
+        sie dort nur, wenn die Adresse an der verifizierten Domain Ihrer Firma
+        liegt. Das Finalisieren ist auch ohne Freigabe möglich.
       </p>
 
       {error && (
