@@ -37,7 +37,7 @@ function check(name: string, condition: boolean, details?: string) {
   }
 }
 
-/** Minimaler Nachbau des Supabase-Clients: liefert pro Tabelle eine feste Zeile. */
+/** Minimaler Nachbau des Datenclients: liefert pro Tabelle eine feste Zeile. */
 function fakeClient(rows: Record<string, any[]>) {
   return {
     from(table: string) {

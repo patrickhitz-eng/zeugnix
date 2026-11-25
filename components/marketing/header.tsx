@@ -28,8 +28,8 @@ export function Header() {
   // /app/dashboard z.B. auf /verify wechseln, hatten keinen Weg zurück in die
   // App. Bewusst nur clientseitig geprüft (keine Middleware-Änderung nötig)
   // und defensiv wie überall sonst auf öffentlichen Seiten: darf nie crashen.
-  // Seit Cutover B über /api/auth/status statt direkt bei Supabase: das
-  // Sitzungs-Cookie ist HttpOnly, und der Browser spricht nicht mehr mit Supabase.
+  // Über /api/auth/status: das Sitzungs-Cookie ist HttpOnly, der Browser kann
+  // es nicht selbst lesen und spricht nur mit zeugnio (Cutover B).
   useEffect(() => {
     let active = true;
     fetch("/api/auth/status", { cache: "no-store" })

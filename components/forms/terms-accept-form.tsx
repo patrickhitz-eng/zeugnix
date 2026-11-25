@@ -8,7 +8,8 @@ import Link from "next/link";
  *
  * Nach dem Speichern ein harter Reload (window.location.assign) statt
  * router.push: Das App-Layout prüft die Zustimmung serverseitig und soll die
- * neue Zeile sicher sehen – gleiches Prinzip wie lib/auth/finish-login.ts.
+ * neue Zeile sicher sehen – gleiches Prinzip wie nach der Code-Eingabe im
+ * Login-Formular (components/forms/login-form.tsx).
  */
 export function TermsAcceptForm({
   version,

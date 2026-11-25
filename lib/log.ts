@@ -17,7 +17,7 @@
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]{2,}/g;
 /** IPv4: letztes Oktett weg, der Rest genügt zur Missbrauchserkennung. */
 const IPV4 = /\b(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}\b/g;
-/** JWTs (Supabase-Tokens tauchen in Fehlertexten auf). */
+/** JWTs (Zugangstoken, etwa für die Daten-API, können in Fehlertexten auftauchen). */
 const JWT = /\beyJ[\w-]{8,}\.[\w-]{8,}\.[\w-]+/g;
 /** Sonst schiebt ein einzelner Fehler den halben Zeugnistext ins Log. */
 const MAX_LENGTH = 600;

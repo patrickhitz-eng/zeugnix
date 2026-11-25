@@ -10,9 +10,9 @@
  * Folge: der Browser blockiert das gesamte JavaScript dieser Seite.
  *
  * Das fällt nicht auf. Die Seite lädt, sieht richtig aus und reagiert auf
- * nichts. Bei /auth/callback hiess das: der Magic-Link wurde nie gegen eine
- * Sitzung getauscht, und die Anmeldung schlug mit einer Meldung fehl, die auf
- * Supabase zeigte.
+ * nichts. Bei der früheren Seite /auth/callback hiess das: der Magic-Link
+ * wurde nie gegen eine Sitzung getauscht, und die Anmeldung schlug mit einer
+ * Meldung fehl, die auf den Anmeldedienst zeigte (PR #27).
  *
  * Der Hinweis stand bisher als Kommentar in middleware.ts. Ein Kommentar hält
  * niemanden auf; dieses Skript tut es.
@@ -76,7 +76,7 @@ if (betroffen.length > 0) {
       `          ergänzen. Ist es eine Client Component ("use client"), gehört ` +
       `die Zeile\n          in eine page.tsx daneben, die den Browser-Teil nur ` +
       `einbindet – Route-\n          Segment-Konfiguration wirkt in Client ` +
-      `Components nicht. Beispiel:\n          app/auth/callback/page.tsx.\n\n` +
+      `Components nicht.\n\n` +
       `          Alternativ den Pfad aus NONCE_PREFIXES in ${MIDDLEWARE} ` +
       `nehmen. Dann gilt\n          dort die schwächere Policy mit ` +
       `'unsafe-inline' – für eine Seite, die\n          Anmeldedaten ` +

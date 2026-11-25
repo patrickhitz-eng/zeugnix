@@ -2,18 +2,15 @@ import { LoginForm } from "@/components/forms/login-form";
 import { Logo } from "@/components/ui/logo";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { authMode } from "@/lib/auth/config";
 import { getSessionUser } from "@/lib/auth/session";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 
 export const metadata = {
   title: "Anmelden",
-  description: "Anmelden bei zeugnio.ch via Magic Link",
+  description: "Anmelden bei zeugnio.ch mit Link oder Code per E-Mail",
 };
 
 const ERROR_MESSAGES: Record<string, string> = {
-  setup_incomplete:
-    "Die Anmeldung ist noch nicht eingerichtet. Bitte versuchen Sie es später erneut.",
   link_ungueltig:
     "Dieser Anmeldelink ist abgelaufen oder wurde bereits benutzt. Bitte fordern Sie unten einen neuen Code an.",
   service_unavailable:
@@ -29,15 +26,15 @@ export default async function LoginPage({
   const safeNext = sanitizeNext(next);
 
   // Bereits eingeloggte Nutzer nicht nochmal das Formular sehen lassen.
-  // Defensiv: Login-Seite darf nie crashen, auch wenn Supabase nicht
-  // erreichbar/konfiguriert ist (gleiches Prinzip wie middleware.ts).
+  // Defensiv: Login-Seite darf nie crashen, auch wenn die Datenbank nicht
+  // erreichbar ist (gleiches Prinzip wie middleware.ts).
   // WICHTIG: redirect() wirft intern (NEXT_REDIRECT) und darf deshalb nicht
   // im try-Block stehen, sonst würde der catch-Block den Redirect schlucken.
   let alreadyLoggedIn = false;
   try {
     alreadyLoggedIn = !!(await getSessionUser());
   } catch {
-    // Supabase nicht erreichbar -> einfach das Login-Formular zeigen.
+    // Sitzung nicht prüfbar -> einfach das Login-Formular zeigen.
   }
   if (alreadyLoggedIn) redirect(safeNext);
 
@@ -74,7 +71,7 @@ export default async function LoginPage({
         )}
 
         <div className="mt-10">
-          <LoginForm next={next} mode={authMode()} />
+          <LoginForm next={next} />
         </div>
 
         <p className="mt-8 text-center text-[12px] text-ink-500">

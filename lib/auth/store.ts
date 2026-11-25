@@ -1,7 +1,7 @@
 import { serviceDataApi } from "@/lib/db/rest-rewrite";
 
 /**
- * zeugnio – Zugriff auf die Anmelde-Tabellen (nur eigene Anmeldung)
+ * zeugnio – Zugriff auf die Anmelde-Tabellen
  * ----------------------------------------------------------------------------
  * Ruft die Funktionen aus supabase/906_auth_eigen.sql über PostgREST auf, als
  * service_role und über 127.0.0.1. Die Tabellen selbst (auth.login_requests,
@@ -11,9 +11,9 @@ import { serviceDataApi } from "@/lib/db/rest-rewrite";
  * Hier gehen ausschliesslich HMAC-Werte hinaus, nie ein Token oder Code im
  * Klartext (lib/auth/tokens.ts).
  *
- * Bewusst ohne supabase-js: Die Middleware schlägt bei jeder Anfrage auf eine
- * App-Seite die Sitzung nach, und ein einfacher fetch ist dort der kürzeste
- * Weg. Nach dem Aufräumen (Plan § 8, B2) bleibt diese Datei unverändert.
+ * Bewusst ohne den Datenclient (lib/db/supabase-server.ts): Die Middleware
+ * schlägt bei jeder Anfrage auf eine App-Seite die Sitzung nach, und ein
+ * einfacher fetch ist dort der kürzeste Weg.
  */
 
 export interface StoredUser {
@@ -24,10 +24,9 @@ export interface StoredUser {
 const RPC_TIMEOUT_MS = 3000;
 
 async function rpc<T>(name: string, args: Record<string, unknown>): Promise<T> {
+  // Wirft, wenn DATA_API_URL oder DATA_API_JWT_SECRET fehlt: die Anmelde-Tabellen
+  // liegen nur auf advisori01.
   const api = serviceDataApi();
-  if (!api) {
-    throw new Error("Eigene Anmeldung ohne DATA_API_URL: die Anmelde-Tabellen liegen nur auf advisori01.");
-  }
   const res = await fetch(`${api.base}/rpc/${name}`, {
     method: "POST",
     headers: {

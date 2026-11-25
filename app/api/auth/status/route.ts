@@ -1,8 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { authMode } from "@/lib/auth/config";
-import { hasSupabaseSessionCookie } from "@/lib/auth/request-memo";
 import { getSessionUser } from "@/lib/auth/session";
 
 /**
@@ -14,15 +11,8 @@ import { getSessionUser } from "@/lib/auth/session";
  *
  * Die Antwort ist nur ein Hinweis für die Anzeige, keine Zugangsprüfung. Wer
  * auf «Zur App» klickt, kommt durch die Middleware, und die prüft richtig.
- * Darum unterscheiden sich die beiden Schalterstellungen:
- *
- *   supabase   Nur nachsehen, ob ein Supabase-Sitzungscookie da ist. KEIN
- *              getUser(): Der Header lädt auf jeder Marketing-Seite, und jeder
- *              Aufruf ginge sonst vom Server nach Frankfurt (Review PR #91).
- *              Eine abgelaufene Sitzung zeigt so kurz «Zur App», der Klick
- *              führt dann zur Anmeldung.
- *   eigen      Richtig nachschlagen. Das ist ein Aufruf über 127.0.0.1 und
- *              kostet fast nichts.
+ * Nachgeschlagen wird hier trotzdem richtig, in auth.sessions: Das ist ein
+ * Aufruf über 127.0.0.1 und kostet fast nichts.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +20,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   let angemeldet = false;
   try {
-    angemeldet =
-      authMode() === "eigen"
-        ? !!(await getSessionUser())
-        : hasSupabaseSessionCookie((await cookies()).getAll());
+    angemeldet = !!(await getSessionUser());
   } catch {
     // nicht feststellbar: als abgemeldet behandeln
   }

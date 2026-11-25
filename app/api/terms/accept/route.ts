@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { TERMS_VERSION } from "@/lib/legal/terms";
 import { logError } from "@/lib/log";
 
-// Service-Client (require @supabase/supabase-js) -> Node-Runtime.
+// Service-Client (node:crypto für die Zugangstoken) -> Node-Runtime.
 export const runtime = "nodejs";
 
 /**
