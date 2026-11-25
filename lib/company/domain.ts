@@ -5,6 +5,10 @@
  * Trust-Anker: Der Login läuft über Magic-Link/OTP, die E-Mail des eingeloggten
  * Users ist also bereits verifiziert. Passt ihre Domain auf die von der Firma
  * deklarierte (Nicht-Freemail-)Domain, gilt die Domain als „per E-Mail bestätigt".
+ *
+ * Seit 25.11.2026 (Migration 039) ist das nur noch eine Vorstufe
+ * (status 'email_confirmed'). «Aussteller bestätigt» braucht den DNS-Eintrag
+ * weiter unten (status 'verified', method 'dns').
  */
 
 /**
@@ -43,6 +47,18 @@ export const FREE_MAIL_DOMAINS: ReadonlySet<string> = new Set([
   "gmx.ch",
   "web.de",
   "t-online.de",
+  "outlook.de",
+  "outlook.fr",
+  "hotmail.fr",
+  "hotmail.it",
+  "yahoo.fr",
+  "yahoo.it",
+  "protonmail.ch",
+  "posteo.de",
+  "mailbox.org",
+  "tutanota.com",
+  "tuta.io",
+  "freenet.de",
   // Schweiz
   "bluewin.ch",
   "sunrise.ch",
@@ -131,4 +147,51 @@ export function domainsMatch(
   if (!declared || !candidate) return false;
   if (declared === candidate) return true;
   return candidate.endsWith("." + declared);
+}
+
+// ============================================================================
+// DNS-Bestätigung (Sicherheitstest 24.11.2026, Befund M2)
+// ============================================================================
+//
+// «Aussteller bestätigt» gibt es nur, wenn die Firma einen TXT-Eintrag in ihrer
+// Domain setzt. Das kann nur, wer die DNS-Zone verwaltet (IT, Treuhand,
+// Webagentur), nicht eine beliebige Mitarbeiterin mit Mailadresse.
+//
+// Eintrag:  Name  _zeugnio.<domain>   Typ TXT   Wert  zeugnio-verification=<token>
+//
+// Der Name mit Unterstrich-Präfix stört bestehende Einträge der Domain nicht
+// (gleiches Muster wie _dmarc oder _acme-challenge).
+
+/** Präfix des TXT-Namens vor der Domain. */
+export const DNS_RECORD_PREFIX = "_zeugnio";
+
+/** Vollständiger Name des TXT-Eintrags, z. B. `_zeugnio.firma.ch`. */
+export function dnsRecordName(domain: string): string {
+  return `${DNS_RECORD_PREFIX}.${domain}`;
+}
+
+/** Wert des TXT-Eintrags zum Token der Firma. */
+export function dnsRecordValue(token: string): string {
+  return `zeugnio-verification=${token}`;
+}
+
+/** Ein Token besteht aus 32 Hex-Zeichen (16 Zufallsbytes). */
+export function isValidDnsToken(token: string | null | undefined): token is string {
+  return typeof token === "string" && /^[0-9a-f]{32}$/.test(token);
+}
+
+/**
+ * Enthält die Antwort eines TXT-Lookups den erwarteten Wert? Ein TXT-Eintrag
+ * kommt aus `dns.resolveTxt` als Liste von Teilstücken (lange Werte werden in
+ * 255-Zeichen-Stücke geteilt); sie werden darum zuerst zusammengesetzt.
+ * Anführungszeichen und Leerraum am Rand, wie sie manche DNS-Oberflächen
+ * mitspeichern, werden toleriert.
+ */
+export function txtRecordsContain(records: string[][], token: string): boolean {
+  if (!isValidDnsToken(token)) return false;
+  const expected = dnsRecordValue(token);
+  return records.some((chunks) => {
+    const value = chunks.join("").trim().replace(/^"+|"+$/g, "").trim();
+    return value === expected;
+  });
 }

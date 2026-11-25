@@ -14,6 +14,10 @@ import {
   emailDomain,
   isFreeMailDomain,
   domainsMatch,
+  dnsRecordName,
+  dnsRecordValue,
+  isValidDnsToken,
+  txtRecordsContain,
 } from "../lib/company/domain";
 
 let passed = 0;
@@ -82,6 +86,25 @@ assert("Suffix-Trick NICHT (bösefirma.ch)", !domainsMatch("firma.ch", "bösefir
 assert("Teilstring NICHT (firma.ch.evil.com)", !domainsMatch("firma.ch", "firma.ch.evil.com"));
 assert("null links", !domainsMatch(null, "firma.ch"));
 assert("null rechts", !domainsMatch("firma.ch", null));
+
+// Sicherheitstest 24.11.2026, Befund M2: DNS-Bestätigung
+console.log("\nDNS-Eintrag");
+const tok = "0123456789abcdef0123456789abcdef";
+assert("Name mit Präfix", dnsRecordName("firma.ch") === "_zeugnio.firma.ch");
+assert("Wert mit Token", dnsRecordValue(tok) === "zeugnio-verification=" + tok);
+assert("gültiges Token", isValidDnsToken(tok));
+assert("Token zu kurz", !isValidDnsToken("abc"));
+assert("Token mit Grossbuchstaben", !isValidDnsToken(tok.toUpperCase()));
+assert("Token null", !isValidDnsToken(null));
+assert("Eintrag gefunden", txtRecordsContain([["v=spf1 -all"], [dnsRecordValue(tok)]], tok));
+assert("Eintrag in Stücken", txtRecordsContain([["zeugnio-verifi", "cation=" + tok]], tok));
+assert("Anführungszeichen toleriert", txtRecordsContain([['"' + dnsRecordValue(tok) + '"']], tok));
+assert("Leerraum toleriert", txtRecordsContain([["  " + dnsRecordValue(tok) + " "]], tok));
+assert("anderes Token NICHT", !txtRecordsContain([[dnsRecordValue("f".repeat(32))]], tok));
+assert("nur Präfix NICHT", !txtRecordsContain([["zeugnio-verification="]], tok));
+assert("Wert mit Zusatz NICHT", !txtRecordsContain([[dnsRecordValue(tok) + "x"]], tok));
+assert("leere Antwort NICHT", !txtRecordsContain([], tok));
+assert("ungültiges Token NICHT", !txtRecordsContain([["zeugnio-verification=abc"]], "abc"));
 
 console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen`);
 if (failed > 0) process.exit(1);

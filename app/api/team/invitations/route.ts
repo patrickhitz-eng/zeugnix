@@ -90,13 +90,15 @@ export async function POST(req: NextRequest) {
   }
 
   // Einstellung «nur Firmendomain»: die Adresse muss zu einer bestätigten Domain
-  // einer Firma der Organisation gehören.
+  // einer Firma der Organisation gehören. Dafür genügt auch die Vorstufe
+  // 'email_confirmed' (Migration 039): Es geht hier um die Auswahl der
+  // Eingeladenen, nicht um den öffentlichen Nachweis des Ausstellers.
   if (org.invite_domain_only) {
     const domain = emailDomain(input.email);
     const { data: orgCompanies } = await supabase.from("companies").select("id").eq("organization_id", org.id);
     const ids = (orgCompanies ?? []).map((c: { id: string }) => c.id);
     const { data: verified } = ids.length
-      ? await supabase.from("company_domains").select("domain").in("company_id", ids).eq("status", "verified")
+      ? await supabase.from("company_domains").select("domain").in("company_id", ids).in("status", ["verified", "email_confirmed"])
       : { data: [] as { domain: string }[] };
     const allowed = new Set((verified ?? []).map((d: { domain: string }) => d.domain.toLowerCase()));
     if (!domain || !allowed.has(domain)) {

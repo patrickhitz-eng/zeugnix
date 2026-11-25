@@ -8,6 +8,7 @@ import type {
 } from "@/lib/hash/canonicalize";
 import { RegisterNote } from "@/components/forms/register-note";
 import {
+  DomainNotVerifiedNote,
   IssuerNotConfirmedNotice,
   SealedTextBlock,
   SignatoryConfirmation,
@@ -147,9 +148,7 @@ function RegisteredFields({
                 Domain verifiziert · {c.verifiedDomain}
               </dd>
             ) : (
-              <dd className="mt-1 text-[11px] text-ink-400">
-                Aussteller-Domain nicht verifiziert
-              </dd>
+              <DomainNotVerifiedNote emailConfirmedDomain={c.emailConfirmedDomain} />
             )}
           </Field>
         )}

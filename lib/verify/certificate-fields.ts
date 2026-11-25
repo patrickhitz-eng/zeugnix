@@ -160,19 +160,23 @@ export async function buildCertificateFields(
   const presentation = resolveCertificatePresentation(match, company ?? {});
   const signatories = presentation.signatories;
 
-  // V1-Trust-Signal: verifizierte Domain der ausstellenden Firma. Liegt
-  // AUSSERHALB des Hashes und belegt den Aussteller.
+  // V1-Trust-Signal: per DNS bestätigte Domain der ausstellenden Firma. Liegt
+  // AUSSERHALB des Hashes und belegt den Aussteller. Seit Migration 039 heisst
+  // 'verified' immer DNS. Die Vorstufe 'email_confirmed' (eine Mailadresse an
+  // der Domain) geht nur als grauer Hinweis hinaus (Sicherheitstest, M2).
   let verifiedDomain: string | null = null;
+  let emailConfirmedDomain: string | null = null;
   if (match.company_id) {
-    const { data: dom } = await supabase
+    const { data: doms } = await supabase
       .from("company_domains")
-      .select("domain")
+      .select("domain, status")
       .eq("company_id", match.company_id)
-      .eq("status", "verified")
-      .order("verified_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    verifiedDomain = dom?.domain ?? null;
+      .in("status", ["verified", "email_confirmed"])
+      .order("verified_at", { ascending: true });
+    verifiedDomain = doms?.find((d: any) => d.status === "verified")?.domain ?? null;
+    emailConfirmedDomain = verifiedDomain
+      ? null
+      : (doms?.find((d: any) => d.status === "email_confirmed")?.domain ?? null);
   }
 
   // V2: per Magic-Link bestätigte Unterzeichner-Freigaben. Nur das Datum pro
@@ -229,6 +233,7 @@ export async function buildCertificateFields(
     signatory2Name: signatories.signatory_2_name,
     signatory2Role: signatories.signatory_2_role,
     verifiedDomain,
+    emailConfirmedDomain,
     signatory1ConfirmedAt,
     signatory2ConfirmedAt,
     signatory1ConfirmedUnverifiedAt,

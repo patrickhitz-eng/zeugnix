@@ -6,6 +6,7 @@ import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { VerifyAnalysisResult } from "@/components/forms/verify-analysis-result";
 import { RegisterNote } from "@/components/forms/register-note";
 import {
+  DomainNotVerifiedNote,
   IssuerNotConfirmedNotice,
   SealedTextBlock,
   SignatoryConfirmation,
@@ -313,9 +314,7 @@ export function VerifyUploader({
                         Domain verifiziert · {state.certificate.verifiedDomain}
                       </dd>
                     ) : (
-                      <dd className="mt-1 text-[11px] text-ink-400">
-                        Aussteller-Domain nicht verifiziert
-                      </dd>
+                      <DomainNotVerifiedNote emailConfirmedDomain={state.certificate.emailConfirmedDomain} />
                     )}
                   </div>
                 )}

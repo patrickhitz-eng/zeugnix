@@ -60,7 +60,7 @@ export default async function CompanyDetailPage({
       supabase.from("employees").select("id", { count: "exact", head: true }).eq("company_id", id),
       supabase
         .from("company_domains")
-        .select("domain, method, status, verified_at")
+        .select("domain, method, status, verified_at, dns_token")
         .eq("company_id", id)
         .order("domain", { ascending: true }),
     ]);
@@ -70,6 +70,7 @@ export default async function CompanyDetailPage({
     method: d.method,
     status: d.status,
     verified_at: d.verified_at,
+    dns_token: d.dns_token ?? null,
   }));
   const domainVerified = domains.some((d) => d.status === "verified");
 

@@ -99,11 +99,30 @@ export function IssuerNotConfirmedNotice() {
   return (
     <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
       <strong>Aussteller nicht bestätigt.</strong> Die ausstellende Firma hat
-      ihre E-Mail-Domain bei zeugnio nicht verifiziert. Bestätigt ist nur, dass
+      ihre Domain nicht per DNS-Eintrag bei zeugnio bestätigt. Bestätigt ist nur, dass
       dieses Zeugnis so registriert wurde, nicht, dass es vom genannten
       Arbeitgeber stammt. Jede Person kann ein Konto anlegen und eine Firma unter
       beliebigem Namen erfassen. Klären Sie das im Zweifel direkt beim
       Arbeitgeber.
     </div>
+  );
+}
+
+/**
+ * Grauer Hinweis unter dem Arbeitgeber, solange keine Domain per DNS bestätigt
+ * ist. Hat die Firma wenigstens eine Mailadresse an ihrer Domain bestätigt
+ * (Vorstufe, Migration 039), steht das dabei, ausdrücklich nicht als Beleg.
+ */
+export function DomainNotVerifiedNote({
+  emailConfirmedDomain,
+}: {
+  emailConfirmedDomain: string | null | undefined;
+}) {
+  return (
+    <dd className="mt-1 text-[11px] text-ink-400">
+      {emailConfirmedDomain
+        ? `Mailadresse @${emailConfirmedDomain} bestätigt · Domain nicht per DNS bestätigt`
+        : "Aussteller-Domain nicht bestätigt"}
+    </dd>
   );
 }

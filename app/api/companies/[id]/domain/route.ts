@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
+import { randomBytes } from "node:crypto";
 import {
   normalizeDomain,
   emailDomain,
   isFreeMailDomain,
-  domainsMatch,
+  isValidDnsToken,
+  dnsRecordName,
+  dnsRecordValue,
 } from "@/lib/company/domain";
 
 // Service-Client (node:crypto für die Zugangstoken) -> Node-Runtime.
@@ -16,13 +19,18 @@ export const runtime = "nodejs";
  * POST /api/companies/[id]/domain
  * Body: { domain: string }
  *
- * Deklariert eine Aussteller-Domain für die Firma und versucht sofort die
- * E-Mail-Auto-Verifikation (V1): Endet die BEREITS per Magic-Link verifizierte
- * E-Mail des eingeloggten Users auf die deklarierte (Nicht-Freemail-)Domain,
- * wird die Domain als 'verified' gespeichert. Sonst 'pending' (DNS-TXT-Pfad
- * folgt in Phase 2).
+ * Erfasst eine Aussteller-Domain für die Firma. Seit 25.11.2026 (Migration 039,
+ * Sicherheitstest Befund M2) gibt es zwei Stufen:
  *
- * Schreiben läuft bewusst über den Service-Client NACH dem Ownership-Check —
+ *  - 'email_confirmed' (Vorstufe): Die angemeldete Adresse liegt an GENAU dieser
+ *    Domain. Das kann jede Mitarbeiterin der Firma; die öffentliche Prüfung zeigt
+ *    es darum nur grau, nicht als «Aussteller bestätigt». Keine Exklusivität.
+ *  - 'verified' (nur über DNS): siehe POST /api/companies/[id]/domain/dns.
+ *
+ * Jede noch nicht per DNS bestätigte Domain bekommt hier ein Token für den
+ * TXT-Eintrag. Die Antwort nennt Name und Wert des Eintrags.
+ *
+ * Schreiben läuft bewusst über den Service-Client NACH dem Rechte-Check —
  * `authenticated` hat auf company_domains keine Schreib-RLS (siehe Migration 019),
  * damit niemand per rohem PostgREST einfach status='verified' setzen kann.
  */
@@ -47,12 +55,12 @@ export async function POST(
     );
   }
 
-  // Eine Freemail-Domain als Firmen-Domain zu verifizieren ergibt keinen Sinn.
+  // Eine Freemail-Domain als Firmen-Domain zu bestätigen ergibt keinen Sinn.
   if (isFreeMailDomain(normalized)) {
     return NextResponse.json(
       {
         error:
-          "Freemail-Domains (z.B. gmail.com, gmx.ch, bluewin.ch) können nicht als Firmen-Domain verifiziert werden. Bitte die eigene Firmen-Domain angeben.",
+          "Freemail-Domains (z.B. gmail.com, gmx.ch, bluewin.ch) können nicht als Firmen-Domain bestätigt werden. Bitte die eigene Firmen-Domain angeben.",
       },
       { status: 400 },
     );
@@ -60,56 +68,47 @@ export async function POST(
 
   const svc = createServiceClient();
 
-  // Ist diese Firma+Domain bereits verifiziert? Dann nichts herabstufen.
   const { data: existing } = await svc
     .from("company_domains")
-    .select("id, status")
+    .select("id, status, method, dns_token")
     .eq("company_id", id)
     .eq("domain", normalized)
     .maybeSingle();
 
+  // Schon per DNS bestätigt: nichts ändern.
   if (existing?.status === "verified") {
     return NextResponse.json({
       ok: true,
       domain: normalized,
       status: "verified",
-      method: "email",
+      method: existing.method ?? "dns",
       verified: true,
       alreadyVerified: true,
     });
   }
 
+  // Vorstufe nur bei EXAKT gleicher Domain. Früher genügte eine Subdomain
+  // (hr.firma.ch für firma.ch); damit liess sich über x@firma.co.uk sogar
+  // «co.uk» beanspruchen.
   const loginDomain = emailDomain(user.email);
-  const canVerifyByEmail =
-    !!loginDomain &&
-    !isFreeMailDomain(loginDomain) &&
-    domainsMatch(normalized, loginDomain);
+  const mailMatches =
+    !!loginDomain && !isFreeMailDomain(loginDomain) && loginDomain === normalized;
 
-  // Anti-Impersonation: dieselbe Domain darf nur EINE Firma verifiziert halten.
-  // Vorab-Check für eine saubere Fehlermeldung; der partielle Unique-Index in
-  // Migration 019 ist die harte Garantie (fängt auch Races ab).
-  if (canVerifyByEmail) {
-    const { data: otherVerified } = await svc
-      .from("company_domains")
-      .select("company_id")
-      .eq("domain", normalized)
-      .eq("status", "verified")
-      .maybeSingle();
-    if (otherVerified && otherVerified.company_id !== id) {
-      return NextResponse.json(
-        { error: "Diese Domain ist bereits von einer anderen Firma verifiziert." },
-        { status: 409 },
-      );
-    }
-  }
+  const dnsToken: string = isValidDnsToken(existing?.dns_token)
+    ? existing!.dns_token
+    : randomBytes(16).toString("hex");
+
+  const keepMailConfirmation = existing?.status === "email_confirmed";
+  const status = mailMatches || keepMailConfirmation ? "email_confirmed" : "pending";
 
   const row = {
     company_id: id,
     domain: normalized,
     method: "email",
-    status: canVerifyByEmail ? "verified" : "pending",
-    verified_at: canVerifyByEmail ? new Date().toISOString() : null,
-    verified_by: canVerifyByEmail ? user.id : null,
+    status,
+    dns_token: dnsToken,
+    verified_at: status === "email_confirmed" ? new Date().toISOString() : null,
+    verified_by: status === "email_confirmed" ? user.id : null,
   };
 
   const { error: upErr } = await svc
@@ -117,13 +116,6 @@ export async function POST(
     .upsert(row, { onConflict: "company_id,domain" });
 
   if (upErr) {
-    // 23505 = unique_violation des partiellen Verified-Index -> woanders belegt.
-    if ((upErr as { code?: string }).code === "23505") {
-      return NextResponse.json(
-        { error: "Diese Domain ist bereits von einer anderen Firma verifiziert." },
-        { status: 409 },
-      );
-    }
     return NextResponse.json(
       { error: `Domain konnte nicht gespeichert werden: ${upErr.message}` },
       { status: 500 },
@@ -133,9 +125,13 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     domain: normalized,
-    status: row.status,
+    status,
     method: "email",
-    verified: canVerifyByEmail,
+    verified: false,
+    emailConfirmed: status === "email_confirmed",
+    dnsToken,
+    dnsRecordName: dnsRecordName(normalized),
+    dnsRecordValue: dnsRecordValue(dnsToken),
     // Nur für die eigene UI: die Domain der angemeldeten E-Mail, damit die
     // Meldung bei fehlendem Match konkret sein kann.
     loginDomain: loginDomain ?? null,
