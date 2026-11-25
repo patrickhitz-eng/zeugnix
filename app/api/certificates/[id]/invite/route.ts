@@ -6,6 +6,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email/send";
 import { buildManagerInvitationEmail } from "@/lib/email/templates";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 // Versendet eine E-Mail → Rate-Limit gegen Mail-Spam/Abuse.
 const INVITE_LIMIT = 10;
@@ -46,6 +47,19 @@ export async function POST(
 
   if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit")))
     return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
+
+  // Versiegelte Zeugnisse bekommen keine Einladung mehr. Die Abgabe der
+  // vorgesetzten Person läuft mit der Serverrolle und setzte sonst den Status
+  // eines finalisierten Zeugnisses zurück (Sicherheitstest 24.11.2026, H1).
+  if (isCertificateLocked(cert.status)) {
+    return NextResponse.json(
+      {
+        error:
+          "Das Zeugnis ist finalisiert oder widerrufen. Eine Beurteilung lässt sich nicht mehr anfordern.",
+      },
+      { status: 409 },
+    );
+  }
 
   const employee: any = cert.employees;
   const company: any = cert.companies;

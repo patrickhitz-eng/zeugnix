@@ -5,6 +5,7 @@ import { SKILLS } from "@/lib/phrases/skills";
 import type { EmployeeData, PhraseBlock } from "@/lib/phrases/engine";
 import { Logo } from "@/components/ui/logo";
 import Link from "next/link";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -61,6 +62,21 @@ export default async function InvitationPage({ params }: PageProps) {
         <p className="mt-3 text-[14px] text-ink-600">
           Zu dieser Einladung fehlen Angaben. Bitte fordern Sie eine neue
           Einladung beim Arbeitgeber an.
+        </p>
+      </Wrapper>
+    );
+  }
+
+  // Finalisiert oder widerrufen: Das Zeugnis ist versiegelt, eine Beurteilung
+  // käme zu spät. Ohne diese Sperre setzte die Abgabe den Status zurück
+  // (Sicherheitstest 24.11.2026, Befund H1).
+  if (isCertificateLocked(cert.status)) {
+    return (
+      <Wrapper>
+        <h1 className="headline-display text-[24px]">Zeugnis bereits abgeschlossen</h1>
+        <p className="mt-3 text-[14px] text-ink-600">
+          Das Zeugnis wurde inzwischen abgeschlossen. Eine Beurteilung ist nicht
+          mehr nötig. Vielen Dank.
         </p>
       </Wrapper>
     );
