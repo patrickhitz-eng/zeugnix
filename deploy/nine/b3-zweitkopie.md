@@ -90,7 +90,7 @@ Recherche vom 24.11.2026. Alle Preise sind **laufende Monatskosten**.
 
 Die Schritte führst du aus, ich begleite jeden einzeln. Zugangsdaten gehören in deine Ablage, nie in den Chat und nie ins Repo.
 
-1. **Bucket anlegen** im Cockpit (cockpit.nine.ch), Standort **nine-es34**, Name z. B. `advisori-zeugnio-backup`, **Versionierung an**.
+1. **Bucket anlegen** im Cockpit (cockpit.nine.ch), Standort **nine-es34**, Name `advisori-zeugnio-bucket` (angelegt 24.11.), **Versionierung an**.
    - Den Standort kann man später nicht mehr ändern.
 2. **Zwei Bucket-Benutzer** in es34:
    - `zeugnio-backup-server` mit der Rolle `writer`, für advisori01.
@@ -104,10 +104,10 @@ Die Schritte führst du aus, ich begleite jeden einzeln. Zugangsdaten gehören i
    ```
    - Dann die fünf Regeln. In PowerShell trennt `;` Befehle, darum steht jede Regel in einfachen Anführungszeichen. `update` ergänzt Regeln pro Präfix, ersetzt also keine anderen:
    ```powershell
-   nctl update bucket advisori-zeugnio-backup --lifecycle-policy 'prefix=zeugnio/stuendlich/;expire-after-days=3;is-live=true' --lifecycle-policy 'prefix=zeugnio/taeglich/;expire-after-days=14;is-live=true' --lifecycle-policy 'prefix=zeugnio/woechentlich/;expire-after-days=56;is-live=true' --lifecycle-policy 'prefix=zeugnio/anlass/;expire-after-days=30;is-live=true' --lifecycle-policy 'prefix=zeugnio/;expire-after-days=14;is-live=false'
+   nctl update bucket advisori-zeugnio-bucket --lifecycle-policy 'prefix=zeugnio/stuendlich/;expire-after-days=3;is-live=true' --lifecycle-policy 'prefix=zeugnio/taeglich/;expire-after-days=14;is-live=true' --lifecycle-policy 'prefix=zeugnio/woechentlich/;expire-after-days=56;is-live=true' --lifecycle-policy 'prefix=zeugnio/anlass/;expire-after-days=30;is-live=true' --lifecycle-policy 'prefix=zeugnio/;expire-after-days=14;is-live=false'
    ```
    ```powershell
-   nctl get bucket advisori-zeugnio-backup -o yaml
+   nctl get bucket advisori-zeugnio-bucket -o yaml
    ```
    - In der Ausgabe stehen die fünf Regeln, `versioning: true` und die zwei Benutzer.
    - `is-live=false` gilt für alte Versionen. Die 14 Tage laufen ab dem Moment, in dem eine Version durch Löschen oder Ablauf zur alten wird.
