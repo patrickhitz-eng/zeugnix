@@ -54,17 +54,19 @@ const PILOT_LOGOS: PilotLogo[] = [];
  * Was der Text sagt und warum er so vorsichtig ist:
  *  - «gespeichert in der Schweiz»: Anwendung, Datenbank, Logos und
  *    Sicherungen liegen bei nine im Kanton Zürich. Das stimmt.
- *  - Die Einschränkung im zweiten Satz MUSS stehen bleiben: Die Anmeldung
- *    läuft weiter über Supabase in Frankfurt (E-Mail-Adressen, Sitzungen),
- *    Mails gehen über Resend (Irland, Metadaten in den USA), und nine hat
- *    einen Notfallzugriff aus Kanada. «Ihre Daten bleiben in der Schweiz»
- *    oder «verarbeitet in der Schweiz» wären darum irreführend (UWG Art. 3
+ *  - Seit Cutover B (23.11.2026) und B2 liegt auch die Anmeldung (Konten,
+ *    Sitzungen, Einmal-Codes) auf advisori01, darum «Zeugnis- und
+ *    Anmeldedaten gespeichert». Das Wort «gespeichert» MUSS bleiben.
+ *  - Die Einschränkung im zweiten Satz MUSS stehen bleiben: Mails gehen über
+ *    Resend (Irland, Metadaten in den USA), und nine hat einen
+ *    Notfallzugriff aus Kanada. «Ihre Daten bleiben in der Schweiz» oder
+ *    «verarbeitet in der Schweiz» wären darum irreführend (UWG Art. 3
  *    Abs. 1 lit. b; Hub standards/datenschutz.md «Aussagen nach aussen»).
  *  - Kein «nur», «ausschliesslich» oder «alle Daten».
- * Den zweiten Satz erst ändern, wenn Cutover B Supabase abgelöst hat und der
- * Mailwechsel (6.3) durch ist, und dann nur gegen RECIPIENTS in
- * app/legal/privacy/page.tsx. Auch danach bleiben Kanada und die Postfächer
- * der Empfänger: «verlässt die Schweiz nie» wird nie stimmen.
+ * Den zweiten Satz erst ändern, wenn der Mailwechsel (6.3) durch ist, und
+ * dann nur gegen RECIPIENTS in app/legal/privacy/page.tsx. Auch danach
+ * bleiben Kanada und die Postfächer der Empfänger: «verlässt die Schweiz
+ * nie» wird nie stimmen.
  */
 const SHOW_SWISS_HOSTING: boolean = true;
 
@@ -80,7 +82,7 @@ const OWN_LOGIN = ANMELDUNG === "nine";
 const SWISS_HOSTING_TEXT = ALLES_SCHWEIZ
   ? "Zeugnisdaten gespeichert und verarbeitet in der Schweiz."
   : OWN_LOGIN
-    ? "Zeugnisdaten und Anmeldung in der Schweiz (nine.ch, Zürich)."
+    ? "Zeugnis- und Anmeldedaten gespeichert in der Schweiz (nine.ch, Zürich)."
     : "Zeugnisdaten gespeichert in der Schweiz (nine.ch, Zürich).";
 const SWISS_HOSTING_LIMITS = ALLES_SCHWEIZ
   ? "Hosting, Anmeldung und E-Mail-Versand bei Schweizer Anbietern (nine.ch, mailomat.swiss)."

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/db/supabase-server";
-import { authMode } from "@/lib/auth/config";
+import { createServiceClient } from "@/lib/db/supabase-server";
 import { clearedSessionCookie } from "@/lib/auth/cookie";
 import { getSessionUser } from "@/lib/auth/session";
 import { endAllSessions } from "@/lib/auth/store";
@@ -16,18 +15,16 @@ import { logError } from "@/lib/log";
  *  1. zeugnio_delete_account (036, nur service_role) prüft «letzte Admin-
  *     Person», protokolliert und löscht das Profil. Firmen und Zeugnisse, die
  *     sie angelegt hat, bleiben; das Ersteller-Feld wird leer.
- *     Auf advisori01 löscht sie auch die Zeile in auth.users und damit (per
- *     Fremdschlüssel) alle Sitzungen der eigenen Anmeldung.
- *  2. Danach das Anmeldekonto bei Supabase Auth (nur ZEUGNIO_AUTH=supabase). Hat die Datenbankfunktion es
- *     schon mitgelöscht (gleiche Datenbank), meldet Supabase «nicht gefunden» –
- *     das ist dann kein Fehler.
+ *     Auf advisori01 löscht sie auch die Zeile in auth.users (sofern die
+ *     Rechte es erlauben) und damit (per Fremdschlüssel) alle Sitzungen.
+ *  2. Danach alle Sitzungen der Person ausdrücklich beenden und das Cookie
+ *     dieses Browsers löschen.
  *
  * Die Funktion läuft mit dem Service-Client, weil die Kaskade auch eingefrorene
  * Zeugnisse berührt (Ersteller leeren). Wer gelöscht wird, kommt ausschliesslich
  * aus der Sitzung, nie aus der Anfrage.
  */
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
@@ -45,32 +42,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: status === 500 ? "Löschen fehlgeschlagen." : error.message }, { status });
   }
 
-  if (authMode() === "eigen") {
-    // auth.users und damit auth.sessions sollten schon weg sein (siehe oben).
-    // Trotzdem alle Sitzungen ausdrücklich beenden (Review PR #91): Die Kaskade
-    // hängt an einem Fremdschlüssel, den eine spätere Änderung an
-    // zeugnio_delete_account oder an auth.users still aushebeln könnte. Dann
-    // blieben andere Geräte bis zu 30 Tage angemeldet, ohne Profil, aber mit
-    // gültiger Sitzung. Schlägt dieser Aufruf fehl, ist das Konto trotzdem
-    // gelöscht; die Sitzungen räumt dann die Kaskade bzw. auth_cleanup ab.
-    try {
-      await endAllSessions(user.id);
-    } catch (endError) {
-      logError("[loeschen] Sitzungen nicht beendet:", user.id, endError);
-    }
-    const res = NextResponse.json({ ok: true });
-    const c = clearedSessionCookie();
-    res.cookies.set(c.name, c.value, c.options);
-    return res;
+  // auth.users und damit auth.sessions sollten schon weg sein (siehe oben).
+  // Trotzdem alle Sitzungen ausdrücklich beenden (Review PR #91): Die Kaskade
+  // hängt an einem Fremdschlüssel, den eine spätere Änderung an
+  // zeugnio_delete_account oder an auth.users still aushebeln könnte. Dann
+  // blieben andere Geräte bis zu 30 Tage angemeldet, ohne Profil, aber mit
+  // gültiger Sitzung. Schlägt dieser Aufruf fehl, ist das Konto trotzdem
+  // gelöscht; die Sitzungen räumt dann die Kaskade bzw. auth_cleanup ab.
+  try {
+    await endAllSessions(user.id);
+  } catch (endError) {
+    logError("[loeschen] Sitzungen nicht beendet:", user.id, endError);
   }
-
-  const { error: authError } = await service.auth.admin.deleteUser(user.id);
-  if (authError && authError.status !== 404) {
-    // Profil und Rechte sind weg; ein verbliebenes Anmeldekonto hat keinen
-    // Zugriff mehr auf Daten. Trotzdem melden, damit es von Hand entfernt wird.
-    logError("[loeschen] Anmeldekonto nicht gelöscht:", user.id, authError);
-  }
-
-  await supabase.auth.signOut().catch(() => undefined);
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  const c = clearedSessionCookie();
+  res.cookies.set(c.name, c.value, c.options);
+  return res;
 }

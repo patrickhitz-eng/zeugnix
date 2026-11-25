@@ -12,7 +12,7 @@ Analyse-Engine (Stub) und Stripe-Stubs.
 ## Was lauffähig ist
 
 - Landingpage (`/`)
-- Magic-Link-Login via Supabase (`/login`, `/auth/callback`)
+- Anmeldung ohne Passwort mit Code oder Link per E-Mail (`/login`, `/auth/link`, `lib/auth/*`)
 - Geschützter App-Bereich (`/app/*`)
 - Firmenverwaltung
 - Zeugnis-Erstellung (Mitarbeiterdaten, Aufgaben, Typ)
@@ -44,19 +44,13 @@ Analyse-Engine (Stub) und Stripe-Stubs.
 npm install
 ```
 
-### Schritt 2 – Supabase-Projekt anlegen
+### Schritt 2 – Datenbank und Daten-API
 
-1. Auf <https://supabase.com> ein neues Projekt erstellen (Region Frankfurt
-   `eu-central-1` empfohlen für DSG-Konformität).
-2. SQL-Editor öffnen und die zwei Migrationen nacheinander ausführen:
-   - `supabase/001_initial_schema.sql` – legt alle Tabellen, Enums,
-     Trigger und RLS-Policies an.
-   - `supabase/002_seed_phrases.sql` – seed der Bausteinbibliothek.
-3. **Storage Buckets** anlegen (Dashboard → Storage → "New bucket"):
-   - `company-logos` (public)
-   - `certificates` (private)
-   - `uploads` (private)
-   - `reports` (private)
+Die Anwendung spricht nur über PostgREST mit einer eigenen PostgreSQL-Datenbank
+(Produktion: advisori01 bei nine.ch). Die Migrationen liegen im Ordner
+`supabase/` (der Name ist historisch) und laufen mit `npm run migrate`; die
+900er-Reihe ist nur für den eigenen Server und wird von Hand eingespielt.
+Aufbau und Betrieb: `docs/setup-zeugnio-nine.html` und `deploy/nine/`.
 
 ### Schritt 3 – Environment Variables setzen
 
@@ -66,16 +60,17 @@ npm install
 cp .env.example .env.local
 ```
 
-Mindestens diese drei Variablen sind Pflicht:
+Pflicht sind mindestens:
 
 ```
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+DATA_API_URL=http://127.0.0.1:3011
+DATA_API_JWT_SECRET=...
+ZEUGNIO_AUTH_SECRET=...
+RESEND_API_KEY=...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-Die Werte stehen in Supabase unter **Project Settings → API**.
+`npm run check:env` prüft die Werte (meldet nur Befunde, nie Werte).
 
 ### Schritt 4 – Lokal starten
 
@@ -95,16 +90,10 @@ Diese sollten bei jedem Code-Change grün bleiben.
 
 ---
 
-## Vercel-Deployment
+## Deployment
 
-1. GitHub-Repository pushen.
-2. Auf Vercel → "Add New Project" → Repo auswählen.
-3. Im Vercel-Dashboard unter **Settings → Environment Variables** alle
-   Werte aus `.env.local` setzen, plus `NEXT_PUBLIC_SITE_URL` auf die
-   Vercel-Domain (z.B. `https://zeugnix.vercel.app` oder `https://zeugnix.ch`).
-4. **Wichtig**: In Supabase unter **Authentication → URL Configuration**
-   die Vercel-URL als **Site URL** und **Redirect URLs** eintragen.
-5. Deploy starten.
+Produktion läuft auf advisori01 (nine.ch). Ein Merge nach `main` geht nicht von
+selbst live; Ablauf und Befehle stehen in `CLAUDE.md` und `deploy/nine/`.
 
 ---
 
@@ -129,7 +118,9 @@ Diese sollten bei jedem Code-Change grün bleiben.
 ## Architektur
 
 - **Next.js 15** App Router, Server Components als Default
-- **Supabase** für Auth, Postgres und Storage
+- **PostgreSQL 17 + PostgREST** auf advisori01, angesprochen mit `@supabase/postgrest-js`
+- **Eigene Anmeldung** (Code oder Link per E-Mail, Sitzung in `auth.sessions`)
+- **Firmenlogos** auf der Platte des Servers (`ZEUGNIO_UPLOAD_DIR`)
 - **Row-Level-Security** auf allen Tabellen
 - **Token-basierte Manager-Einladungen** (kein Account für Führungskräfte)
 - **Hash-Engine**: deterministische Kanonisierung → SHA-256 (Web Crypto API)
@@ -173,4 +164,4 @@ Diese sollten bei jedem Code-Change grün bleiben.
 
 - Schriftarten Inter Tight, Fraunces, JetBrains Mono via Google Fonts
 - Icons: Inline-SVG, eigene Implementierung
-- pdfjs-dist (Apache 2.0), @react-pdf/renderer (MIT), Supabase (Apache 2.0)
+- pdfjs-dist (Apache 2.0), @react-pdf/renderer (MIT), @supabase/postgrest-js (MIT)

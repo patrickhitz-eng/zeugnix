@@ -1,53 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { createClient, createOtpClient } from "@/lib/db/supabase-client";
-import { siteConfig } from "@/lib/site-config";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
-import { finishLogin } from "@/lib/auth/finish-login";
 
 /**
- * Anmeldung mit zwei gleichwertigen Wegen aus derselben E-Mail. Seit Cutover B
- * gibt es dafür zwei Wege im Hintergrund, je nach Schalter ZEUGNIO_AUTH:
- * «supabase» (unten beschrieben) oder «eigen» (fetch auf /api/auth/anfordern
- * und /api/auth/code; der Link führt auf /auth/link mit einem Knopf).
+ * Anmeldung mit zwei gleichwertigen Wegen aus derselben E-Mail:
  *
+ *   1. Link anklicken  -> /auth/link (Seite mit Knopf, löst erst beim Absenden ein)
+ *   2. 6-stelligen Code hier eintippen -> POST /api/auth/code
  *
- *   1. Magic-Link anklicken  -> /auth/callback
- *   2. 6-stelligen Code hier eintippen -> verifyOtp()
+ * Angefordert wird die Mail über POST /api/auth/anfordern. Die Antwort ist für
+ * jede Adresse gleich (Entscheid E3), darum gibt es hier keinen Hinweis «kein
+ * Konto».
  *
- * Der zweite Weg ist der Grund für diese Datei: Link-Scanner in
- * Microsoft-365-Postfächern (Defender Safe Links) rufen den Link in der Mail
- * vorab auf. Zeigt er auf Supabases /auth/v1/verify, löst dieser GET den
- * einmaligen Token bereits ein – klickt die Empfängerin danach, ist er
- * verbraucht. Ein Code, der eingetippt werden muss, kann von keinem Scanner
- * verbraucht werden.
- *
- * WICHTIG: Code und Link stammen aus demselben Token. Beide Wege funktionieren
- * nur dann gemeinsam, wenn die Supabase-Mailvorlage auf {{ .TokenHash }} gegen
- * die eigene Domain zeigt statt auf {{ .ConfirmationURL }}. Sonst verbrennt der
- * Scanner über den Link auch den Code.
+ * Warum zwei Wege: Link-Scanner in Microsoft-365-Postfächern (Defender Safe
+ * Links) rufen den Link in der Mail vorab auf. Darum verbraucht /auth/link beim
+ * Aufruf nichts, und der Code kommt ganz ohne Link aus (Plan cutover-b § 3).
  */
 /** Schlüssel für die zwischengespeicherte Adresse. Nur diese eine Angabe. */
 const EMAIL_KEY = "zeugnio:login-email";
 
-export function LoginForm({
-  next,
-  mode = "supabase",
-}: {
-  next?: string;
-  /** Schalter ZEUGNIO_AUTH, von app/login/page.tsx durchgereicht (lib/auth/config.ts). */
-  mode?: "supabase" | "eigen";
-}) {
+export function LoginForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [status, setStatus] = useState<
     "idle" | "sending" | "sent" | "verifying" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  /** Adresse ohne Konto, Registrierung geschlossen → Weg zur Kontaktseite zeigen. */
-  const [noAccount, setNoAccount] = useState(false);
   /**
    * Zeigt die Code-Eingabe, ohne vorher eine Mail angefordert zu haben. Nötig,
    * weil der Status "sent" ein Neuladen nicht überlebt: wer anfordert, auf die
@@ -75,58 +54,25 @@ export function LoginForm({
     e.preventDefault();
     setStatus("sending");
     setErrorMsg("");
-    setNoAccount(false);
 
-    if (mode === "eigen") {
-      // Eigene Anmeldung: Die Antwort ist für jede Adresse gleich (Entscheid E3),
-      // darum gibt es hier auch keinen Hinweis «kein Konto».
-      const res = await fetch("/api/auth/anfordern", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, next: safeNext }),
-      }).catch(() => null);
-      if (!res || !res.ok) {
-        const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-        setStatus("error");
-        setErrorMsg(body?.error ?? "Die Anmeldung ist gerade nicht möglich. Bitte versuchen Sie es erneut.");
-        return;
-      }
-      try {
-        sessionStorage.setItem(EMAIL_KEY, email);
-      } catch {
-        // Siehe useEffect – ohne Speicher läuft der Weg trotzdem.
-      }
-      setStatus("sent");
+    // Die Antwort ist für jede Adresse gleich (Entscheid E3).
+    const res = await fetch("/api/auth/anfordern", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, next: safeNext }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+      setStatus("error");
+      setErrorMsg(body?.error ?? "Die Anmeldung ist gerade nicht möglich. Bitte versuchen Sie es erneut.");
       return;
     }
-
-    const supabase = createOtpClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`,
-        // Schalter in lib/site-config.ts. Ist die Registrierung geschlossen,
-        // bekommen unbekannte Adressen keine Mail, Supabase antwortet mit einem
-        // Fehler. Serverseitig sperrt erst die Dashboard-Einstellung «Allow new
-        // users to sign up» – dieser Parameter kommt aus dem Browser und ist
-        // umgehbar. Kehrseite: Die Antwort verrät, ob eine Adresse ein Konto
-        // hat; für einen geschlossenen Kundenkreis vertretbar.
-        shouldCreateUser: siteConfig.signup.open,
-      },
-    });
-
-    if (error) {
-      setStatus("error");
-      setNoAccount(isSignupBlocked(error.message));
-      setErrorMsg(loginErrorText(error.message));
-    } else {
-      try {
-        sessionStorage.setItem(EMAIL_KEY, email);
-      } catch {
-        // Siehe useEffect – ohne Speicher läuft der Weg trotzdem.
-      }
-      setStatus("sent");
+    try {
+      sessionStorage.setItem(EMAIL_KEY, email);
+    } catch {
+      // Siehe useEffect – ohne Speicher läuft der Weg trotzdem.
     }
+    setStatus("sent");
   }
 
   /** Schritt 2a: Code eintippen. Der Link in der Mail bleibt parallel gültig. */
@@ -135,42 +81,19 @@ export function LoginForm({
     setStatus("verifying");
     setErrorMsg("");
 
-    if (mode === "eigen") {
-      const res = await fetch("/api/auth/code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code: code.trim() }),
-      }).catch(() => null);
-      if (res?.ok) {
-        // Harter Seitenwechsel, damit die Middleware das neue Cookie sieht.
-        window.location.assign(safeNext);
-        return;
-      }
-      const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-      setStatus("sent");
-      setErrorMsg(body?.error ?? "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.");
+    const res = await fetch("/api/auth/code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code: code.trim() }),
+    }).catch(() => null);
+    if (res?.ok) {
+      // Harter Seitenwechsel, damit die Middleware das neue Cookie sieht.
+      window.location.assign(safeNext);
       return;
     }
-
-    // Hier der SSR-Client, nicht createOtpClient: verifyOtp muss die Session in
-    // die Cookies schreiben, damit die Middleware sie sieht. createOtpClient
-    // schreibt bewusst keinen Zustand.
-    const supabase = createClient();
-
-    try {
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code.trim(),
-        type: "email",
-      });
-      if (error) throw error;
-
-      await finishLogin(safeNext);
-    } catch (e: unknown) {
-      const raw = e instanceof Error ? e.message : "Anmeldung fehlgeschlagen.";
-      setStatus("sent");
-      setErrorMsg(loginErrorText(raw));
-    }
+    const body = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+    setStatus("sent");
+    setErrorMsg(body?.error ?? "Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.");
   }
 
   // Nur wahr, wenn in diesem Besuch gerade eine Mail rausging. Beim direkten
@@ -243,9 +166,10 @@ export function LoginForm({
           >
             Code aus der E-Mail
           </label>
-          {/* maxLength bewusst 10, nicht 6: Supabase gibt je nach Einstellung
-              6 bis 10 Stellen aus, und ein zu enges Feld schneidet einen
-              längeren Code ab – eintippen wäre dann unmöglich. */}
+          {/* maxLength 10 stammt aus der Zeit von Supabase Auth (6 bis 10
+              Stellen). Die eigene Anmeldung schickt immer 6 Ziffern; das
+              weitere Feld schadet nicht, die Form prüft der Server
+              (isCodeShape in lib/auth/tokens.ts). */}
           <input
             id="code"
             type="text"
@@ -320,17 +244,6 @@ export function LoginForm({
       {errorMsg && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
           {errorMsg}
-          {noAccount && (
-            <>
-              {" "}
-              <Link
-                href={siteConfig.signup.cta.href}
-                className="font-medium underline underline-offset-2"
-              >
-                {siteConfig.signup.cta.label}
-              </Link>
-            </>
-          )}
         </div>
       )}
 
@@ -359,45 +272,4 @@ export function LoginForm({
       </p>
     </form>
   );
-}
-
-/**
- * Übersetzt die englischen Supabase-Auth-Fehler in Sätze, aus denen die
- * Anmeldende ablesen kann, was sie jetzt tun soll.
- *
- * Unübersetzte Fälle fallen auf den Originaltext zurück – lieber englisch und
- * vollständig als deutsch und irreführend.
- */
-function loginErrorText(raw: string): string {
-  const r = raw.toLowerCase();
-
-  if (isSignupBlocked(raw)) {
-    return "Für diese E-Mail-Adresse besteht noch kein Zugang. Während der Pilotphase richten wir Zugänge persönlich ein.";
-  }
-
-  if (r.includes("rate limit") || r.includes("too many")) {
-    return "Zu viele Anfragen in kurzer Zeit. Bitte warten Sie einen Moment, bevor Sie einen neuen Code anfordern.";
-  }
-
-  // Supabase liefert für "Code vertippt" und "Token war schon verbraucht"
-  // denselben Text (otp_expired / token has expired or is invalid). Die beiden
-  // sind technisch nicht zu trennen, also deckt ein Satz beide Ursachen ab und
-  // führt in beiden Fällen zur selben richtigen Handlung: neuen Code anfordern.
-  // "Abgelaufen" allein wäre falsch, wenn nur vertippt wurde; "falscher Code"
-  // wäre falsch, wenn ein Linkscanner den Token verbraucht hat.
-  if (r.includes("expired") || r.includes("invalid")) {
-    return "Dieser Code ist nicht mehr gültig – entweder vertippt, oder der Link in der E-Mail wurde bereits geöffnet. Bitte fordern Sie einen neuen Code an.";
-  }
-
-  return raw;
-}
-
-/**
- * Supabase meldet eine unbekannte Adresse bei geschlossener Registrierung als
- * "Signups not allowed for otp" (shouldCreateUser:false) bzw. "Signups not
- * allowed for this instance" (Dashboard-Sperre).
- */
-function isSignupBlocked(raw: string): boolean {
-  const r = raw.toLowerCase();
-  return r.includes("signup") && r.includes("not allowed");
 }

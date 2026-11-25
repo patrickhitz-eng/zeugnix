@@ -12,7 +12,8 @@
  * Abs. 1 lit. b, Art. 19 DSG) und Anhang 3 des Auftragsbearbeitungsvertrags
  * stimmt nicht.
  *
- * Grundzustand dieses Codes: nach dem Umzug zu nine (Cutover A).
+ * Grundzustand dieses Codes: nach dem Umzug zu nine (Cutover A) und der
+ * eigenen Anmeldung (Cutover B, B2); E-Mail weiter über Resend.
  */
 
 export type Anmeldung = "supabase" | "nine";
@@ -24,8 +25,14 @@ export type AuslandzugriffNine = "moeglich" | "ausgeschlossen";
  * "nine": eigene Anmeldung auf advisori01 (Cutover B). Umlegen, wenn die App
  * supabase.co nicht mehr aufruft (`connect-src` ohne Supabase) und das
  * Supabase-Projekt leer oder gelöscht ist.
+ *
+ * Stand B2: steht auf "nine". Die App ruft Supabase seit Cutover B
+ * (23.11.2026) nicht mehr auf, seit B2 enthält der Code keinen Supabase-Weg
+ * mehr, und das Supabase-Projekt ist seit 25.11.2026 gelöscht (samt Konten
+ * und Sicherungen; deploy/nine/b2-supabase-loeschen.md). Anhang 3 des
+ * Auftragsbearbeitungsvertrags muss Supabase ebenfalls nicht mehr nennen.
  */
-export const ANMELDUNG: Anmeldung = "supabase";
+export const ANMELDUNG: Anmeldung = "nine";
 
 /**
  * "resend": Mailversand und Empfang @zeugnio.ch über Resend (Irland/USA).

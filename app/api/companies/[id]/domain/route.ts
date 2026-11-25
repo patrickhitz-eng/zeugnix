@@ -9,7 +9,7 @@ import {
   domainsMatch,
 } from "@/lib/company/domain";
 
-// Service-Client (require @supabase/supabase-js) -> Node-Runtime.
+// Service-Client (node:crypto für die Zugangstoken) -> Node-Runtime.
 export const runtime = "nodejs";
 
 /**

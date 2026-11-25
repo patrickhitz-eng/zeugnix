@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { createClient } from "@/lib/db/supabase-server";
+import { createServiceClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { pickCompanyFields } from "@/lib/company/payload";
 import { logError } from "@/lib/log";
@@ -15,14 +15,13 @@ import { logError } from "@/lib/log";
  * 127.0.0.1 lauscht und nie ins Internet muss – und damit weder einen eigenen
  * Hostnamen noch ein Zertifikat noch CORS braucht.
  *
- * Geschrieben wird mit der Sitzung der angemeldeten Person. Die
- * Zeilensicherheit in der Datenbank bleibt damit die Grenze; diese Route fügt
- * nur Prüfungen hinzu, sie ersetzt keine.
+ * Geschrieben wird mit dem Dienstkonto (Begründung unten beim insert). Wer
+ * anlegen darf, entscheidet der Trigger zeugnio_company_assign_org (033)
+ * anhand von created_by_user_id aus der Sitzung.
  */
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet" }, { status: 401 });
 
@@ -33,9 +32,21 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error }, { status: 400 });
   if (!data.name) return NextResponse.json({ error: "Der Firmenname ist Pflicht." }, { status: 400 });
 
-  const { data: created, error: dbError } = await supabase
+  // Angelegt wird mit dem Dienstkonto, nicht mit der Sitzung. Grund: Mit der
+  // Sitzung scheitert das Zurücklesen der neuen ID an der Leseregel
+  // («Members can view companies» → zeugnio_company_role). Diese Funktion ist
+  // STABLE und sieht die Zeile, die derselbe Befehl gerade einfügt, noch
+  // nicht; Postgres meldet dann «new row violates row-level security policy»
+  // (seit Migration 033 bei jeder neuen Firma, gefunden 24.11.2026).
+  //
+  // Die Rechte prüft trotzdem die Datenbank: Der Trigger
+  // zeugnio_company_assign_org nimmt bei fehlendem auth.uid() die Person aus
+  // created_by_user_id, und die kommt hier aus der Sitzung, nie aus der Anfrage.
+  // Eingeladene Mitglieder ohne Admin-Recht lehnt er weiter ab (42501).
+  // organization_id lässt pickCompanyFields nicht durch, die Organisation
+  // bestimmt also immer der Trigger.
+  const { data: created, error: dbError } = await createServiceClient()
     .from("companies")
-    // created_by_user_id kommt aus der Sitzung, nie aus dem Rumpf der Anfrage.
     .insert({ ...data, created_by_user_id: user.id })
     .select("id")
     .single();

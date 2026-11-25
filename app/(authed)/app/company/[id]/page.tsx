@@ -80,43 +80,49 @@ export default async function CompanyDetailPage({
 
   const theme = resolveThemeFromCompany(company);
   const showData = isAdmin || canSeal;
+  // Die Sprungmarken folgen den Karten in ihrer Reihenfolge auf der Seite.
   const links: SectionLink[] = [
     { id: "stammdaten", label: "Stammdaten & Logo" },
     { id: "unterzeichnende", label: "Unterzeichnende" },
     { id: "vorlage", label: "Vorlage" },
+    ...(editable
+      ? [
+          { id: "firmenbeschrieb", label: "Firmenbeschrieb" },
+          { id: "echtheit", label: "Echtheitsnachweis" },
+          { id: "fusszeile", label: "Fusszeile" },
+        ]
+      : []),
     { id: "domain", label: "Domain" },
     ...(showData ? [{ id: "export", label: "Export & Löschen", danger: true }] : []),
   ];
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        {companyCount > 1 ? (
-          <Link href="/app/company" className="text-[13px] text-ink-600 hover:text-petrol-700">
-            ← Alle Firmen
-          </Link>
-        ) : (
-          <span />
-        )}
-        {companyCount <= 1 && canCreate && (
-          <NewCompanyButton existingNames={(siblings ?? []).map((s: any) => s.name)} />
-        )}
-      </div>
+      {companyCount > 1 && (
+        <Link href="/app/company" className="mb-4 inline-block text-[13px] text-ink-600 hover:text-petrol-700">
+          ← Alle Firmen
+        </Link>
+      )}
 
-      <div className="flex items-center gap-4">
-        <CompanyBadge name={company.name} logoUrl={company.logo_url} accent={theme.colors.brandAccent} size={56} />
-        <div className="min-w-0">
-          <h1 className="headline-display text-[28px] leading-tight">{company.name}</h1>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-500">
-            {(company.postal_code || company.city) && (
-              <span>{[company.postal_code, company.city].filter(Boolean).join(" ")}</span>
-            )}
-            <span>
-              {certificates ?? 0} {certificates === 1 ? "Zeugnis" : "Zeugnisse"}
-            </span>
-            <span>Domain {domainVerified ? "bestätigt" : "offen"}</span>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4">
+          <CompanyBadge name={company.name} logoUrl={company.logo_url} accent={theme.colors.brandAccent} size={56} />
+          <div className="min-w-0">
+            <h1 className="headline-display text-[28px] leading-tight">{company.name}</h1>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-ink-500">
+              {(company.postal_code || company.city) && (
+                <span>{[company.postal_code, company.city].filter(Boolean).join(" ")}</span>
+              )}
+              <span>
+                {certificates ?? 0} {certificates === 1 ? "Zeugnis" : "Zeugnisse"}
+              </span>
+              <span>Domain {domainVerified ? "bestätigt" : "offen"}</span>
+            </div>
           </div>
         </div>
+        {companyCount <= 1 && canCreate && (
+          <NewCompanyButton existingNames={(siblings ?? []).map((s: any) => s.name)} variant="secondary" />
+        )}
       </div>
 
       {neu && (
