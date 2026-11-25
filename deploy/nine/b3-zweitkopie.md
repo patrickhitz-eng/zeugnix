@@ -1,6 +1,6 @@
 # B3: Zweitkopie der Sicherungen ausser Haus
 
-> Stand: 25.11.2026 · **Entscheid Silvan 24.11.: nine Object Storage in es34 mit Versionierung, Alarm über healthchecks.io.** · **Live seit 25.11.:** Kit `587bb18` auf advisori01, Bucket `advisori-zeugnio-bucket` (es34), neue Crontab, Restore aus der Zweitkopie bestanden (26 Tabellen, Zeilenzahlen gleich). Offen: Lifecycle-Regeln (Schritt 3) und healthchecks.io (Schritt 8).
+> Stand: 25.11.2026 · **Entscheid Silvan 24.11.: nine Object Storage in es34 mit Versionierung, Alarm über healthchecks.io.** · **Live seit 25.11.:** Kit `587bb18` auf advisori01, Bucket `advisori-zeugnio-bucket` (es34), neue Crontab, Restore aus der Zweitkopie bestanden (26 Tabellen, Zeilenzahlen gleich). Lifecycle-Regeln gesetzt (`nctl get bucket advisori-zeugnio-bucket -o yaml`), Alarm über healthchecks.io aktiv. **B3 erledigt.** Die Abschnitte unten beschreiben den Weg dorthin und bleiben als Nachschlagewerk.
 > Gehört zu `cutover-reihenfolge.md` (B3) und zum Journal `kommunikation.md`.
 
 ## Warum
