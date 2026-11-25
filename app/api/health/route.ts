@@ -31,11 +31,11 @@ let cached: { at: number; body: Record<string, string>; ok: boolean } | null = n
 
 async function checkData(): Promise<string> {
   try {
-    const supabase = createServiceClient();
+    const db = createServiceClient();
     // Eine Zeile aus einer Tabelle, die es seit der ersten Migration gibt: prüft in einem
     // Schritt Erreichbarkeit UND Schema. Kein count(*) — das wäre auf einer wachsenden
     // Tabelle ein teurer Gesundheitstest.
-    const { error } = await supabase.from("certificates").select("id").limit(1);
+    const { error } = await db.from("certificates").select("id").limit(1);
     if (error) {
       console.error("[health] Datenzugriff fehlgeschlagen:", error.message);
       // PostgREST meldet ein fehlendes Schema als 404 mit diesem Code.
@@ -59,10 +59,13 @@ function checkFonts(): string {
 }
 
 function checkEnv(): string {
+  // Seit B2 (keine Supabase-Variablen mehr): Daten-API, Anmeldung und Mail. Ohne
+  // RESEND_API_KEY kommt keine Anmelde-Mail an, und niemand kann sich anmelden.
   const required = [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
+    "DATA_API_URL",
+    "DATA_API_JWT_SECRET",
+    "ZEUGNIO_AUTH_SECRET",
+    "RESEND_API_KEY",
     "NEXT_PUBLIC_SITE_URL",
     "CRON_SECRET",
   ];
@@ -77,6 +80,14 @@ function checkSigning(): string {
   // Fehlt der Schlüssel, läuft alles weiter — nur ohne Signatur (voller Bestandsschutz,
   // siehe lib/crypto/signing.ts). Das ist kein Fehler, aber im Betrieb ein Befund.
   return process.env.ZEUGNIO_SIGNING_PRIVATE_KEY?.trim() ? "ok" : "kein Schlüssel gesetzt";
+}
+
+/** "eigene" (PostgREST auf derselben Maschine), "andere Adresse" oder "fehlt". */
+function datenquelle(): string {
+  const target = dataApiTarget();
+  if (!target.startsWith("http")) return "fehlt";
+  const host = new URL(target).hostname;
+  return host === "127.0.0.1" || host === "localhost" || host === "[::1]" ? "eigene" : "andere Adresse";
 }
 
 export async function GET() {
@@ -103,9 +114,9 @@ export async function GET() {
     schriften,
     umgebung,
     signatur,
-    // Nur die Herkunft, nicht die Adresse: "eigene" oder "supabase" verrät nichts, hilft
-    // aber im Cutover bei der Frage, ob die Umlenkung greift.
-    datenquelle: dataApiTarget().includes("127.0.0.1") ? "eigene" : "supabase",
+    // Nur die Herkunft, nicht die Adresse. Seit B2 gibt es keinen zweiten Datenweg mehr;
+    // "eigene" heisst: PostgREST über 127.0.0.1, wie auf advisori01 vorgesehen.
+    datenquelle: datenquelle(),
   };
 
   cached = { at: Date.now(), body, ok };

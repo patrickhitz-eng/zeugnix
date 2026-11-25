@@ -11,28 +11,29 @@
  * Ausführen:
  *   npm run backfill:hash
  *
- * Benötigt .env.local mit NEXT_PUBLIC_SUPABASE_URL und SUPABASE_SERVICE_ROLE_KEY.
+ * Benötigt DATA_API_URL und DATA_API_JWT_SECRET in der Umgebung (.env bzw.
+ * .env.local): Das Skript spricht wie die Anwendung mit der eigenen Daten-API,
+ * als service_role (lib/db/rest-rewrite.ts).
  */
 
 import { loadEnvConfig } from "@next/env";
 loadEnvConfig(process.cwd());
 
-import { createClient } from "@supabase/supabase-js";
+import { PostgrestClient } from "@supabase/postgrest-js";
 import { canonicalizeForHash, sha256 } from "../lib/hash/canonicalize";
+import { createDataApiFetch, dataApiBase } from "../lib/db/rest-rewrite";
 
 async function main() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error(
-      "Fehlt: NEXT_PUBLIC_SUPABASE_URL und/oder SUPABASE_SERVICE_ROLE_KEY (.env.local).",
-    );
+  let supabase: PostgrestClient<any, any, any>;
+  try {
+    supabase = new PostgrestClient(dataApiBase(), {
+      schema: "public",
+      fetch: createDataApiFetch({ role: "service_role" }),
+    });
+  } catch (error) {
+    console.error(`Fehlt: ${(error as Error).message}`);
     process.exit(1);
   }
-
-  const supabase = createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   const { data: certs, error } = await supabase
     .from("certificates")

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { DataClient } from "@/lib/db/supabase-server";
 
 /**
  * Wer bekommt die Mail «Beurteilung erhalten»?
@@ -23,7 +23,7 @@ export interface MailRecipient {
 const MAX_RECIPIENTS = 10;
 
 async function permissionsOf(
-  service: SupabaseClient,
+  service: DataClient,
   companyId: string,
   userId: string,
 ): Promise<string[]> {
@@ -35,7 +35,7 @@ async function permissionsOf(
   return Array.isArray(data) ? (data as string[]) : [];
 }
 
-async function profilesOf(service: SupabaseClient, userIds: string[]): Promise<MailRecipient[]> {
+async function profilesOf(service: DataClient, userIds: string[]): Promise<MailRecipient[]> {
   if (userIds.length === 0) return [];
   const { data } = await service.from("profiles").select("id, email, full_name").in("id", userIds);
   return (data ?? [])
@@ -48,7 +48,7 @@ async function profilesOf(service: SupabaseClient, userIds: string[]): Promise<M
 }
 
 export async function evaluationMailRecipients(
-  service: SupabaseClient,
+  service: DataClient,
   companyId: string | null | undefined,
   creatorUserId: string | null | undefined,
 ): Promise<MailRecipient[]> {

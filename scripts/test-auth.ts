@@ -18,13 +18,12 @@
  * Datenbank verlässt.
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { ANFORDERN_OK, ANFORDERN_ZU_VIELE, handleAnfordern, type AnfordernDeps } from "../lib/auth/anfordern";
 import {
-  authMode,
   authSecret,
   LOGIN_MAX_TRIES,
   LOGIN_TTL_MINUTES,
@@ -34,7 +33,6 @@ import {
 } from "../lib/auth/config";
 import { clearedSessionCookie, sessionCookie } from "../lib/auth/cookie";
 import { allowedOrigins, isAllowedOrigin } from "../lib/auth/origin";
-import { createRequestMemo, hasSupabaseSessionCookie, supabaseCookieSignature } from "../lib/auth/request-memo";
 import { sanitizeNext } from "../lib/auth/sanitize-next";
 import {
   codeHmac,
@@ -232,30 +230,6 @@ async function main() {
   eq("ohne @: nichts sichtbar", maskEmail("kaputt"), "•••");
 
   // ------------------------------------------------------------------------
-  console.log("\nEin getUser() pro Anfrage (Modus supabase)");
-  const remember = createRequestMemo<number>();
-  let computed = 0;
-  const requestA = {};
-  const requestB = {};
-  const value = () => ++computed;
-  remember(requestA, "sb-x=1", value);
-  remember(requestA, "sb-x=1", value);
-  eq("gleiche Anfrage, gleiche Cookies: einmal gefragt", computed, 1);
-  remember(requestA, "sb-x=2", value);
-  eq("Cookies geändert (aufgefrischt): neu gefragt", computed, 2);
-  eq("andere Anfrage: eigenes Ergebnis", remember(requestB, "sb-x=2", value), 3);
-  eq("ohne sb-Cookie: leere Signatur", supabaseCookieSignature([{ name: "theme", value: "hell" }]), "");
-  eq(
-    "Signatur unabhängig von der Reihenfolge",
-    supabaseCookieSignature([{ name: "sb-p-auth-token.1", value: "b" }, { name: "sb-p-auth-token.0", value: "a" }]),
-    supabaseCookieSignature([{ name: "sb-p-auth-token.0", value: "a" }, { name: "sb-p-auth-token.1", value: "b" }]),
-  );
-  ok("Sitzungscookie erkannt", hasSupabaseSessionCookie([{ name: "sb-swny-auth-token" }]));
-  ok("gestückeltes Sitzungscookie erkannt", hasSupabaseSessionCookie([{ name: "sb-swny-auth-token.0" }]));
-  ok("code-verifier allein ist keine Sitzung", !hasSupabaseSessionCookie([{ name: "sb-swny-auth-token-code-verifier" }]));
-  ok("eigenes Sitzungscookie zählt im Modus supabase nicht", !hasSupabaseSessionCookie([{ name: SESSION_COOKIE }]));
-
-  // ------------------------------------------------------------------------
   console.log("\nHerkunft (Origin)");
   const allowedProd = allowedOrigins({ siteOrigin: "https://zeugnio.ch", requestOrigin: "http://localhost:3010", production: true });
   ok("eigene Adresse erlaubt", isAllowedOrigin("https://zeugnio.ch", allowedProd));
@@ -278,24 +252,29 @@ async function main() {
   eq("absolute Adresse abgelehnt", sanitizeNext("https://boese.example"), "/app/dashboard");
 
   // ------------------------------------------------------------------------
-  console.log("\nSchalter und Konfiguration");
-  const saved = { mode: process.env.ZEUGNIO_AUTH, secret: process.env.ZEUGNIO_AUTH_SECRET, site: process.env.NEXT_PUBLIC_SITE_URL };
-  delete process.env.ZEUGNIO_AUTH;
-  eq("ohne Variable: supabase", authMode(), "supabase");
-  process.env.ZEUGNIO_AUTH = " Eigen ";
-  eq("«Eigen» mit Leerzeichen: eigen", authMode(), "eigen");
-  process.env.ZEUGNIO_AUTH = "eigne";
-  eq("Tippfehler: supabase (sicherer Rückfall)", authMode(), "supabase");
+  console.log("\nKonfiguration");
+  const saved = { secret: process.env.ZEUGNIO_AUTH_SECRET, site: process.env.NEXT_PUBLIC_SITE_URL };
   process.env.ZEUGNIO_AUTH_SECRET = "zu-kurz";
   ok("zu kurzes Geheimnis: Fehler", throws(() => authSecret()));
   delete process.env.ZEUGNIO_AUTH_SECRET;
   ok("fehlendes Geheimnis: Fehler", throws(() => authSecret()));
   process.env.NEXT_PUBLIC_SITE_URL = "https://test.zeugnio.ch/";
   eq("siteOrigin aus NEXT_PUBLIC_SITE_URL, ohne Schrägstrich", siteOrigin(), "https://test.zeugnio.ch");
-  for (const [k, v] of [["ZEUGNIO_AUTH", saved.mode], ["ZEUGNIO_AUTH_SECRET", saved.secret], ["NEXT_PUBLIC_SITE_URL", saved.site]] as const) {
+  for (const [k, v] of [["ZEUGNIO_AUTH_SECRET", saved.secret], ["NEXT_PUBLIC_SITE_URL", saved.site]] as const) {
     if (v === undefined) delete process.env[k];
     else process.env[k] = v;
   }
+
+  // Den Schalter ZEUGNIO_AUTH gibt es seit B2 nicht mehr. Steht er noch in einer .env
+  // (auch als "supabase"), darf er nichts bewirken: kein Code liest ihn.
+  const roots = ["app", "lib", "components", "middleware.ts"].map((p) => path.join(__dirname, "..", p));
+  const leser: string[] = [];
+  const walk = (p: string) => {
+    if (statSync(p).isDirectory()) return readdirSync(p).forEach((name) => walk(path.join(p, name)));
+    if (/\.(ts|tsx|mjs|js)$/.test(p) && /env\.ZEUGNIO_AUTH(?![_A-Z])|["'`]ZEUGNIO_AUTH["'`]/.test(readFileSync(p, "utf8"))) leser.push(p);
+  };
+  roots.forEach(walk);
+  ok("kein Code liest den alten Schalter ZEUGNIO_AUTH", leser.length === 0, leser.join(", "));
 
   const sql = readFileSync(path.join(__dirname, "..", "supabase", "906_auth_eigen.sql"), "utf8");
   ok(`Login-Gültigkeit ${LOGIN_TTL_MINUTES} min wie in 906`, sql.includes(`interval '${LOGIN_TTL_MINUTES} minutes'`));

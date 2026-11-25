@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 import { Logo } from "@/components/ui/logo";
-import { authMode, authSecret } from "@/lib/auth/config";
+import { authSecret } from "@/lib/auth/config";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { linkEmail } from "@/lib/auth/store";
 import { hmac, isTokenShape, maskEmail } from "@/lib/auth/tokens";
@@ -30,7 +29,7 @@ import { logError } from "@/lib/log";
  *
  * `force-dynamic` ist Pflicht: Unter /auth vergibt die Middleware eine
  * CSP-Nonce, und nur eine pro Anfrage gerenderte Seite kann sie tragen
- * (siehe app/auth/callback/page.tsx, PR #27).
+ * (siehe scripts/check-nonce-routes.mjs, PR #27).
  */
 export const dynamic = "force-dynamic";
 
@@ -58,8 +57,6 @@ export default async function AuthLinkPage({
 }: {
   searchParams: Promise<{ t?: string; next?: string }>;
 }) {
-  if (authMode() !== "eigen") redirect("/login");
-
   const { t, next } = await searchParams;
   const state = await linkState(t);
 

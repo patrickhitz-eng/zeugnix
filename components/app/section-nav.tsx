@@ -16,20 +16,28 @@ export interface SectionLink {
 export function SectionNav({ links }: { links: SectionLink[] }) {
   const [active, setActive] = useState(links[0]?.id ?? "");
 
+  // Aktiv ist der letzte Abschnitt, dessen Anfang schon oben im Fenster liegt.
+  // Ganz unten der letzte, auch wenn er zu kurz ist, um nach oben zu rücken.
   useEffect(() => {
-    const targets = links
-      .map((l) => document.getElementById(l.id))
-      .filter((el): el is HTMLElement => !!el);
-    if (targets.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { rootMargin: "0px 0px -65% 0px" },
-    );
-    targets.forEach((t) => observer.observe(t));
-    return () => observer.disconnect();
+    function update() {
+      const targets = links
+        .map((l) => document.getElementById(l.id))
+        .filter((el): el is HTMLElement => !!el);
+      if (targets.length === 0) return;
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      let current = targets[0]!.id;
+      for (const el of targets) {
+        if (el.getBoundingClientRect().top <= 140) current = el.id;
+      }
+      setActive(atBottom ? targets[targets.length - 1]!.id : current);
+    }
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
   }, [links]);
 
   return (
@@ -43,7 +51,6 @@ export function SectionNav({ links }: { links: SectionLink[] }) {
           <a
             key={link.id}
             href={`#${link.id}`}
-            onClick={() => setActive(link.id)}
             aria-current={on ? "location" : undefined}
             className={`border-b-2 px-3 py-1.5 text-[13px] transition-colors lg:border-b-0 lg:border-l-2 ${
               on

@@ -5,7 +5,7 @@ import { logWarn } from "@/lib/log";
 /**
  * Durable Rate-Limiter (H5) mit In-Memory-Fallback.
  * ----------------------------------------------------------------------------
- * Primärer Pfad: Supabase-RPC `check_rate_limit` (supabase/023_rate_limit_
+ * Primärer Pfad: RPC `check_rate_limit` in der Datenbank (supabase/023_rate_limit_
  * durable.sql) — ein geteilter Zähler-Store, der über alle Lambda-/Server-
  * Instanzen hinweg gilt (festes statt gleitendes Zeitfenster; Durability vor
  * Präzision an der Fensterkante). Bewusst kein neuer Anbieter (Redis/
@@ -77,11 +77,11 @@ function rateLimitInMemory(
 
 /**
  * Prüft und registriert einen Zugriff auf `key`. Erlaubt höchstens `limit`
- * Treffer innerhalb von `windowMs`. Versucht zuerst den durable Supabase-Store
+ * Treffer innerhalb von `windowMs`. Versucht zuerst den durable Store in der Datenbank
  * (check_rate_limit-RPC, festes Zeitfenster); bei jedem Fehler (Migration
  * noch nicht deployed, Netzwerkproblem) Fallback auf `rateLimitInMemory`.
  */
-// Obergrenze für den RPC-Roundtrip: schlägt Supabase (nicht nur die RPC,
+// Obergrenze für den RPC-Roundtrip: schlägt die Daten-API (nicht nur die RPC,
 // sondern die Verbindung selbst) fehl oder hängt, sollen öffentliche
 // Endpunkte (verify/analyze) nicht unbegrenzt lange auf den Rate-Limit-Check
 // warten – lieber schnell auf den In-Memory-Fallback wechseln.

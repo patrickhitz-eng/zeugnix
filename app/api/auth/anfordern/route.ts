@@ -2,7 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 
 import { handleAnfordern } from "@/lib/auth/anfordern";
 import { authSecret, LOGIN_TTL_MINUTES, RATE_LIMITS, siteOrigin } from "@/lib/auth/config";
-import { rejectForeignOrigin, rejectUnlessEigen } from "@/lib/auth/route-guard";
+import { rejectForeignOrigin } from "@/lib/auth/route-guard";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { storeLoginRequest } from "@/lib/auth/store";
 import { sendEmail } from "@/lib/email/send";
@@ -25,7 +25,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const blocked = rejectUnlessEigen() ?? rejectForeignOrigin(req);
+  const blocked = rejectForeignOrigin(req);
   if (blocked) return blocked;
 
   const body = (await req.json().catch(() => null)) as { email?: unknown; next?: unknown } | null;

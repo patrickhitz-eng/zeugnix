@@ -1,6 +1,5 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { authMode, authSecret, SESSION_COOKIE } from "@/lib/auth/config";
+import { authSecret, SESSION_COOKIE } from "@/lib/auth/config";
 import { clearedSessionCookie, sessionCookie } from "@/lib/auth/cookie";
 import { lookupSession } from "@/lib/auth/store";
 import { hmac, isTokenShape } from "@/lib/auth/tokens";
@@ -8,11 +7,11 @@ import { logError } from "@/lib/log";
 import { legacyHostRedirect, publicOrigin } from "@/lib/public-origin";
 
 /**
- * Middleware – robust gegen fehlende ENV-Variablen.
+ * Middleware – Sicherheitsheader und Anmeldeprüfung.
  *
- * Wichtig: Auch wenn Supabase noch nicht konfiguriert ist (oder ein ENV
- * fehlt), darf die Landingpage NIE crashen. Öffentliche Seiten laufen
- * komplett ohne Supabase. Nur /app/* braucht Auth.
+ * Wichtig: Auch wenn die Datenbank nicht erreichbar ist oder ein ENV fehlt,
+ * darf die Landingpage NIE crashen. Öffentliche Seiten laufen ohne
+ * Sitzungsprüfung. Nur /app/* braucht eine Anmeldung.
  *
  * Hier wird ausserdem die Content-Security-Policy gesetzt. Sie steht hier und
  * nicht in next.config.mjs, weil sie pro Request eine frische Nonce braucht;
@@ -22,28 +21,11 @@ import { legacyHostRedirect, publicOrigin } from "@/lib/public-origin";
  * CDN, Analytics-Snippet oder Fremd-Font fällt sofort auf, statt still zu
  * funktionieren.
  *
- * Anmeldung: Der Schalter ZEUGNIO_AUTH (lib/auth/config.ts) entscheidet, wer
- * die Sitzung prüft. «supabase» wie bisher über supabase.auth.getUser(),
- * «eigen» über das Cookie __Host-zeugnio_session und auth.sessions auf
- * advisori01. Darum läuft die Middleware seit Cutover B in der Node-Laufzeit
- * (Entscheid E4, config unten): HMAC und Datenbankzugriff nutzen denselben
- * Code wie die Routen.
+ * Anmeldung: Die Sitzung prüft zeugnio selbst, über das Cookie
+ * __Host-zeugnio_session und auth.sessions auf advisori01 (Cutover B). Darum
+ * läuft die Middleware in der Node-Laufzeit (Entscheid E4, config unten): HMAC
+ * und Datenbankzugriff nutzen denselben Code wie die Routen.
  */
-
-/**
- * Supabase-Ursprung für die CSP: Der Browser spricht mit Supabase nur noch für
- * die Anmeldung (signInWithOtp, verifyOtp) und den Marketing-Header. Mit der
- * eigenen Anmeldung fällt er ganz weg, und connect-src ist nur noch 'self'
- * (Plan § 1, «messbar fertig»).
- */
-function dataApiOrigin(): string | null {
-  if (authMode() === "eigen") return null;
-  try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").origin;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Nur dynamisch gerenderte Antworten können eine Nonce tragen: Statisch
@@ -67,8 +49,6 @@ function servesNonce(path: string): boolean {
 }
 
 function buildCsp(nonce: string | null, isDev: boolean): string {
-  const api = dataApiOrigin();
-
   const scriptSrc = nonce
     ? [
         "'self'",
@@ -87,9 +67,12 @@ function buildCsp(nonce: string | null, isDev: boolean): string {
         "'unsafe-inline'",
         ...(isDev ? ["'unsafe-eval'"] : []),
       ];
-  const connectSrc = ["'self'", api, ...(isDev ? ["ws:"] : [])].filter(Boolean);
-  // Firmenlogos liegen heute im Supabase-Storage; blob:/data: für Vorschauen.
-  const imgSrc = ["'self'", "data:", "blob:", api].filter(Boolean);
+  // Der Browser spricht nur mit zeugnio selbst: Anmeldung, Daten und Firmenlogos
+  // (/api/logos/…) laufen alle über die eigene Adresse (Plan cutover-b § 1,
+  // «messbar fertig»). ws: nur für das Neuladen in der Entwicklung.
+  const connectSrc = ["'self'", ...(isDev ? ["ws:"] : [])];
+  // blob:/data: für Vorschauen (Logo vor dem Hochladen, PDF-Ansicht).
+  const imgSrc = ["'self'", "data:", "blob:"];
 
   return [
     "default-src 'self'",
@@ -167,7 +150,16 @@ export async function middleware(request: NextRequest) {
   }
 
 
-  // Öffentliche Routen – kein Supabase-Touch nötig
+  // Die Seite /auth/callback (Anmeldung über Supabase) gibt es seit B2 nicht
+  // mehr. Links aus alten Anmelde-Mails lassen sich nicht mehr einlösen; die
+  // Anmeldeseite sagt das, und man fordert dort eine neue Mail an. Bewusst hier
+  // und nicht in next.config.mjs: dort ginge der alte token_hash aus der
+  // Adresse mit auf /login über.
+  if (path === "/auth/callback") {
+    return sealed(redirectToLogin({ error: "link_ungueltig" }));
+  }
+
+  // Öffentliche Routen – keine Sitzungsprüfung nötig
   const isPublic =
     path === "/" ||
     path === "/login" ||
@@ -176,26 +168,23 @@ export async function middleware(request: NextRequest) {
     path === "/how-it-works" ||
     path.startsWith("/for-") ||
     path.startsWith("/legal") ||
-    path.startsWith("/auth/callback") ||
     path.startsWith("/auth/link") ||
     // Anmelde-Routen prüfen selbst (Herkunft, Ratenbegrenzung, Sitzung).
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/verify") ||
     path.startsWith("/api/analyze") ||
-    // Firmenlogos: liegen auf der Platte und sind wie bisher im öffentlichen
-    // Supabase-Bucket ohne Anmeldung abrufbar. Ohne diese Zeile käme pro Bild
-    // ein getUser() gegen Supabase dazu – für eine Datei, die ohnehin jeder
-    // sehen darf, der die Adresse kennt.
+    // Firmenlogos: liegen auf der Platte und sind ohne Anmeldung abrufbar (wie
+    // früher im öffentlichen Bucket). Ohne diese Zeile käme pro Bild eine
+    // Sitzungsprüfung dazu – für eine Datei, die ohnehin jeder sehen darf, der
+    // die Adresse kennt.
     path.startsWith("/api/logos/") ||
     path.startsWith("/api/health") ||
     path.startsWith("/app/invitations"); // Token-basiert, kein Login nötig
 
-  if (authMode() === "eigen") {
-    return sealed(await eigeneSitzung());
-  }
+  return sealed(await eigeneSitzung());
 
   /**
-   * Eigene Anmeldung: Cookie lesen, Sitzung in auth.sessions nachschlagen.
+   * Anmeldung: Cookie lesen, Sitzung in auth.sessions nachschlagen.
    * Ohne Sitzung führt /app/* zur Anmeldung, /api/* lässt die Route selbst mit
    * 401 antworten (wie bisher). Wurde die Sitzung eben verlängert, bekommt auch
    * das Cookie wieder 30 Tage; ist sie ungültig, wird das Cookie gelöscht.
@@ -224,77 +213,6 @@ export async function middleware(request: NextRequest) {
       if (appPath) return redirectToLogin({ error: "service_unavailable" });
       return NextResponse.next({ request: { headers: forwardedHeaders() } });
     }
-  }
-
-  // ENV-Vars prüfen
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const hasSupabaseConfig = !!(supabaseUrl && supabaseKey);
-
-  // Fall A: ENV fehlt komplett
-  if (!hasSupabaseConfig) {
-    if (path.startsWith("/app") && !path.startsWith("/app/invitations")) {
-      // App-Bereich braucht Supabase – auf Setup-Hinweis umleiten
-      return sealed(redirectToLogin({ error: "setup_incomplete" }));
-    }
-    // Öffentliche Seiten: einfach durchlassen
-    return sealed(NextResponse.next({ request: { headers: forwardedHeaders() } }));
-  }
-
-  // Fall B: ENV ist da – Supabase-Logik nur, wenn nötig
-  let supabaseResponse = NextResponse.next({
-    request: { headers: forwardedHeaders() },
-  });
-
-  // Auf öffentlichen Seiten kein getUser() nötig – spart Latenz und macht
-  // die Seite robust gegen Supabase-Ausfälle.
-  if (isPublic) {
-    return sealed(supabaseResponse);
-  }
-
-  try {
-    const supabase = createServerClient(supabaseUrl, supabaseKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(
-          cookiesToSet: { name: string; value: string; options?: any }[],
-        ) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({
-            request: { headers: forwardedHeaders() },
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    });
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (
-      !user &&
-      path.startsWith("/app") &&
-      !path.startsWith("/app/invitations")
-    ) {
-      return sealed(redirectToLogin({ next: path }));
-    }
-
-    return sealed(supabaseResponse);
-  } catch (err) {
-    // Falls Supabase nicht erreichbar ist: Public Routes durchlassen,
-    // App-Routes auf Login-Seite mit Hinweis umleiten
-    logError("[middleware] Supabase error:", err);
-    if (path.startsWith("/app") && !path.startsWith("/app/invitations")) {
-      return sealed(redirectToLogin({ error: "service_unavailable" }));
-    }
-    return sealed(NextResponse.next({ request: { headers: forwardedHeaders() } }));
   }
 }
 

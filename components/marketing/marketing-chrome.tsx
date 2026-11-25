@@ -6,7 +6,7 @@ import { Footer } from "@/components/marketing/footer";
 
 /**
  * Rendert Marketing-Header und -Footer NUR auf öffentlichen Seiten.
- * Auf /app/*, /login, /auth/callback wird beides ausgeblendet,
+ * Auf /app/*, /login, /auth/* (z. B. /auth/link) wird beides ausgeblendet,
  * weil diese Bereiche ihr eigenes Chrome haben.
  */
 export function MarketingChrome({ children }: { children: React.ReactNode }) {
