@@ -130,7 +130,14 @@ export function NewCompanyForm({
 }
 
 /** Knopf oben rechts, öffnet das kurze Formular als Fenster. */
-export function NewCompanyButton({ existingNames }: { existingNames: string[] }) {
+export function NewCompanyButton({
+  existingNames,
+  variant = "primary",
+}: {
+  existingNames: string[];
+  /** «secondary» auf der Seite einer Firma, wo das Anlegen Nebensache ist. */
+  variant?: "primary" | "secondary";
+}) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -143,7 +150,11 @@ export function NewCompanyButton({ existingNames }: { existingNames: string[] })
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="btn-primary py-2.5 text-[13px]">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={`${variant === "primary" ? "btn-primary" : "btn-secondary"} py-2.5 text-[13px]`}
+      >
         + Firma anlegen
       </button>
       <dialog
