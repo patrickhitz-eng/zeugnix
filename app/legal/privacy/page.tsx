@@ -23,6 +23,7 @@ export const metadata = { title: "Datenschutz" };
  *
  * 25.11.2026: Supabase-Projekt gelöscht, Anmeldung nur noch auf advisori01
  * (B2, ANMELDUNG = "nine"); seit diesem Tag gilt die Fassung ohne Supabase.
+ * Am selben Tag kam die Zweitkopie der Sicherungen in Rümlang dazu (B3).
  */
 const UPDATED = "25. November 2026";
 
@@ -35,11 +36,14 @@ const UPDATED = "25. November 2026";
  * basis = null heisst: Der Anbieter bearbeitet die Daten nur in der Schweiz,
  * es gibt keine Bekanntgabe ins Ausland.
  *
- * Standort Altstetten (Server): von Silvan am 20.11.2026 bestätigt. Die
- * Sicherungen liegen heute verschlüsselt auf dem Server selbst plus in nines
- * täglicher Serversicherung; die Zweitkopie im Object Storage (Rümlang, Kit
- * B3) ist noch nicht bestellt. Erst mit B3 wieder «zweites Rechenzentrum in
- * Rümlang» schreiben (hier, Abschnitt 9 und FAQ).
+ * Standort Altstetten (Server): von Silvan am 20.11.2026 bestätigt.
+ * Sicherungen (B3, seit 25.11.2026, deploy/nine/b3-zweitkopie.md): stündlich
+ * verschlüsselt auf dem Server (14 Tage) und als Zweitkopie im nine Object
+ * Storage, Rechenzentrum es34 in Rümlang (Bucket advisori-zeugnio-bucket);
+ * dazu nines tägliche Serversicherung (10 Tage). Die Zweitkopie bleibt
+ * höchstens 56 Tage plus 14 Tage als alte Version, also rund zehn Wochen
+ * (Abschnitt 6). Ändert sich die Aufbewahrung, hier, in Abschnitt 6 und 9
+ * und in der FAQ nachziehen.
  * Supabase: Die Kopie der Daten ist seit 21.11.2026 gelöscht (5.10), die
  * Anmeldung läuft seit Cutover B (23.11.2026) auf advisori01. Mit
  * ANMELDUNG = "nine" fällt der Supabase-Eintrag weg; das Supabase-Projekt ist
@@ -60,7 +64,7 @@ const NINE: Recipient = {
   name: "Nine Internet Solutions AG, Zürich",
   task: `Hosting der Anwendung, ${OWN_LOGIN ? "der Anmeldung, " : ""}der Datenbank und der Firmenlogos auf einem verwalteten Server`,
   location:
-    "Server im Rechenzentrum Zürich-Altstetten. Die Datenbank wird stündlich verschlüsselt gesichert, zusätzlich sichert nine den Server täglich; alle Rechenzentren von nine liegen im Kanton Zürich (Schweiz). " +
+    "Server im Rechenzentrum Zürich-Altstetten. Die Datenbank wird stündlich verschlüsselt gesichert, eine Kopie dieser Sicherungen liegt in einem zweiten Rechenzentrum von nine in Rümlang, zusätzlich sichert nine den Server täglich; alle Rechenzentren von nine liegen im Kanton Zürich (Schweiz). " +
     (NINE_ABROAD
       ? "Für Notfälle und Wartung ausserhalb der Bürozeiten kann die Tochtergesellschaft Nine Internet Solutions Ltd. aus Kanada auf den Server zugreifen; sie speichert dort keine Daten. Für Netz- und DDoS-Schutz führt nine zudem Cloudflare, Inc. (USA) als Unterauftragsbearbeiter, soweit dieser Dienst eingesetzt wird"
       : "Den Zugriff von Gesellschaften der nine-Gruppe ausserhalb der Schweiz haben wir ausgeschlossen. Dienste, für die nine Unterauftragsbearbeiter ausserhalb der Schweiz beizieht (etwa Cloudflare), nutzen wir nicht"),
@@ -372,8 +376,8 @@ export default function Page() {
                 </li>
               </ul>
               <p>
-                Gelöschte Daten verschwinden aus unseren Sicherungen, sobald
-                diese turnusgemäss überschrieben werden. Länger bewahren wir
+                Unsere Sicherungen bewahren wir höchstens rund zehn Wochen auf.
+                Gelöschte Daten verschwinden danach auch aus ihnen. Länger bewahren wir
                 Daten nur auf, wenn ein Gesetz es verlangt oder wir sie zur
                 Wahrung unserer Rechte brauchen, und nur so lange wie nötig.
               </p>
@@ -431,9 +435,10 @@ export default function Page() {
                 der Datenbank nur ihre eigenen Daten. Finalisierte Zeugnisse
                 werden mit einem SHA-256-Hash und einer Signatur versiegelt und
                 lassen sich danach nicht mehr verändern. Die Datenbank wird
-                stündlich verschlüsselt gesichert, zusätzlich sichert unser
-                Hosting-Anbieter den Server täglich. Alle Sicherungen liegen in
-                der Schweiz.
+                stündlich verschlüsselt gesichert, und eine Kopie dieser
+                Sicherungen liegt in einem zweiten Rechenzentrum. Zusätzlich
+                sichert unser Hosting-Anbieter den Server täglich. Alle
+                Sicherungen liegen in der Schweiz.
               </p>
               <p>
                 Vollständige Sicherheit kann niemand garantieren. Kommt es
