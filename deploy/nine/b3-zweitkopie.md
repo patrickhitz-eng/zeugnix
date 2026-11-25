@@ -1,6 +1,6 @@
 # B3: Zweitkopie der Sicherungen ausser Haus
 
-> Stand: 24.11.2026 · **Entscheid Silvan 24.11.: nine Object Storage in es34 mit Versionierung, Alarm über healthchecks.io.** · **Vorbereitet, noch nicht live.** Das Kit ist angepasst (Kit-Commit `587bb18`, lokal in `$HOME\advisori-advisori01-kit`, noch nicht auf advisori01). Es fehlen der Bucket und dein Entscheid zur Überwachung.
+> Stand: 25.11.2026 · **Entscheid Silvan 24.11.: nine Object Storage in es34 mit Versionierung, Alarm über healthchecks.io.** · **Live seit 25.11.:** Kit `587bb18` auf advisori01, Bucket `advisori-zeugnio-bucket` (es34), neue Crontab, Restore aus der Zweitkopie bestanden (26 Tabellen, Zeilenzahlen gleich). Offen: Lifecycle-Regeln (Schritt 3) und healthchecks.io (Schritt 8).
 > Gehört zu `cutover-reihenfolge.md` (B3) und zum Journal `kommunikation.md`.
 
 ## Warum
