@@ -188,6 +188,6 @@ Im Kit-README, Abschnitt «Ernstfall». Kurz:
 
 ## Offen danach
 
-- **Datenschutzerklärung:** Sie sagt seit 21.11. «Sicherungen stündlich verschlüsselt + nines Tagessicherung, alle in der Schweiz». Mit B3 kommt «Zweitkopie im zweiten nine-Rechenzentrum (Rümlang)» dazu. `RECIPIENTS` in `app/legal/privacy/page.tsx` ändert gerade die Session B2, darum dort nachziehen, nicht hier.
+- **Datenschutzerklärung:** nachgezogen am 25.11.: Rümlang beim Empfänger nine, Abschnitt 6 (Sicherungen höchstens rund zehn Wochen), Abschnitt 9 und FAQ.
 - **Löschkonzept:** In Sicherungen bleiben gelöschte Daten höchstens etwa 70 Tage (siehe 3).
 - **Schlüsselabgleich:** Fingerabdruck deiner Kopie von `backup.key` mit `ef3fe2bf0a70` vergleichen. Ohne passende Kopie ist die Zweitkopie im Ernstfall wertlos.
