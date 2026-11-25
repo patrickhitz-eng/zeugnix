@@ -6,11 +6,12 @@ import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { VerifyAnalysisResult } from "@/components/forms/verify-analysis-result";
 import { RegisterNote } from "@/components/forms/register-note";
 import {
+  DomainNotVerifiedNote,
   IssuerNotConfirmedNotice,
   SealedTextBlock,
   SignatoryConfirmation,
 } from "@/components/forms/verify-shared";
-import { isIssuerConfirmed } from "@/lib/verify/issuer";
+import { isIssuerConfirmed, issuerHeadline } from "@/lib/verify/issuer";
 
 type State =
   | { kind: "idle" }
@@ -236,7 +237,7 @@ export function VerifyUploader({
               <div className="text-[11px] font-medium uppercase tracking-wider opacity-80">Resultat</div>
               <div className="text-[18px] font-medium">Registriert und unverändert</div>
               <div className="text-[12px] opacity-90">
-                {issuerConfirmed ? "Aussteller bestätigt" : "Aussteller nicht bestätigt"}
+                {issuerHeadline(state.certificate)}
               </div>
             </div>
           </div>
@@ -310,12 +311,10 @@ export function VerifyUploader({
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Domain verifiziert · {state.certificate.verifiedDomain}
+                        Domain geprüft (DNS) · {state.certificate.verifiedDomain}
                       </dd>
                     ) : (
-                      <dd className="mt-1 text-[11px] text-ink-400">
-                        Aussteller-Domain nicht verifiziert
-                      </dd>
+                      <DomainNotVerifiedNote emailConfirmedDomain={state.certificate.emailConfirmedDomain} />
                     )}
                   </div>
                 )}
@@ -451,7 +450,7 @@ export function VerifyUploader({
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
-                        Domain verifiziert · {state.certificate.verifiedDomain}
+                        Domain geprüft (DNS) · {state.certificate.verifiedDomain}
                       </dd>
                     )}
                   </div>

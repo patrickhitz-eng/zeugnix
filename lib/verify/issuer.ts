@@ -5,17 +5,20 @@
  * Person. Ein einzelnes Konto kann eine Firma unter einem fremden Namen anlegen
  * und finalisieren.
  *
- * Bis zum 24.11.2026 galt der Aussteller auch dann als bestätigt, wenn eine
- * unterzeichnende Person das Zeugnis per E-Mail freigegeben hatte. Die Adresse
- * dafür tippt aber die ausstellende Person selbst ein. Wer sich ein Zeugnis
- * einer fremden Firma ausstellt, schickt die Freigabe an die eigene Gmail und
- * bekam so «Aussteller bestätigt» (Sicherheitstest 24.11.2026, Befund H3).
+ * Drei Stufen (Sicherheitstest 24.11.2026, Befunde H3 und M2; Entscheid
+ * Silvan 25.11.2026):
  *
- * Seither gilt:
- *  - Bestätigt ist der Aussteller nur mit verifizierter Firmen-Domain.
- *  - Eine Freigabe zählt als Bestätigung der unterzeichnenden Person nur, wenn
- *    die Freigabe-Adresse an dieser verifizierten Domain liegt. Sonst wird sie
- *    angezeigt, aber ausdrücklich als «Adresse nicht geprüft».
+ *  - "dns"   Die Firma hat einen TXT-Eintrag in ihrer Domain gesetzt. Das kann
+ *            nur, wer die Domain verwaltet. Höchste Stufe, freiwillig.
+ *  - "mail"  Die angemeldete Person hat eine Mailadresse an genau dieser Domain.
+ *            Schliesst den gefährlichsten Fall aus (ein Fremder mit Gmail stellt
+ *            sich ein Zeugnis einer bekannten Firma aus). Übrig bleibt die
+ *            Insiderin mit Firmenadresse. Gilt als bestätigt, ohne Warnung.
+ *  - "none"  Nichts davon: gelbe Warnung auf der Prüfseite.
+ *
+ * Eine Unterschriften-Freigabe zählt nur, wenn ihre Adresse an der Domain der
+ * Firma liegt (DNS- oder Mail-Stufe). Die Adresse tippt die ausstellende Person
+ * selbst ein; eine Freigabe an die eigene Gmail belegt nichts (H3).
  *
  * Reine Funktionen ohne Server-Abhängigkeit, damit `npm run test:verify-hash`
  * sie direkt prüfen kann.
@@ -23,14 +26,39 @@
 
 import { domainsMatch, emailDomain, normalizeDomain } from "@/lib/company/domain";
 
-/** Bestätigt ist der Aussteller nur über die verifizierte Firmen-Domain. */
-export function isIssuerConfirmed(c: { verifiedDomain?: string | null } | null | undefined): boolean {
-  return Boolean(c?.verifiedDomain);
+export type IssuerLevel = "dns" | "mail" | "none";
+
+type IssuerFields = {
+  verifiedDomain?: string | null;
+  emailConfirmedDomain?: string | null;
+} | null | undefined;
+
+export function issuerLevel(c: IssuerFields): IssuerLevel {
+  if (c?.verifiedDomain) return "dns";
+  if (c?.emailConfirmedDomain) return "mail";
+  return "none";
+}
+
+/** Bestätigt ist der Aussteller mit DNS- oder Mail-Stufe. */
+export function isIssuerConfirmed(c: IssuerFields): boolean {
+  return issuerLevel(c) !== "none";
+}
+
+/** Untertitel im Kopf des Prüfergebnisses. */
+export function issuerHeadline(c: IssuerFields): string {
+  switch (issuerLevel(c)) {
+    case "dns":
+      return "Aussteller bestätigt · Domain geprüft";
+    case "mail":
+      return "Aussteller über Firmen-Mailadresse bestätigt";
+    default:
+      return "Aussteller nicht bestätigt";
+  }
 }
 
 /**
- * Liegt die Freigabe-Adresse an der verifizierten Domain der Firma (oder an
- * einer Subdomain davon)? Ohne verifizierte Domain nie.
+ * Liegt die Freigabe-Adresse an der bestätigten Domain der Firma (oder an einer
+ * Subdomain davon)? Ohne bestätigte Domain nie.
  */
 export function isSignoffOnVerifiedDomain(
   signoffEmail: string | null | undefined,

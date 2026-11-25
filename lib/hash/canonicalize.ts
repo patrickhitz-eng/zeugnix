@@ -349,6 +349,9 @@ export interface VerifiedCertificateFields {
   // Trust-Signal NEBEN dem Hash; belegt, dass ein berechtigter Mensch mit einer
   // E-Mail @dieser-Domain hinter dem Aussteller steht.
   verifiedDomain: string | null;
+  // M2 (25.11.2026): Vorstufe. Die Firma hat nur eine Mailadresse an dieser
+  // Domain bestätigt, keinen DNS-Eintrag. Nur gesetzt, wenn verifiedDomain fehlt.
+  emailConfirmedDomain?: string | null;
   // V2: Zeitpunkt (formatiert) der identitaetsgebundenen Unterzeichner-Freigabe
   // pro Slot (null = nicht per E-Mail bestaetigt). Die bestaetigende E-Mail
   // bleibt aus Datenschutzgruenden ausserhalb der oeffentlichen Antwort.

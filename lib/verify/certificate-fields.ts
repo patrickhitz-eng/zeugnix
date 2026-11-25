@@ -61,7 +61,7 @@ export async function findCertificateByHash(supabase: any, hash: string) {
 
 const REGISTER_SELECT_COLS =
   "certificate_id, hash, hash_version, status, finalized_at, revoked_at, " +
-  "signature, signing_key_id, employer, document_title, verified_domain";
+  "signature, signing_key_id, employer, document_title, verified_domain, verified_domain_method";
 
 /** Register-Zeile in der Form eines Treffers aus `certificates`. */
 function registerAsMatch(entry: any) {
@@ -140,7 +140,11 @@ export async function buildCertificateFields(
       signatory1Role: null,
       signatory2Name: null,
       signatory2Role: null,
-      verifiedDomain: entry.verified_domain ?? null,
+      // 039: Stufe aus dem Register. Einträge von vor 039 tragen 'email'.
+      verifiedDomain:
+        entry.verified_domain_method === "dns" ? (entry.verified_domain ?? null) : null,
+      emailConfirmedDomain:
+        entry.verified_domain_method === "dns" ? null : (entry.verified_domain ?? null),
       signatory1ConfirmedAt: null,
       signatory2ConfirmedAt: null,
       sealVersion: entry.hash_version ?? 1,
@@ -160,19 +164,23 @@ export async function buildCertificateFields(
   const presentation = resolveCertificatePresentation(match, company ?? {});
   const signatories = presentation.signatories;
 
-  // V1-Trust-Signal: verifizierte Domain der ausstellenden Firma. Liegt
-  // AUSSERHALB des Hashes und belegt den Aussteller.
+  // V1-Trust-Signal: per DNS bestätigte Domain der ausstellenden Firma. Liegt
+  // AUSSERHALB des Hashes und belegt den Aussteller. Seit Migration 039 heisst
+  // 'verified' immer DNS. Die Vorstufe 'email_confirmed' (eine Mailadresse an
+  // der Domain) geht nur als grauer Hinweis hinaus (Sicherheitstest, M2).
   let verifiedDomain: string | null = null;
+  let emailConfirmedDomain: string | null = null;
   if (match.company_id) {
-    const { data: dom } = await supabase
+    const { data: doms } = await supabase
       .from("company_domains")
-      .select("domain")
+      .select("domain, status")
       .eq("company_id", match.company_id)
-      .eq("status", "verified")
-      .order("verified_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    verifiedDomain = dom?.domain ?? null;
+      .in("status", ["verified", "email_confirmed"])
+      .order("verified_at", { ascending: true });
+    verifiedDomain = doms?.find((d: any) => d.status === "verified")?.domain ?? null;
+    emailConfirmedDomain = verifiedDomain
+      ? null
+      : (doms?.find((d: any) => d.status === "email_confirmed")?.domain ?? null);
   }
 
   // V2: per Magic-Link bestätigte Unterzeichner-Freigaben. Nur das Datum pro
@@ -193,7 +201,7 @@ export async function buildCertificateFields(
       .eq("status", "confirmed");
     for (const so of signoffs ?? []) {
       const formatted = formatDateCh(so.confirmed_at);
-      const onDomain = isSignoffOnVerifiedDomain(so.email, verifiedDomain);
+      const onDomain = isSignoffOnVerifiedDomain(so.email, verifiedDomain ?? emailConfirmedDomain);
       if (so.slot === 1) {
         if (onDomain) signatory1ConfirmedAt = formatted;
         else signatory1ConfirmedUnverifiedAt = formatted;
@@ -229,6 +237,7 @@ export async function buildCertificateFields(
     signatory2Name: signatories.signatory_2_name,
     signatory2Role: signatories.signatory_2_role,
     verifiedDomain,
+    emailConfirmedDomain,
     signatory1ConfirmedAt,
     signatory2ConfirmedAt,
     signatory1ConfirmedUnverifiedAt,

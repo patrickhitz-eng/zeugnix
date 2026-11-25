@@ -8,11 +8,12 @@ import type {
 } from "@/lib/hash/canonicalize";
 import { RegisterNote } from "@/components/forms/register-note";
 import {
+  DomainNotVerifiedNote,
   IssuerNotConfirmedNotice,
   SealedTextBlock,
   SignatoryConfirmation,
 } from "@/components/forms/verify-shared";
-import { isIssuerConfirmed } from "@/lib/verify/issuer";
+import { isIssuerConfirmed, issuerHeadline } from "@/lib/verify/issuer";
 
 export type HashLookupState =
   | { kind: "loading" }
@@ -144,12 +145,10 @@ function RegisteredFields({
             {c.verifiedDomain ? (
               <dd className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${pill}`}>
                 <CheckIcon />
-                Domain verifiziert · {c.verifiedDomain}
+                Domain geprüft (DNS) · {c.verifiedDomain}
               </dd>
             ) : (
-              <dd className="mt-1 text-[11px] text-ink-400">
-                Aussteller-Domain nicht verifiziert
-              </dd>
+              <DomainNotVerifiedNote emailConfirmedDomain={c.emailConfirmedDomain} />
             )}
           </Field>
         )}
@@ -338,7 +337,7 @@ export function VerifyHashResult({
       <ResultHeader
         tone="petrol"
         title="Registriertes Zeugnis gefunden"
-        subtitle={issuerConfirmed ? "Aussteller bestätigt" : "Aussteller nicht bestätigt"}
+        subtitle={issuerHeadline(c)}
         icon={<CheckIcon size={20} />}
       />
       <div className="space-y-4 p-6">

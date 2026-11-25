@@ -16,7 +16,12 @@ import {
   readHashFromFragment,
   sha256,
 } from "../lib/hash/canonicalize";
-import { isIssuerConfirmed, isSignoffOnVerifiedDomain } from "../lib/verify/issuer";
+import {
+  isIssuerConfirmed,
+  isSignoffOnVerifiedDomain,
+  issuerHeadline,
+  issuerLevel,
+} from "../lib/verify/issuer";
 
 let passed = 0;
 let failed = 0;
@@ -79,6 +84,14 @@ async function main() {
   check("ohne Domain nicht bestätigt", !isIssuerConfirmed({ verifiedDomain: null }));
   check("mit verifizierter Domain bestätigt", isIssuerConfirmed({ verifiedDomain: "firma.ch" }));
   check("ohne Angaben nicht bestätigt", !isIssuerConfirmed(null));
+  // M2 (25.11.2026): drei Stufen
+  check("Mail-Stufe bestätigt", isIssuerConfirmed({ emailConfirmedDomain: "firma.ch" }));
+  check("Stufe dns", issuerLevel({ verifiedDomain: "firma.ch", emailConfirmedDomain: "firma.ch" }) === "dns");
+  check("Stufe mail", issuerLevel({ verifiedDomain: null, emailConfirmedDomain: "firma.ch" }) === "mail");
+  check("Stufe none", issuerLevel({ verifiedDomain: null, emailConfirmedDomain: null }) === "none");
+  check("Kopf dns nennt Domain geprüft", issuerHeadline({ verifiedDomain: "firma.ch" }).includes("Domain geprüft"));
+  check("Kopf mail nennt Mailadresse", issuerHeadline({ emailConfirmedDomain: "firma.ch" }).includes("Mailadresse"));
+  check("Kopf none", issuerHeadline(null) === "Aussteller nicht bestätigt");
   check(
     "Freigabe an der Domain zählt",
     isSignoffOnVerifiedDomain("ceo@firma.ch", "firma.ch"),

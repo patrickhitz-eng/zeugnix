@@ -41,7 +41,8 @@ export default async function DashboardPage() {
       .from("company_domains")
       .select("company_id")
       .in("company_id", companyIds)
-      .eq("status", "verified");
+      // Mail-Stufe oder DNS (Migration 039) gelten beide als bestätigt.
+      .in("status", ["verified", "email_confirmed"]);
     if (!domainErr) {
       const confirmed = new Set((verified ?? []).map((d) => d.company_id));
       unconfirmedCompanies = (companies ?? []).filter((c) => !confirmed.has(c.id));

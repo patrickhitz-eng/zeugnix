@@ -75,7 +75,7 @@ export async function loadCompanyOverview(supabase: any, userId: string): Promis
   if (ids.length > 0) {
     const [{ data: certs }, { data: domains }, { data: orgs }] = await Promise.all([
       supabase.from("certificates").select("company_id").in("company_id", ids),
-      supabase.from("company_domains").select("company_id").in("company_id", ids).eq("status", "verified"),
+      supabase.from("company_domains").select("company_id").in("company_id", ids).in("status", ["verified", "email_confirmed"]),
       orgIds.length > 0
         ? supabase.from("organizations").select("id, name").in("id", orgIds)
         : Promise.resolve({ data: [] }),
