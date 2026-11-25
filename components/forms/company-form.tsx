@@ -544,7 +544,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
 
       {/* Mastervorlage: fester Firmenbeschrieb */}
       {!compact && (
-        <div className="card p-5">
+        <div id="firmenbeschrieb" className="card scroll-mt-6 p-5">
           <div className="mb-1 text-[13px] font-medium tracking-tight">
             Firmenbeschrieb
           </div>
@@ -569,7 +569,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
 
       {/* Mastervorlage: sichtbarer Echtheitsnachweis */}
       {!compact && (
-        <div className="card p-5">
+        <div id="echtheit" className="card scroll-mt-6 p-5">
           <div className="mb-1 text-[13px] font-medium tracking-tight">
             Echtheitsnachweis im Dokument
           </div>
@@ -592,7 +592,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
 
       {/* Fusszeile */}
       {!compact && (
-        <div className="card p-5">
+        <div id="fusszeile" className="card scroll-mt-6 p-5">
           <div className="mb-1 text-[13px] font-medium tracking-tight">
             Fusszeile
           </div>
@@ -629,7 +629,9 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
         </div>
       )}
 
-      <div className="flex justify-end">
+      {/* Bleibt beim Scrollen unten sichtbar: Das Formular ist lang, und wer
+          oben das Logo ändert, soll nicht bis ans Ende scrollen müssen. */}
+      <div className="sticky bottom-0 z-10 -mx-1 flex items-center justify-end gap-3 border-t border-ink-200 bg-white/95 px-1 py-3 backdrop-blur">
         <button
           type="submit"
           disabled={submitting}
