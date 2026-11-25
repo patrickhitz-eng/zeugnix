@@ -1,5 +1,7 @@
 # B2: Supabase ganz ablösen (Ablauf ab 25.11.2026)
 
+> **Stand 25.11.2026:** Schritte 1–3 erledigt (Prüfung grün, Abgleich 23 = 23, Projekt gelöscht). Offen: Schritt 4 und 5.
+
 Seit Cutover B (23.11.2026, Release `20261123-124517`) meldet zeugnio selbst an. Supabase wird zur
 Laufzeit nicht mehr gebraucht. Übrig sind drei Dinge, und sie müssen in dieser Reihenfolge
 geschehen:

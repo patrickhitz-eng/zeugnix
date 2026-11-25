@@ -26,16 +26,11 @@ export type AuslandzugriffNine = "moeglich" | "ausgeschlossen";
  * supabase.co nicht mehr aufruft (`connect-src` ohne Supabase) und das
  * Supabase-Projekt leer oder gelöscht ist.
  *
- * Stand B2 (Branch feat/b2-supabase-entfernen): steht auf "nine". Die App ruft
- * Supabase seit Cutover B (23.11.2026) nicht mehr auf, und seit B2 enthält der
- * Code auch keinen Supabase-Weg mehr. ABER: Das Supabase-Projekt besteht noch
- * (Benutzerkonten mit E-Mail-Adressen in Supabase Auth, dazu Supabases eigene
- * Sicherungen). Darum geht dieser Stand ERST LIVE, WENN DAS SUPABASE-PROJEKT
- * GELÖSCHT IST (Plan cutover-b § 8, Punkt 4). Vorher nicht deployen, sonst
- * nennt die Datenschutzerklärung einen Empfänger nicht mehr, der noch Daten
- * hält. Beim Deploy auch das Stand-Datum (UPDATED) in
- * app/legal/privacy/page.tsx und Anhang 3 des Auftragsbearbeitungsvertrags
- * nachführen.
+ * Stand B2: steht auf "nine". Die App ruft Supabase seit Cutover B
+ * (23.11.2026) nicht mehr auf, seit B2 enthält der Code keinen Supabase-Weg
+ * mehr, und das Supabase-Projekt ist seit 25.11.2026 gelöscht (samt Konten
+ * und Sicherungen; deploy/nine/b2-supabase-loeschen.md). Anhang 3 des
+ * Auftragsbearbeitungsvertrags muss Supabase ebenfalls nicht mehr nennen.
  */
 export const ANMELDUNG: Anmeldung = "nine";
 

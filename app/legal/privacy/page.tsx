@@ -21,11 +21,10 @@ export const metadata = { title: "Datenschutz" };
  * 16:48 von advisori01), die Supabase-Kopie ist seit 21.11.2026 gelöscht
  * (5.10); seit diesem Tag gilt diese Fassung.
  *
- * B2 (ANMELDUNG = "nine"): Vor dem Merge auf den Tag setzen, an dem diese
- * Fassung deployt wird, frühestens der Tag, an dem das Supabase-Projekt
- * gelöscht ist (deploy/nine/b2-supabase-loeschen.md, Schritt 4).
+ * 25.11.2026: Supabase-Projekt gelöscht, Anmeldung nur noch auf advisori01
+ * (B2, ANMELDUNG = "nine"); seit diesem Tag gilt die Fassung ohne Supabase.
  */
-const UPDATED = "21. November 2026";
+const UPDATED = "25. November 2026";
 
 /**
  * Empfänger von Personendaten (Abschnitt 5). Die Liste setzt sich aus den
@@ -43,8 +42,8 @@ const UPDATED = "21. November 2026";
  * Rümlang» schreiben (hier, Abschnitt 9 und FAQ).
  * Supabase: Die Kopie der Daten ist seit 21.11.2026 gelöscht (5.10), die
  * Anmeldung läuft seit Cutover B (23.11.2026) auf advisori01. Mit
- * ANMELDUNG = "nine" fällt der Supabase-Eintrag weg; das stimmt erst, wenn
- * das Supabase-Projekt gelöscht ist (deploy/nine/b2-supabase-loeschen.md).
+ * ANMELDUNG = "nine" fällt der Supabase-Eintrag weg; das Supabase-Projekt ist
+ * seit 25.11.2026 gelöscht (deploy/nine/b2-supabase-loeschen.md).
  * Der Eintrag SUPABASE bleibt nur als Rückweg des Schalters im Code.
  *
  * Cloudflare: nines AVV (Anhang 3, Abschnitt B) sieht Cloudflare nur bei
