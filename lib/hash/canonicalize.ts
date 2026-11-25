@@ -354,6 +354,14 @@ export interface VerifiedCertificateFields {
   // bleibt aus Datenschutzgruenden ausserhalb der oeffentlichen Antwort.
   signatory1ConfirmedAt: string | null;
   signatory2ConfirmedAt: string | null;
+  // H3 (24.11.2026): Freigabe bestätigt, aber die Adresse liegt NICHT an der
+  // verifizierten Firmen-Domain. Kein Beleg für die Person, nur ein Hinweis.
+  // `…ConfirmedAt` ist seither nur gesetzt, wenn die Adresse an der Domain liegt.
+  signatory1ConfirmedUnverifiedAt?: string | null;
+  signatory2ConfirmedUnverifiedAt?: string | null;
+  // H2 (24.11.2026): der versiegelte Fliesstext zum Vergleich mit dem Papier.
+  // Nur bei gültigen (finalen) Zeugnissen, sonst null.
+  sealedText?: string | null;
   // S1b: Siegel-Version des Treffers. 2 = Body UND Aussteller/Titel/
   // Unterzeichnende sind vom Hash gedeckt; 1 = nur Fliesstext (Alt-Zeugnis,
   // Bestandsschutz). Steuert das Vertrauens-Label in der Prüfung.

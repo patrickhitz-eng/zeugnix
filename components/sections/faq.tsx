@@ -120,10 +120,11 @@ const faqs: Faq[] = [
         <Link href="/verify" className={linkClass}>
           zeugnio.ch/verify
         </Link>{" "}
-        hochlädt, sieht, ob der Text mit dem registrierten Original
-        übereinstimmt. Ein QR-Code auf dem Zeugnis zeigt nur, dass es
-        registriert ist. Ob ein vorliegendes Dokument denselben Text trägt,
-        belegt erst das Hochladen.
+        hochlädt oder den QR-Code scannt, sieht, ob das Zeugnis registriert
+        ist, und bekommt den versiegelten Text angezeigt. Stimmt das Dokument
+        vor Ihnen Wort für Wort mit diesem Text überein, ist es unverändert.
+        Als Aussteller bestätigt gilt eine Firma nur, wenn sie ihre
+        E-Mail-Domain bei zeugnio verifiziert hat.
       </>
     ),
   },

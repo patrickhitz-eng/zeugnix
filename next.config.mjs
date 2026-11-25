@@ -16,6 +16,16 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["clsx", "tailwind-merge"],
   },
+  // Bildoptimierer (/_next/image) aus. zeugnio braucht ihn nur für den
+  // Trust-Strip, dessen Bilder ohnehin klein und fertig sind. Der Optimierer
+  // verarbeitet Bilder mit sharp/libvips auf dem Server; dort lagen im
+  // November 2026 mehrere kritische Lücken (GHSA-2464-fhr4-w9xw,
+  // GHSA-2xp9-vwfh-vxw4: Codeausführung ohne Anmeldung über SVG/AVIF).
+  // Ohne Optimierer gibt es diese Angriffsfläche gar nicht erst. Siehe
+  // docs/sicherheitstest-2026-11-24.md, Befund H4.
+  images: {
+    unoptimized: true,
+  },
   // Statische Sicherheitsheader. Die Content-Security-Policy steht bewusst
   // NICHT hier, sondern in middleware.ts – sie braucht pro Request eine Nonce.
   async headers() {

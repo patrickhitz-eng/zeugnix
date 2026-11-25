@@ -217,7 +217,10 @@ export default function Page() {
                 Zeugnis prüfbar: Wer den QR-Code auf dem Zeugnis scannt oder das
                 PDF auf der Prüfseite hochlädt, sieht Status, Name der
                 Mitarbeiterin oder des Mitarbeiters, Arbeitgeber, Dokumenttitel,
-                Ausstellungsdatum und Unterzeichnende.
+                Ausstellungsdatum und Unterzeichnende, bei einem gültigen
+                Zeugnis zudem den versiegelten Zeugnistext. Das ist derselbe
+                Text, der auf dem Zeugnis steht. Er erlaubt den Vergleich mit
+                dem vorgelegten Dokument.
               </li>
               <li>
                 <strong className={strong}>Prüfung und Analyse:</strong> Den

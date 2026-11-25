@@ -5,6 +5,12 @@ import type { AnalysisResult } from "@/lib/phrases/analyze";
 import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { VerifyAnalysisResult } from "@/components/forms/verify-analysis-result";
 import { RegisterNote } from "@/components/forms/register-note";
+import {
+  IssuerNotConfirmedNotice,
+  SealedTextBlock,
+  SignatoryConfirmation,
+} from "@/components/forms/verify-shared";
+import { isIssuerConfirmed } from "@/lib/verify/issuer";
 
 type State =
   | { kind: "idle" }
@@ -213,14 +219,9 @@ export function VerifyUploader({
   // ----- Result-Anzeigen -----
   if (state.kind === "verified") {
     // Das Siegel beweist den Inhalt, nicht die Berechtigung der ausstellenden
-    // Person: Ein einzelnes Konto kann eine Firma unter freiem Namen anlegen und
-    // finalisieren. Als bestätigt gilt der Aussteller darum nur mit verifizierter
-    // Firmen-Domain (V1) oder per E-Mail freigegebener Unterschrift (V2).
-    const issuerConfirmed = Boolean(
-      state.certificate?.verifiedDomain ||
-        state.certificate?.signatory1ConfirmedAt ||
-        state.certificate?.signatory2ConfirmedAt,
-    );
+    // Person. Bestätigt ist der Aussteller nur mit verifizierter Firmen-Domain
+    // (lib/verify/issuer.ts, Sicherheitstest 24.11.2026, H3).
+    const issuerConfirmed = isIssuerConfirmed(state.certificate);
     return (
       <>
       <div className="card overflow-hidden">
@@ -242,20 +243,12 @@ export function VerifyUploader({
         </div>
         <div className="space-y-4 p-6">
           <p className="text-[14px] leading-relaxed text-ink-700">
-            Der berechnete Hash dieses Dokuments stimmt mit einem auf zeugnio.ch
-            registrierten Arbeitszeugnis überein. Der Inhalt wurde seit der
-            Ausstellung nicht verändert.
+            Der Text in dieser PDF-Datei stimmt mit einem auf zeugnio.ch
+            registrierten Arbeitszeugnis überein. Ob das sichtbare Dokument
+            denselben Text zeigt, sehen Sie im Vergleich mit dem versiegelten
+            Text unten.
           </p>
-          {!issuerConfirmed && (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
-              <strong>Aussteller nicht bestätigt.</strong> Die ausstellende Firma
-              hat weder ihre E-Mail-Domain bei zeugnio verifiziert, noch haben
-              die Unterzeichnenden das Zeugnis per E-Mail freigegeben. Bestätigt
-              ist nur, dass dieses Zeugnis so registriert wurde – nicht, dass es
-              vom genannten Arbeitgeber stammt. Klären Sie das im Zweifel direkt
-              beim Arbeitgeber.
-            </div>
-          )}
+          {!issuerConfirmed && <IssuerNotConfirmedNotice />}
           {state.certificate && (
             <div className="rounded-md border border-petrol-200 bg-petrol-50/50 p-4">
               <div className="text-[10px] font-medium uppercase tracking-wider text-petrol-700">
@@ -287,7 +280,7 @@ export function VerifyUploader({
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
-                    Kryptografisch signiert · über zeugnio ausgestellt
+                    Kryptografisch signiert · mit zeugnio erstellt
                   </div>
                 </div>
               ) : null}
@@ -351,14 +344,11 @@ export function VerifyUploader({
                         ? `, ${state.certificate.signatory1Role}`
                         : ""}
                     </dd>
-                    {state.certificate.signatory1ConfirmedAt && (
-                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-petrol-100 px-2 py-0.5 text-[11px] font-medium text-petrol-800">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Per E-Mail freigegeben · {state.certificate.signatory1ConfirmedAt}
-                      </dd>
-                    )}
+                    <SignatoryConfirmation
+                      confirmedAt={state.certificate.signatory1ConfirmedAt}
+                      unverifiedAt={state.certificate.signatory1ConfirmedUnverifiedAt}
+                      pillClass="bg-petrol-100 text-petrol-800"
+                    />
                   </div>
                 )}
                 {state.certificate.signatory2Name && (
@@ -370,19 +360,17 @@ export function VerifyUploader({
                         ? `, ${state.certificate.signatory2Role}`
                         : ""}
                     </dd>
-                    {state.certificate.signatory2ConfirmedAt && (
-                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-petrol-100 px-2 py-0.5 text-[11px] font-medium text-petrol-800">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Per E-Mail freigegeben · {state.certificate.signatory2ConfirmedAt}
-                      </dd>
-                    )}
+                    <SignatoryConfirmation
+                      confirmedAt={state.certificate.signatory2ConfirmedAt}
+                      unverifiedAt={state.certificate.signatory2ConfirmedUnverifiedAt}
+                      pillClass="bg-petrol-100 text-petrol-800"
+                    />
                   </div>
                 )}
               </dl>
             </div>
           )}
+          <SealedTextBlock text={state.certificate?.sealedText} source="pdf" />
           <div className="rounded-md bg-ink-50 p-4">
             <div className="text-[10px] font-medium uppercase tracking-wider text-ink-500">
               SHA-256 Hash
@@ -477,14 +465,11 @@ export function VerifyUploader({
                         ? `, ${state.certificate.signatory1Role}`
                         : ""}
                     </dd>
-                    {state.certificate.signatory1ConfirmedAt && (
-                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Per E-Mail freigegeben · {state.certificate.signatory1ConfirmedAt}
-                      </dd>
-                    )}
+                    <SignatoryConfirmation
+                      confirmedAt={state.certificate.signatory1ConfirmedAt}
+                      unverifiedAt={state.certificate.signatory1ConfirmedUnverifiedAt}
+                      pillClass="bg-ink-100 text-ink-700"
+                    />
                   </div>
                 )}
                 {state.certificate.signatory2Name && (
@@ -496,14 +481,11 @@ export function VerifyUploader({
                         ? `, ${state.certificate.signatory2Role}`
                         : ""}
                     </dd>
-                    {state.certificate.signatory2ConfirmedAt && (
-                      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                        Per E-Mail freigegeben · {state.certificate.signatory2ConfirmedAt}
-                      </dd>
-                    )}
+                    <SignatoryConfirmation
+                      confirmedAt={state.certificate.signatory2ConfirmedAt}
+                      unverifiedAt={state.certificate.signatory2ConfirmedUnverifiedAt}
+                      pillClass="bg-ink-100 text-ink-700"
+                    />
                   </div>
                 )}
               </dl>

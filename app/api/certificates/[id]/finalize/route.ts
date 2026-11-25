@@ -117,6 +117,19 @@ export async function POST(
     );
   }
 
+  // Offene Einladungen an Vorgesetzte schliessen. Der Link führt danach auf
+  // «abgelaufen», statt eine Abgabe auf ein versiegeltes Zeugnis anzubieten
+  // (Sicherheitstest 24.11.2026, H1). Nicht kritisch: Abgabe-Route und Seite
+  // prüfen den Zeugnis-Status ohnehin selbst.
+  const { error: invCloseErr } = await supabase
+    .from("manager_invitations")
+    .update({ status: "expired", expires_at: new Date().toISOString() })
+    .eq("certificate_id", id)
+    .in("status", ["pending", "viewed"]);
+  if (invCloseErr) {
+    console.warn("[finalize] Offene Einladungen nicht geschlossen:", invCloseErr.message);
+  }
+
   // V1: Das Employer-Badge ist erst dann ein echtes Trust-Signal, wenn die Firma
   // eine VERIFIZIERTE Domain hat (sonst kann sich ein Self-Issuer das Badge frei
   // selbst ausstellen). Deshalb wird das Badge nur noch bei verifizierter Domain

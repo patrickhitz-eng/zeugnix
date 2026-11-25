@@ -4,6 +4,7 @@ import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { buildEvaluationSubmittedEmail } from "@/lib/email/templates";
 import { evaluationMailRecipients } from "@/lib/team/notify-recipients";
+import { isCertificateLocked } from "@/lib/certificate/status";
 
 // Öffentlicher (token-basierter) Endpunkt → Rate-Limit gegen Token-Bruteforce
 // und Spam. Doppel-Submit ist zusätzlich DB-seitig abgesichert.
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     const { data: inv } = await supabase
       .from("manager_invitations")
       .select(
-        "*, certificates(id, company_id, created_by_user_id, employees(first_name, last_name), companies(name))",
+        "*, certificates(id, status, company_id, created_by_user_id, employees(first_name, last_name), companies(name))",
       )
       .eq("token", token)
       .single();
@@ -50,6 +51,18 @@ export async function POST(req: NextRequest) {
     if (inv.status === "submitted") {
       return NextResponse.json(
         { error: "Beurteilung wurde bereits abgegeben" },
+        { status: 409 },
+      );
+    }
+
+    // Versiegeltes Zeugnis: keine Beurteilung mehr annehmen. Dieser Endpunkt
+    // schreibt mit der Serverrolle, und die durfte bis Migration 038 am
+    // Schutz-Trigger vorbei. Eine späte Abgabe hätte so ein finalisiertes oder
+    // widerrufenes Zeugnis wieder geöffnet (Sicherheitstest 24.11.2026, H1).
+    const certStatus = (inv.certificates as { status?: string } | null)?.status;
+    if (!certStatus || isCertificateLocked(certStatus)) {
+      return NextResponse.json(
+        { error: "Das Zeugnis ist bereits abgeschlossen. Eine Beurteilung ist nicht mehr nötig." },
         { status: 409 },
       );
     }
@@ -97,10 +110,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Nur aus einem offenen Status heraus. Wird das Zeugnis zwischen der
+    // Prüfung oben und hier finalisiert, bleibt es final.
     const { error: certUpdErr } = await supabase
       .from("certificates")
       .update({ status: "manager_submitted" })
-      .eq("id", inv.certificate_id);
+      .eq("id", inv.certificate_id)
+      .in("status", ["draft", "pending_manager", "manager_submitted"]);
     if (certUpdErr) {
       console.warn("[evaluations/submit] Zeugnis-Status-Update fehlgeschlagen:", certUpdErr.message);
     }

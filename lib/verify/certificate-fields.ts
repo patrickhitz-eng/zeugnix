@@ -14,6 +14,7 @@
 
 import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
+import { isSignoffOnVerifiedDomain } from "@/lib/verify/issuer";
 
 /**
  * Spalten für die Prüfung. `meta_snapshot` ist der beim Finalisieren
@@ -25,7 +26,7 @@ import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
  */
 export const VERIFY_SELECT_COLS =
   "id, company_id, status, type, hash, hash_version, meta_snapshot, " +
-  "finalized_at, revoked_at, signature, signing_key_id, " +
+  "finalized_at, revoked_at, signature, signing_key_id, edited_text, generated_text, " +
   "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
   "employees(first_name, last_name), " +
   "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role)";
@@ -174,23 +175,47 @@ export async function buildCertificateFields(
     verifiedDomain = dom?.domain ?? null;
   }
 
-  // V2-Trust-Signal: per Magic-Link bestätigte Unterzeichner-Freigaben. Nur das
-  // Datum pro Slot; die bestätigende E-Mail bleibt aus Datenschutzgründen
-  // ausserhalb der öffentlichen Antwort.
+  // V2: per Magic-Link bestätigte Unterzeichner-Freigaben. Nur das Datum pro
+  // Slot geht hinaus; die bestätigende E-Mail bleibt aus Datenschutzgründen
+  // ausserhalb der öffentlichen Antwort. Sie wird hier nur gelesen, um zu
+  // entscheiden, ob die Freigabe an der verifizierten Firmen-Domain lag. Nur
+  // dann ist sie ein Beleg (`…ConfirmedAt`); sonst erscheint sie als
+  // «Adresse nicht geprüft» (`…ConfirmedUnverifiedAt`). Siehe lib/verify/issuer.ts.
   let signatory1ConfirmedAt: string | null = null;
   let signatory2ConfirmedAt: string | null = null;
+  let signatory1ConfirmedUnverifiedAt: string | null = null;
+  let signatory2ConfirmedUnverifiedAt: string | null = null;
   {
     const { data: signoffs } = await supabase
       .from("certificate_signoffs")
-      .select("slot, confirmed_at")
+      .select("slot, email, confirmed_at")
       .eq("certificate_id", match.id)
       .eq("status", "confirmed");
     for (const so of signoffs ?? []) {
       const formatted = formatDateCh(so.confirmed_at);
-      if (so.slot === 1) signatory1ConfirmedAt = formatted;
-      if (so.slot === 2) signatory2ConfirmedAt = formatted;
+      const onDomain = isSignoffOnVerifiedDomain(so.email, verifiedDomain);
+      if (so.slot === 1) {
+        if (onDomain) signatory1ConfirmedAt = formatted;
+        else signatory1ConfirmedUnverifiedAt = formatted;
+      }
+      if (so.slot === 2) {
+        if (onDomain) signatory2ConfirmedAt = formatted;
+        else signatory2ConfirmedUnverifiedAt = formatted;
+      }
     }
   }
+
+  // H2 (Sicherheitstest 24.11.2026): den versiegelten Fliesstext mitgeben,
+  // damit Prüfende ihn mit dem Papier vergleichen können. Die Prüfung über das
+  // PDF vergleicht nur die unsichtbare Textschicht, der QR-Code gar keinen
+  // Text. Ohne diese Anzeige gälte ein überklebtes PDF als «unverändert».
+  // Quelle wie beim Finalisieren (edited_text, sonst generated_text); beide
+  // Felder sind nach dem Finalisieren per Trigger unveränderlich. Nur für
+  // gültige Zeugnisse: Bei einem widerrufenen braucht es keinen Vergleich.
+  const sealedText =
+    match.status === "final"
+      ? ((match.edited_text || match.generated_text || "") as string).trim() || null
+      : null;
 
   return {
     employeeName: [employee?.first_name, employee?.last_name]
@@ -206,6 +231,9 @@ export async function buildCertificateFields(
     verifiedDomain,
     signatory1ConfirmedAt,
     signatory2ConfirmedAt,
+    signatory1ConfirmedUnverifiedAt,
+    signatory2ConfirmedUnverifiedAt,
+    sealedText,
     // S1b: 2 = Aussteller/Titel/Unterzeichnende sind vom Hash gedeckt.
     sealVersion: match.hash_version ?? 1,
   };
