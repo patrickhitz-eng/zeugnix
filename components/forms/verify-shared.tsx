@@ -99,7 +99,8 @@ export function IssuerNotConfirmedNotice() {
   return (
     <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
       <strong>Aussteller nicht bestätigt.</strong> Die ausstellende Firma hat
-      ihre Domain nicht per DNS-Eintrag bei zeugnio bestätigt. Bestätigt ist nur, dass
+      weder eine Mailadresse an ihrer Domain noch ihre Domain selbst bei zeugnio
+      bestätigt. Bestätigt ist nur, dass
       dieses Zeugnis so registriert wurde, nicht, dass es vom genannten
       Arbeitgeber stammt. Jede Person kann ein Konto anlegen und eine Firma unter
       beliebigem Namen erfassen. Klären Sie das im Zweifel direkt beim
@@ -109,9 +110,10 @@ export function IssuerNotConfirmedNotice() {
 }
 
 /**
- * Grauer Hinweis unter dem Arbeitgeber, solange keine Domain per DNS bestätigt
- * ist. Hat die Firma wenigstens eine Mailadresse an ihrer Domain bestätigt
- * (Vorstufe, Migration 039), steht das dabei, ausdrücklich nicht als Beleg.
+ * Hinweis unter dem Arbeitgeber, solange keine Domain per DNS geprüft ist.
+ * Mail-Stufe (Migration 039): Plakette «Firmen-Mailadresse @firma.ch». Sie gilt
+ * als Bestätigung des Ausstellers, ist aber schwächer als die DNS-Prüfung.
+ * Ohne beides: grauer Hinweis.
  */
 export function DomainNotVerifiedNote({
   emailConfirmedDomain,
@@ -119,10 +121,13 @@ export function DomainNotVerifiedNote({
   emailConfirmedDomain: string | null | undefined;
 }) {
   return (
-    <dd className="mt-1 text-[11px] text-ink-400">
-      {emailConfirmedDomain
-        ? `Mailadresse @${emailConfirmedDomain} bestätigt · Domain nicht per DNS bestätigt`
-        : "Aussteller-Domain nicht bestätigt"}
-    </dd>
+    emailConfirmedDomain ? (
+      <dd className="mt-1 inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-medium text-ink-700">
+        <CheckIcon />
+        Firmen-Mailadresse @{emailConfirmedDomain}
+      </dd>
+    ) : (
+      <dd className="mt-1 text-[11px] text-ink-400">Aussteller-Domain nicht bestätigt</dd>
+    )
   );
 }

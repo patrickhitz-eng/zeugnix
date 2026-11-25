@@ -22,10 +22,11 @@ export const runtime = "nodejs";
  * Erfasst eine Aussteller-Domain für die Firma. Seit 25.11.2026 (Migration 039,
  * Sicherheitstest Befund M2) gibt es zwei Stufen:
  *
- *  - 'email_confirmed' (Vorstufe): Die angemeldete Adresse liegt an GENAU dieser
- *    Domain. Das kann jede Mitarbeiterin der Firma; die öffentliche Prüfung zeigt
- *    es darum nur grau, nicht als «Aussteller bestätigt». Keine Exklusivität.
- *  - 'verified' (nur über DNS): siehe POST /api/companies/[id]/domain/dns.
+ *  - 'email_confirmed' (Mail-Stufe): Die angemeldete Adresse liegt an GENAU
+ *    dieser Domain. Gilt als bestätigt («über Firmen-Mailadresse bestätigt»).
+ *    Nicht exklusiv: Niemand kann eine Domain so für andere besetzen.
+ *  - 'verified' (DNS, freiwillig, höchste Stufe): siehe
+ *    POST /api/companies/[id]/domain/dns.
  *
  * Jede noch nicht per DNS bestätigte Domain bekommt hier ein Token für den
  * TXT-Eintrag. Die Antwort nennt Name und Wert des Eintrags.

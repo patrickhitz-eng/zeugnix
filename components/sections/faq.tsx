@@ -123,9 +123,9 @@ const faqs: Faq[] = [
         hochlädt oder den QR-Code scannt, sieht, ob das Zeugnis registriert
         ist, und bekommt den versiegelten Text angezeigt. Stimmt das Dokument
         vor Ihnen Wort für Wort mit diesem Text überein, ist es unverändert.
-        Als Aussteller bestätigt gilt eine Firma nur, wenn sie ihre Domain
-        mit einem DNS-Eintrag bestätigt hat. Das kann nur, wer die Domain
-        verwaltet.
+        Als Aussteller bestätigt gilt eine Firma, wenn eine Mailadresse an
+        ihrer Domain bestätigt ist. Die höchste Stufe ist ein DNS-Eintrag in
+        der Domain: Den kann nur setzen, wer die Domain verwaltet.
       </>
     ),
   },

@@ -61,7 +61,7 @@ export async function findCertificateByHash(supabase: any, hash: string) {
 
 const REGISTER_SELECT_COLS =
   "certificate_id, hash, hash_version, status, finalized_at, revoked_at, " +
-  "signature, signing_key_id, employer, document_title, verified_domain";
+  "signature, signing_key_id, employer, document_title, verified_domain, verified_domain_method";
 
 /** Register-Zeile in der Form eines Treffers aus `certificates`. */
 function registerAsMatch(entry: any) {
@@ -140,7 +140,11 @@ export async function buildCertificateFields(
       signatory1Role: null,
       signatory2Name: null,
       signatory2Role: null,
-      verifiedDomain: entry.verified_domain ?? null,
+      // 039: Stufe aus dem Register. Einträge von vor 039 tragen 'email'.
+      verifiedDomain:
+        entry.verified_domain_method === "dns" ? (entry.verified_domain ?? null) : null,
+      emailConfirmedDomain:
+        entry.verified_domain_method === "dns" ? null : (entry.verified_domain ?? null),
       signatory1ConfirmedAt: null,
       signatory2ConfirmedAt: null,
       sealVersion: entry.hash_version ?? 1,
@@ -197,7 +201,7 @@ export async function buildCertificateFields(
       .eq("status", "confirmed");
     for (const so of signoffs ?? []) {
       const formatted = formatDateCh(so.confirmed_at);
-      const onDomain = isSignoffOnVerifiedDomain(so.email, verifiedDomain);
+      const onDomain = isSignoffOnVerifiedDomain(so.email, verifiedDomain ?? emailConfirmedDomain);
       if (so.slot === 1) {
         if (onDomain) signatory1ConfirmedAt = formatted;
         else signatory1ConfirmedUnverifiedAt = formatted;

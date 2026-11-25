@@ -1,8 +1,8 @@
 -- ============================================================================
 -- 039_domain_dns_pflicht.sql
 -- Sicherheitstest 24.11.2026, Befund M2 (docs/sicherheitstest-2026-11-24.md)
--- Entscheid Silvan 25.11.2026: DNS-Eintrag für «Aussteller bestätigt»,
--- Mailadresse nur noch als Vorstufe, bestehende Mail-Verifizierungen herabstufen.
+-- Entscheid Silvan 25.11.2026: drei Stufen. Mailadresse an der Domain = bestätigt
+-- (ohne Warnung), DNS-Eintrag = höchste Stufe «Domain geprüft», freiwillig.
 -- ============================================================================
 --
 -- PROBLEM
@@ -17,24 +17,22 @@
 --
 -- Zwei Stufen, die die Datenbank auseinanderhält:
 --
---   status = 'email_confirmed'  Vorstufe. Die angemeldete Person hat eine
+--   status = 'email_confirmed'  Mail-Stufe. Die angemeldete Person hat eine
 --                               Mailadresse an genau dieser Domain. Die Prüfung
---                               zeigt das grau, nicht als «bestätigt». Mehrere
---                               Firmen dürfen dieselbe Domain so halten.
+--                               zeigt «Aussteller über Firmen-Mailadresse
+--                               bestätigt». NICHT exklusiv: Mehrere Firmen dürfen
+--                               dieselbe Domain so halten, niemand kann sie
+--                               mehr besetzen.
 --   status = 'verified'         Nur noch mit DNS-Eintrag (method = 'dns'). Die
 --                               Firma hat bewiesen, dass sie die Domain verwaltet.
 --                               Höchstens EINE Firma pro Domain (Index aus 019).
 --
--- Weil «verified» jetzt DNS bedeutet, stimmen alle bestehenden Abfragen
--- `status = 'verified'` (Prüfung, Prüfregister 036, Badge beim Finalisieren,
--- Firmenliste, Dashboard) ohne Änderung.
---
--- HERABSTUFEN
+-- UMSTELLEN
 --
 -- Bisherige Einträge mit method = 'email' und status = 'verified' werden zu
--- 'email_confirmed'. Die betroffenen Firmen sehen in der App den DNS-Schritt.
--- Zeugnisse bleiben gültig; nur das Label «Aussteller bestätigt» entfällt, bis
--- der DNS-Eintrag steht.
+-- 'email_confirmed'. Auf der Prüfseite bleiben sie «bestätigt» (Mail-Stufe);
+-- neu ist nur, dass sie die Domain nicht mehr exklusiv besetzen. Die App
+-- zählt beide Status als bestätigt; «verified» heisst ab jetzt DNS.
 --
 -- EINSPIELEN
 --
@@ -89,6 +87,93 @@ alter table public.company_domains
 
 -- Der partielle Unique-Index uq_company_domains_verified aus 019
 -- (domain where status = 'verified') bleibt und gilt damit nur noch für DNS.
+
+-- 3b) Prüfregister (036): Stufe der Domain mitspeichern. Bisherige Einträge
+--     stammen alle aus der Zeit vor DNS, also aus der Mail-Stufe.
+alter table public.certificate_register
+  add column if not exists verified_domain_method text;
+alter table public.certificate_register
+  drop constraint if exists certificate_register_domain_method_check;
+alter table public.certificate_register
+  add constraint certificate_register_domain_method_check
+  check (verified_domain_method is null or verified_domain_method in ('dns', 'email'));
+update public.certificate_register
+set verified_domain_method = 'email'
+where verified_domain is not null
+  and verified_domain_method is null;
+
+-- Register-Trigger aus 036, unverändert bis auf Domain und Stufe. Name und
+-- Signatur bleiben gleich; der bestehende Trigger ruft ab dem Commit die neue
+-- Fassung auf.
+create or replace function public.zeugnio_certificate_register()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_employer text;
+  v_title text;
+  v_domain text;
+  v_domain_method text;
+begin
+  if old.status not in ('final', 'revoked') or old.hash is null then
+    return old;
+  end if;
+
+  -- v2: eingefrorene Angaben aus dem Siegel. v1: lebende Firma (noch da,
+  -- weil die Löschfunktionen die Zeugnisse vor der Firma löschen).
+  v_employer := old.meta_snapshot ->> 'employer';
+  if v_employer is null then
+    select name into v_employer from public.companies where id = old.company_id;
+  end if;
+
+  v_title := old.meta_snapshot ->> 'documentTitle';
+  if v_title is null then
+    -- wie certificateTypeLabel() in lib/certificate/certificate-title.ts
+    v_title := case old.type
+      when 'zwischen' then 'Zwischenzeugnis'
+      when 'arbeitsbestaetigung' then 'Arbeitsbestätigung'
+      else 'Arbeitszeugnis'
+    end;
+  end if;
+
+  -- 039: DNS-geprüfte Domain zuerst, sonst die Mail-Stufe. Die Stufe geht
+  -- mit ins Register, damit die Prüfung nach dem Löschen dasselbe zeigt.
+  select domain, case when status = 'verified' then 'dns' else 'email' end
+    into v_domain, v_domain_method
+  from public.company_domains
+  where company_id = old.company_id and status in ('verified', 'email_confirmed')
+  order by (status = 'verified') desc, verified_at
+  limit 1;
+
+  insert into public.certificate_register (
+    certificate_id, hash, body_hash, hash_version, status, finalized_at, revoked_at,
+    signature, signing_key_id, employer, document_title, verified_domain,
+    verified_domain_method, delete_after
+  ) values (
+    old.id,
+    old.hash,
+    -- Gleich wie hashBodyV1(): SHA-256 (UTF-8, hex) über den kanonischen Text.
+    case when old.canonical_content is not null
+      then encode(sha256(convert_to(old.canonical_content, 'UTF8')), 'hex') end,
+    coalesce(old.hash_version, 1),
+    old.status,
+    old.finalized_at,
+    old.revoked_at,
+    old.signature,
+    old.signing_key_id,
+    v_employer,
+    v_title,
+    v_domain,
+    v_domain_method,
+    coalesce(old.finalized_at, now()) + interval '10 years'
+  )
+  on conflict (certificate_id) do nothing;
+
+  return old;
+end;
+$$;
 
 -- 4) Selbstprüfung.
 do $$

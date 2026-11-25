@@ -72,7 +72,10 @@ export default async function CompanyDetailPage({
     verified_at: d.verified_at,
     dns_token: d.dns_token ?? null,
   }));
-  const domainVerified = domains.some((d) => d.status === "verified");
+  // Mail-Stufe oder DNS gelten als bestätigt (Migration 039).
+  const domainVerified = domains.some(
+    (d) => d.status === "verified" || d.status === "email_confirmed",
+  );
 
   // Ein-Klick-Vorschlag für die Domain: die Domain der Anmelde-Adresse, ausser Freemail.
   const loginDomain = emailDomain(user.email);
@@ -166,7 +169,10 @@ export default async function CompanyDetailPage({
                 <div className="text-[13px] font-medium tracking-tight">Domain</div>
                 <p className="mt-1 text-[12.5px] text-ink-600">
                   {domainVerified
-                    ? `Bestätigt: ${domains.filter((d) => d.status === "verified").map((d) => d.domain).join(", ")}.`
+                    ? `Bestätigt: ${domains
+                        .filter((d) => d.status === "verified" || d.status === "email_confirmed")
+                        .map((d) => (d.status === "verified" ? `${d.domain} (DNS)` : d.domain))
+                        .join(", ")}.`
                     : "Noch keine Domain bestätigt."}{" "}
                   Die Domain bestätigt der Admin Ihrer Organisation.
                 </p>

@@ -141,7 +141,8 @@ export async function POST(
       .from("company_domains")
       .select("id")
       .eq("company_id", cert.company_id)
-      .eq("status", "verified")
+      // Mail-Stufe oder DNS (Migration 039).
+      .in("status", ["verified", "email_confirmed"])
       .limit(1)
       .maybeSingle();
     domainVerified = !!verifiedDom;

@@ -31,7 +31,9 @@ const CHECK_WINDOW_MS = 60 * 60 * 1000;
  *
  * Warum DNS (Sicherheitstest 24.11.2026, Befund M2): Den Eintrag setzen kann
  * nur, wer die Domain verwaltet. Eine Mailadresse an der Domain hat dagegen
- * jede Mitarbeiterin; das bleibt darum nur die Vorstufe 'email_confirmed'.
+ * jede Mitarbeiterin; das ist die Mail-Stufe 'email_confirmed'. Sie gilt als
+ * bestätigt, DNS ist die freiwillige höchste Stufe («Domain geprüft») und der
+ * Weg für Firmen ohne passende Anmelde-Adresse.
  *
  * Eine Domain kann nur EINE Firma per DNS bestätigt halten (Unique-Index aus
  * 019). Eine reine Mail-Vorstufe einer anderen Firma blockiert das nicht.

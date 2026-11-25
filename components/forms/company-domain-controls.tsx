@@ -31,12 +31,13 @@ const recordValue = (token: string) => `zeugnio-verification=${token}`;
 /**
  * Verwaltung der Aussteller-Domain(s) einer Firma.
  *
- * Seit 25.11.2026 (Sicherheitstest, Befund M2; Migration 039) zwei Stufen:
- *  - Mailadresse an der Domain: Vorstufe, sofort beim Erfassen. Die öffentliche
- *    Prüfung zeigt sie grau, nicht als «Aussteller bestätigt», denn eine
- *    Mailadresse hat jede Mitarbeiterin.
- *  - DNS-Eintrag: Die Firma setzt einen TXT-Eintrag. Das kann nur, wer die
- *    Domain verwaltet. Erst dann zeigt die Prüfung «Aussteller bestätigt».
+ * Seit 25.11.2026 (Sicherheitstest, Befund M2; Migration 039; Entscheid Silvan)
+ * zwei Stufen, beide gelten als bestätigt:
+ *  - Mailadresse an der Domain: sofort beim Erfassen, wenn die Anmelde-Adresse
+ *    an genau dieser Domain liegt. Prüfseite: «über Firmen-Mailadresse bestätigt».
+ *  - DNS-Eintrag (freiwillig, höchste Stufe): Die Firma setzt einen TXT-Eintrag.
+ *    Das kann nur, wer die Domain verwaltet. Prüfseite: «Domain geprüft».
+ *    Für Firmen ohne passende Mailadresse ist das der einzige Weg.
  *
  * Aufbau nach Vorbildern aus Mobbin (Upwork, Langdock, Google Workspace):
  * Tabelle Name/Typ/Wert mit Kopier-Knöpfen, «Jetzt prüfen», und ein fertiger
@@ -55,7 +56,9 @@ export function CompanyDomainControls({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
 
-  const hasVerified = domains.some((d) => d.status === "verified");
+  const hasConfirmed = domains.some(
+    (d) => d.status === "verified" || d.status === "email_confirmed",
+  );
   const suggestionTaken = suggestedDomain
     ? domains.some((d) => d.domain === suggestedDomain)
     : true;
@@ -96,14 +99,16 @@ export function CompanyDomainControls({
         dns_token: data.dnsToken ?? null,
       });
       if (data.verified) {
-        setNotice(`«${data.domain}» ist bereits per DNS bestätigt.`);
+        setNotice(`«${data.domain}» ist bereits per DNS geprüft.`);
       } else if (data.emailConfirmed) {
         setNotice(
-          `«${data.domain}» ist erfasst, Ihre Mailadresse passt dazu. Für «Aussteller bestätigt» fehlt noch der DNS-Eintrag unten.`,
+          `«${data.domain}» ist bestätigt, weil Ihre Mailadresse dazu passt. Die öffentliche Prüfung zeigt Ihre Zeugnisse jetzt als bestätigt.`,
         );
       } else {
         setNotice(
-          `«${data.domain}» ist erfasst. Für «Aussteller bestätigt» fehlt noch der DNS-Eintrag unten.`,
+          data.loginDomain
+            ? `«${data.domain}» ist erfasst, aber noch nicht bestätigt: Ihre Anmelde-Adresse (@${data.loginDomain}) gehört nicht zu dieser Domain. Bestätigen Sie die Domain mit dem DNS-Eintrag unten.`
+            : `«${data.domain}» ist erfasst. Bestätigen Sie die Domain mit dem DNS-Eintrag unten.`,
         );
       }
       setInput("");
@@ -133,19 +138,19 @@ export function CompanyDomainControls({
   }
 
   return (
-    <div className={`card p-5${hasVerified ? "" : " ring-1 ring-amber-300"}`}>
+    <div className={`card p-5${hasConfirmed ? "" : " ring-1 ring-amber-300"}`}>
       <div className="mb-1 text-[13px] font-medium tracking-tight">Aussteller-Domain</div>
       <p className="mb-4 text-[12px] leading-relaxed text-ink-500">
-        Weist nach, dass Ihre Firma hinter den Zeugnissen steht. Bestätigt wird
-        die Domain mit einem DNS-Eintrag. Den setzt, wer Ihre Domain verwaltet:
-        Ihre IT, Ihre Webagentur oder Ihre Treuhand. Erst dann zeigt die
-        öffentliche Prüfung Ihrer Zeugnisse «Aussteller bestätigt».
+        Weist nach, dass Ihre Firma hinter den Zeugnissen steht. Passt Ihre
+        Anmelde-Adresse zur Domain, ist sie mit einem Klick bestätigt. Noch
+        stärker ist ein DNS-Eintrag, den Ihre IT, Webagentur oder Treuhand setzt:
+        Dann zeigt die öffentliche Prüfung «Domain geprüft».
       </p>
 
-      {!hasVerified && (
+      {!hasConfirmed && (
         <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-[12.5px] leading-relaxed text-amber-900">
-          <strong>Noch keine Domain per DNS bestätigt.</strong> Bis dahin zeigt
-          die öffentliche Prüfung «Aussteller nicht bestätigt».
+          <strong>Noch keine bestätigte Domain.</strong> Bis dahin zeigt die
+          öffentliche Prüfung Ihrer Zeugnisse «Aussteller nicht bestätigt».
           {suggestedDomain && !suggestionTaken ? (
             <>
               {" "}
@@ -157,7 +162,7 @@ export function CompanyDomainControls({
                   disabled={submitting}
                   className="btn-primary px-4 py-2 text-[13px] disabled:opacity-50"
                 >
-                  {submitting ? "Wird erfasst…" : `${suggestedDomain} erfassen`}
+                  {submitting ? "Wird bestätigt…" : `${suggestedDomain} bestätigen`}
                 </button>
               </div>
             </>
@@ -186,6 +191,7 @@ export function CompanyDomainControls({
               </div>
               {d.status !== "verified" && d.dns_token ? (
                 <DnsStep
+                  optional={d.status === "email_confirmed"}
                   companyId={companyId}
                   domain={d.domain}
                   token={d.dns_token}
@@ -245,13 +251,17 @@ function DnsStep({
   companyId,
   domain,
   token,
+  optional,
   onVerified,
 }: {
   companyId: string;
   domain: string;
   token: string;
+  /** Mail-Stufe erreicht: DNS ist freiwillig und startet zugeklappt. */
+  optional: boolean;
   onVerified: () => void;
 }) {
+  const [open, setOpen] = useState(!optional);
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -319,9 +329,25 @@ function DnsStep({
     { label: "Wert", text: value, copyable: true },
   ];
 
+  if (!open) {
+    return (
+      <div className="border-t border-ink-100 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="text-[12px] text-petrol-700 hover:underline"
+        >
+          Optional: Domain zusätzlich per DNS prüfen lassen
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="border-t border-ink-100 px-3 py-3">
-      <div className="text-[12px] font-medium text-ink-800">DNS-Eintrag setzen</div>
+      <div className="text-[12px] font-medium text-ink-800">
+        {optional ? "DNS-Prüfung (optional, höchste Stufe)" : "DNS-Eintrag setzen"}
+      </div>
       <p className="mt-1 text-[12px] leading-relaxed text-ink-600">
         Fügen Sie in den DNS-Einstellungen Ihrer Domain (z. B. bei Infomaniak,
         Hostpoint oder Ihrer Webagentur) diesen Eintrag hinzu. Manche Anbieter
@@ -404,31 +430,34 @@ function DnsStep({
 function StatusPill({ status }: { status: string }) {
   if (status === "verified") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-petrol-100 px-2 py-0.5 text-[10.5px] font-medium text-petrol-800">
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-petrol-100 px-2 py-0.5 text-[10.5px] font-medium text-petrol-800">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="20 6 9 17 4 12" />
         </svg>
-        Per DNS bestätigt
+        Per DNS geprüft
       </span>
     );
   }
   if (status === "email_confirmed") {
     return (
-      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
-        Mailadresse passt · DNS fehlt
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-petrol-50 px-2 py-0.5 text-[10.5px] font-medium text-petrol-800">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+        Per Mailadresse bestätigt
       </span>
     );
   }
   if (status === "failed") {
     return (
-      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10.5px] font-medium text-red-800">
+      <span className="whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-[10.5px] font-medium text-red-800">
         Fehlgeschlagen
       </span>
     );
   }
   return (
-    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
-      DNS fehlt
+    <span className="whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
+      Nicht bestätigt
     </span>
   );
 }
