@@ -4,6 +4,7 @@ import { Logo } from "@/components/ui/logo";
 import Link from "next/link";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 import { SignoffConfirm } from "@/components/forms/signoff-confirm";
+import { lookupHash } from "@/lib/link-token";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -11,6 +12,10 @@ interface PageProps {
 
 export default async function SignoffPage({ params }: PageProps) {
   const { token } = await params;
+  // Nachgeschlagen wird über den SHA-256 des Tokens, nie über den Token selbst
+  // (Sicherheitstest 24.11.2026, M4).
+  const tokenHash = lookupHash(token);
+  if (!tokenHash) notFound();
 
   // Öffentliche (token-basierte) Seite → Service-Client (umgeht RLS).
   const supabase = createServiceClient();
@@ -21,7 +26,7 @@ export default async function SignoffPage({ params }: PageProps) {
       "id, slot, email, name, role, status, expires_at, confirmed_at, " +
         "certificates(id, type, generated_text, edited_text, employees(first_name, last_name), companies(name))",
     )
-    .eq("token", token)
+    .eq("token_hash", tokenHash)
     .maybeSingle();
 
   if (!signoff) notFound();
@@ -162,7 +167,7 @@ function StatusHeadline({ children }: { children: React.ReactNode }) {
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-ink-50/40">
+    <div className="min-h-screen bg-canvas">
       <header className="border-b border-ink-200 bg-white">
         <div className="container-zx flex h-14 items-center">
           <Link href="/" className="flex items-center gap-2">

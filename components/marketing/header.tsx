@@ -44,17 +44,17 @@ export function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-ink-200/80 bg-white/85 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-petrol-700 bg-petrol-800/95 text-petrol-50 backdrop-blur-md">
       <div className="container-zx flex h-16 items-center justify-between">
         <Link
           href="/"
           className="flex items-center gap-2.5"
           aria-label="zeugnio.ch Startseite"
         >
-          <Logo className="h-7 w-7" />
+          <Logo className="h-7 w-7 text-petrol-500" />
           <span className="text-[17px] font-medium tracking-tight">
             zeugnio
-            <span className="text-petrol-600">.ch</span>
+            <span className="text-petrol-200">.ch</span>
           </span>
         </Link>
 
@@ -63,7 +63,7 @@ export function Header() {
             <Link
               key={item.href}
               href={item.href}
-              className="text-[13.5px] font-medium text-ink-700 transition-colors hover:text-petrol-700"
+              className="text-[13.5px] font-medium text-petrol-100 transition-colors hover:text-white"
             >
               {item.label}
             </Link>
@@ -74,7 +74,7 @@ export function Header() {
           {loggedIn ? (
             <Link
               href="/app/dashboard"
-              className="btn-primary hidden px-4 py-2.5 text-[13px] sm:inline-flex"
+              className="btn-deep hidden px-4 py-2.5 text-[13px] sm:inline-flex"
             >
               Zum Dashboard
             </Link>
@@ -82,13 +82,13 @@ export function Header() {
             <>
               <Link
                 href="/login"
-                className="hidden text-[13.5px] font-medium text-ink-700 transition-colors hover:text-petrol-700 sm:inline-block"
+                className="hidden text-[13.5px] font-medium text-petrol-100 transition-colors hover:text-white sm:inline-block"
               >
                 Anmelden
               </Link>
               <Link
                 href={siteConfig.signup.cta.href}
-                className="btn-primary hidden px-4 py-2.5 text-[13px] md:inline-flex"
+                className="btn-deep hidden px-4 py-2.5 text-[13px] md:inline-flex"
               >
                 {siteConfig.signup.cta.label}
               </Link>
@@ -100,7 +100,7 @@ export function Header() {
             aria-label={open ? "Menü schliessen" : "Menü öffnen"}
             aria-expanded={open}
             aria-controls="mobile-nav"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-700 hover:bg-ink-50 md:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-petrol-50 hover:bg-white/10 md:hidden"
           >
             {open ? (
               <svg
@@ -139,14 +139,14 @@ export function Header() {
       {open && (
         <nav
           id="mobile-nav"
-          className="border-t border-ink-200/80 bg-white px-5 py-4 md:hidden"
+          className="border-t border-petrol-700 bg-petrol-800 px-5 py-4 md:hidden"
         >
           <ul className="space-y-1">
             {nav.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="block rounded-md px-2 py-2.5 text-[14.5px] font-medium text-ink-700 hover:bg-ink-50 hover:text-petrol-700"
+                  className="block rounded-md px-2 py-2.5 text-[14.5px] font-medium text-petrol-50 hover:bg-white/10 hover:text-white"
                 >
                   {item.label}
                 </Link>
@@ -156,7 +156,7 @@ export function Header() {
               <li>
                 <Link
                   href="/login"
-                  className="block rounded-md px-2 py-2.5 text-[14.5px] font-medium text-ink-700 hover:bg-ink-50 hover:text-petrol-700"
+                  className="block rounded-md px-2 py-2.5 text-[14.5px] font-medium text-petrol-50 hover:bg-white/10 hover:text-white"
                 >
                   Anmelden
                 </Link>
@@ -165,7 +165,7 @@ export function Header() {
           </ul>
           <Link
             href={loggedIn ? "/app/dashboard" : siteConfig.signup.cta.href}
-            className="btn-primary mt-3 flex w-full items-center justify-center px-4 py-2.5 text-[13px]"
+            className="btn-deep mt-3 flex w-full items-center justify-center px-4 py-2.5 text-[13px]"
           >
             {loggedIn ? "Zum Dashboard" : siteConfig.signup.cta.label}
           </Link>

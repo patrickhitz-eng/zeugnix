@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
 import { clientIpKey, getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { lookupHash } from "@/lib/link-token";
 
 export const runtime = "nodejs";
 
@@ -32,11 +33,17 @@ export async function POST(
     return NextResponse.json({ error: "Ungültige Aktion." }, { status: 400 });
   }
 
+  // Gesucht wird über den SHA-256 des Tokens (Sicherheitstest 24.11.2026, M4).
+  const tokenHash = lookupHash(token);
+  if (!tokenHash) {
+    return NextResponse.json({ error: "Freigabe-Link ungültig." }, { status: 404 });
+  }
+
   const svc = createServiceClient();
   const { data: signoff } = await svc
     .from("certificate_signoffs")
     .select("id, status, expires_at")
-    .eq("token", token)
+    .eq("token_hash", tokenHash)
     .maybeSingle();
 
   if (!signoff) {

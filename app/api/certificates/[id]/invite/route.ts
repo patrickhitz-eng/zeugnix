@@ -3,7 +3,7 @@ import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
-import { randomBytes } from "crypto";
+import { LINK_TOKEN_DAYS, newLinkToken } from "@/lib/link-token";
 import { sendEmail } from "@/lib/email/send";
 import { buildManagerInvitationEmail } from "@/lib/email/templates";
 import { isCertificateLocked } from "@/lib/certificate/status";
@@ -74,15 +74,17 @@ export async function POST(
   }
   const companyName = company.name;
 
-  // Token generieren
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 Tage
+  // Token generieren. In die Datenbank kommt nur sein SHA-256; der Token
+  // selbst steht im Link der Mail und einmal in dieser Antwort (Sicherheitstest
+  // 24.11.2026, M4; lib/link-token.ts).
+  const { token, tokenHash } = newLinkToken();
+  const expiresAt = new Date(Date.now() + LINK_TOKEN_DAYS * 24 * 60 * 60 * 1000);
 
   const { error } = await supabase.from("manager_invitations").insert({
     certificate_id: id,
     manager_email,
     manager_name: manager_name ?? null,
-    token,
+    token_hash: tokenHash,
     expires_at: expiresAt.toISOString(),
   });
 
@@ -136,7 +138,10 @@ export async function POST(
     email_sent: sendResult.sent,
     email_id: sendResult.id,
     email_error: sendResult.error,
-    invite_url: inviteUrl, // immer zurückgeben als Fallback / zum Anzeigen
+    // Einmalig als Fallback zum Weitergeben. Später lässt sich der Link nicht
+    // mehr anzeigen, weil nur noch der Hash gespeichert ist: Wer ihn wieder
+    // braucht, fordert die Beurteilung neu an.
+    invite_url: inviteUrl,
     expires_at: expiresAt.toISOString(),
   });
 }

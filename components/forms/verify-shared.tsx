@@ -86,7 +86,7 @@ export function SignatoryConfirmation({
   }
   if (unverifiedAt) {
     return (
-      <dd className="mt-1 text-[11px] text-ink-400">
+      <dd className="mt-1 text-[11px] text-ink-500">
         Per E-Mail freigegeben · {unverifiedAt} · Adresse nicht geprüft
       </dd>
     );
@@ -127,7 +127,7 @@ export function DomainNotVerifiedNote({
         Firmen-Mailadresse @{emailConfirmedDomain}
       </dd>
     ) : (
-      <dd className="mt-1 text-[11px] text-ink-400">Aussteller-Domain nicht bestätigt</dd>
+      <dd className="mt-1 text-[11px] text-ink-500">Aussteller-Domain nicht bestätigt</dd>
     )
   );
 }

@@ -5,7 +5,7 @@ export function CtaSection() {
   return (
     <section className="bg-white py-28">
       <div className="container-zx">
-        <div className="relative overflow-hidden rounded-3xl bg-ink-900 px-8 py-20 text-center text-white sm:px-16">
+        <div className="relative overflow-hidden rounded-3xl bg-petrol-800 px-8 py-20 text-center text-white sm:px-16">
           {/* Hintergrund-Hash */}
           <div
             aria-hidden="true"
@@ -19,11 +19,11 @@ export function CtaSection() {
             <h2 className="headline-display mx-auto mt-4 max-w-2xl text-[34px] leading-[1.1] text-white sm:text-[48px]">
               Erstellen Sie Ihr erstes Zeugnis.
               <br />
-              <span className="font-display italic text-petrol-300">
+              <span className="font-display italic text-petrol-200">
                 Kostenlos und in wenigen Minuten.
               </span>
             </h2>
-            <p className="mx-auto mt-6 max-w-xl text-[15.5px] leading-relaxed text-ink-300">
+            <p className="mx-auto mt-6 max-w-xl text-[15.5px] leading-relaxed text-petrol-100">
               Erfassen Sie Ihre Firma, laden Sie eine Führungskraft ein und
               generieren Sie das fertige PDF mit Hash und QR-Code – ohne
               Kreditkarte, ohne Verpflichtung.
@@ -33,7 +33,7 @@ export function CtaSection() {
             <div className="mt-9 flex flex-wrap justify-center gap-3">
               <Link
                 href={siteConfig.signup.cta.href}
-                className="inline-flex items-center gap-2 rounded-md bg-white px-5 py-3 text-[14px] font-medium text-ink-900 transition-all hover:bg-petrol-50 active:scale-[0.985]"
+                className="btn-deep text-[14px]"
               >
                 {siteConfig.signup.open
                   ? "Arbeitszeugnis kostenlos erstellen"
@@ -53,13 +53,13 @@ export function CtaSection() {
               </Link>
               <Link
                 href="/verify"
-                className="inline-flex items-center gap-2 rounded-md border border-white/20 bg-transparent px-5 py-3 text-[14px] font-medium text-white transition-all hover:border-white/40 hover:bg-white/5 active:scale-[0.985]"
+                className="btn-deep-outline text-[14px]"
               >
                 Zeugnis prüfen und analysieren
               </Link>
             </div>
 
-            <p className="mt-10 font-mono text-[11px] tracking-widest text-ink-500">
+            <p className="mt-10 font-mono text-[11px] tracking-widest text-petrol-300">
               ERSTELLEN · ABSICHERN · PRÜFEN · VERSTEHEN
             </p>
           </div>

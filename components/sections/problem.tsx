@@ -18,7 +18,7 @@ const problems = [
 
 export function ProblemSection() {
   return (
-    <section className="border-b border-ink-200 bg-white py-24">
+    <section className="border-b border-ink-200 bg-canvas py-24">
       <div className="container-zx">
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-5">
@@ -34,7 +34,7 @@ export function ProblemSection() {
           </div>
 
           <div className="lg:col-span-7">
-            <ul className="space-y-px overflow-hidden rounded-xl border border-ink-200">
+            <ul className="space-y-px overflow-hidden rounded-xl border border-ink-200 bg-ink-200">
               {problems.map((p) => (
                 <li
                   key={p.num}
