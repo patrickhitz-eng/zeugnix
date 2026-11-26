@@ -15,6 +15,12 @@
 import type { VerifiedCertificateFields } from "@/lib/hash/canonicalize";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { isSignoffOnVerifiedDomain } from "@/lib/verify/issuer";
+import {
+  SIGNOFF_BINDING_COLS,
+  certificateTextHash,
+  signoffBindingState,
+  slotSignatory,
+} from "@/lib/certificate/signoff-binding";
 
 /**
  * Spalten für die Prüfung. `meta_snapshot` ist der beim Finalisieren
@@ -193,13 +199,27 @@ export async function buildCertificateFields(
   let signatory2ConfirmedAt: string | null = null;
   let signatory1ConfirmedUnverifiedAt: string | null = null;
   let signatory2ConfirmedUnverifiedAt: string | null = null;
+  //
+  // M3 (Sicherheitstest 24.11.2026): Eine Freigabe zählt nur, wenn sie zum
+  // versiegelten Text und zu Name und Rolle im Unterschriftsfeld passt. Eine
+  // veraltete Freigabe (Text oder Person danach geändert) erscheint gar nicht,
+  // auch nicht als grauer Hinweis. Siehe lib/certificate/signoff-binding.ts.
   {
+    const textHash = await certificateTextHash(match);
     const { data: signoffs } = await supabase
       .from("certificate_signoffs")
-      .select("slot, email, confirmed_at")
+      .select(`email, ${SIGNOFF_BINDING_COLS}`)
       .eq("certificate_id", match.id)
       .eq("status", "confirmed");
     for (const so of signoffs ?? []) {
+      const slotNow = slotSignatory(signatories, so.slot);
+      const state = signoffBindingState(so, {
+        textHash,
+        slotName: slotNow.name,
+        slotRole: slotNow.role,
+        finalizedAt: match.finalized_at,
+      });
+      if (state !== "bound") continue;
       const formatted = formatDateCh(so.confirmed_at);
       const onDomain = isSignoffOnVerifiedDomain(so.email, verifiedDomain ?? emailConfirmedDomain);
       if (so.slot === 1) {

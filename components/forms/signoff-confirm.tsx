@@ -13,7 +13,14 @@ type State =
  * Bestätigt oder lehnt eine Unterzeichner-Freigabe ab (V2, öffentlicher
  * Token-Flow). Postet an /api/signoffs/[token]/submit.
  */
-export function SignoffConfirm({ token }: { token: string }) {
+export function SignoffConfirm({
+  token,
+  textHash,
+}: {
+  token: string;
+  /** SHA-256 des angezeigten Texts (M3), null = kein Text vorhanden. */
+  textHash: string | null;
+}) {
   const [state, setState] = useState<State>({ kind: "idle" });
 
   async function submit(action: "confirm" | "decline") {
@@ -28,7 +35,7 @@ export function SignoffConfirm({ token }: { token: string }) {
       const res = await fetch(`/api/signoffs/${token}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, textHash }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -82,7 +89,7 @@ export function SignoffConfirm({ token }: { token: string }) {
       <div className="flex flex-col gap-2 sm:flex-row">
         <button
           onClick={() => submit("confirm")}
-          disabled={state.kind === "submitting"}
+          disabled={state.kind === "submitting" || !textHash}
           className="btn-primary disabled:opacity-50"
         >
           {state.kind === "submitting" ? "Wird gespeichert…" : "Zeugnis freigeben"}

@@ -11,6 +11,12 @@ interface Props {
   invitationCount: number;
   /** Darf versiegeln (HR-Leitung, Admin). Ohne: Hinweis statt Knopf. */
   canSeal?: boolean;
+  /**
+   * Bestätigte Unterzeichner-Freigaben, die nicht mehr zum heutigen Text oder
+   * zur Person im Unterschriftsfeld passen (M3). Sie erscheinen nach dem
+   * Finalisieren weder im PDF noch auf der Prüfseite.
+   */
+  staleSignoffCount?: number;
 }
 
 export function CertificateActions({
@@ -18,6 +24,7 @@ export function CertificateActions({
   canSeal = true,
   evaluationCount,
   invitationCount,
+  staleSignoffCount = 0,
 }: Props) {
   const router = useRouter();
   const workspace = useCertificateWorkspace();
@@ -115,7 +122,10 @@ export function CertificateActions({
   async function finalize() {
     if (
       !confirm(
-        "Zeugnis finalisieren? Danach kann der Inhalt nicht mehr geändert werden und der Hash wird erzeugt.",
+        "Zeugnis finalisieren? Danach kann der Inhalt nicht mehr geändert werden und der Hash wird erzeugt." +
+          (staleSignoffCount > 0
+            ? `\n\nAchtung: ${staleSignoffCount === 1 ? "Eine Unterschriften-Freigabe ist" : `${staleSignoffCount} Unterschriften-Freigaben sind`} veraltet, weil Text oder Unterzeichnende seither geändert wurden. Veraltete Freigaben erscheinen weder auf dem Zeugnis noch in der Prüfung. Sie lassen sich auch nach dem Finalisieren neu anfordern.`
+            : ""),
       )
     )
       return;

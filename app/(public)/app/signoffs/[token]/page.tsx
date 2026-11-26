@@ -5,6 +5,13 @@ import Link from "next/link";
 import { certificateTypeLabel } from "@/lib/certificate/certificate-title";
 import { SignoffConfirm } from "@/components/forms/signoff-confirm";
 import { lookupHash } from "@/lib/link-token";
+import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
+import {
+  certificateBodyText,
+  certificateTextHash,
+  sameSignatoryText,
+  slotSignatory,
+} from "@/lib/certificate/signoff-binding";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -24,7 +31,10 @@ export default async function SignoffPage({ params }: PageProps) {
     .from("certificate_signoffs")
     .select(
       "id, slot, email, name, role, status, expires_at, confirmed_at, " +
-        "certificates(id, type, generated_text, edited_text, employees(first_name, last_name), companies(name))",
+        "certificates(id, type, hash_version, meta_snapshot, generated_text, edited_text, " +
+        "signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role, " +
+        "employees(first_name, last_name), " +
+        "companies(name, signatory_1_name, signatory_1_role, signatory_2_name, signatory_2_role))",
     )
     .eq("token_hash", tokenHash)
     .maybeSingle();
@@ -91,6 +101,29 @@ export default async function SignoffPage({ params }: PageProps) {
     );
   }
 
+  // M3: Steht heute eine andere Person oder Rolle im Unterschriftsfeld als bei
+  // der Anfrage, darf dieser Link nichts mehr bestätigen. Die Abgabe-Route
+  // prüft dasselbe noch einmal.
+  const slotNow = slotSignatory(
+    resolveCertificatePresentation(cert, company).signatories,
+    signoff.slot,
+  );
+  if (
+    !slotNow.name ||
+    !sameSignatoryText(signoff.name, slotNow.name) ||
+    !sameSignatoryText(signoff.role, slotNow.role)
+  ) {
+    return (
+      <Wrapper>
+        <StatusHeadline>Angaben geändert</StatusHeadline>
+        <p className="mt-3 text-[14px] text-ink-600">
+          Die Angaben zur unterzeichnenden Person wurden seit dieser Anfrage
+          geändert. Bitte fordern Sie beim Arbeitgeber einen neuen Link an.
+        </p>
+      </Wrapper>
+    );
+  }
+
   // Status best-effort auf 'viewed' setzen (blockiert die Anzeige nicht).
   if (signoff.status === "pending") {
     const { error: viewErr } = await supabase
@@ -103,7 +136,10 @@ export default async function SignoffPage({ params }: PageProps) {
   }
 
   const employeeName = `${employee.first_name} ${employee.last_name}`;
-  const bodyText: string = cert.edited_text || cert.generated_text || "";
+  const bodyText: string = certificateBodyText(cert);
+  // M3: SHA-256 genau dieses Texts. Er geht mit der Bestätigung an den Server
+  // und wird dort gespeichert; so ist belegt, welchen Text die Person sah.
+  const textHash = await certificateTextHash(cert);
   const paragraphs = bodyText
     .split(/\n{2,}/)
     .map((p: string) => p.trim())
@@ -155,7 +191,7 @@ export default async function SignoffPage({ params }: PageProps) {
       </div>
 
       <div className="mt-8">
-        <SignoffConfirm token={token} />
+        <SignoffConfirm token={token} textHash={textHash} />
       </div>
     </Wrapper>
   );

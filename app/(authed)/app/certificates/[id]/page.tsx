@@ -3,8 +3,15 @@ import { notFound } from "next/navigation";
 import { CertificateActions } from "@/components/app/certificate-actions";
 import {
   CertificateSignoffControls,
+  type SignoffRow,
   type SignoffSlot,
 } from "@/components/app/certificate-signoff-controls";
+import {
+  SIGNOFF_BINDING_COLS,
+  certificateTextHash,
+  signoffBindingState,
+  slotSignatory,
+} from "@/lib/certificate/signoff-binding";
 import { SchlusssatzControls } from "@/components/forms/schlusssatz-controls";
 import { SignatoryControls } from "@/components/forms/signatory-controls";
 import { CertificateRichWorkspace } from "@/components/app/certificate-rich-workspace";
@@ -125,9 +132,29 @@ export default async function CertificateDetailPage({ params }: PageProps) {
   // die Freigabe-Karte aus (data bleibt null bei fehlender Tabelle).
   const { data: signoffData } = await supabase
     .from("certificate_signoffs")
-    .select("slot, email, name, status, confirmed_at, sent_at")
+    .select(`email, sent_at, ${SIGNOFF_BINDING_COLS}`)
     .eq("certificate_id", id);
-  const signoffs = signoffData ?? [];
+  // M3: Passt eine Bestätigung noch zum heutigen Text und zur Person im
+  // Unterschriftsfeld? Wenn nicht, zeigt die Karte sie als veraltet, und
+  // Prüfseite und PDF lassen sie weg (lib/certificate/signoff-binding.ts).
+  const currentTextHash = await certificateTextHash(cert);
+  const signoffs: SignoffRow[] = (signoffData ?? []).map((so: any) => {
+    const slotNow = slotSignatory(effectiveSignatories, so.slot);
+    return {
+      slot: so.slot,
+      email: so.email,
+      name: so.name ?? null,
+      status: so.status,
+      confirmed_at: so.confirmed_at ?? null,
+      sent_at: so.sent_at ?? null,
+      binding: signoffBindingState(so, {
+        textHash: currentTextHash,
+        slotName: slotNow.name,
+        slotRole: slotNow.role,
+        finalizedAt: cert.finalized_at,
+      }),
+    };
+  });
 
   // Unterschrifts-Slots mit hinterlegtem Namen -> Freigabe möglich.
   const signoffSlots: SignoffSlot[] = [];
@@ -265,6 +292,9 @@ export default async function CertificateDetailPage({ params }: PageProps) {
           canSeal={canSeal}
           evaluationCount={evaluations.length}
           invitationCount={invitations.length}
+          staleSignoffCount={
+            signoffs.filter((s) => s.binding !== "bound" && s.binding !== "open").length
+          }
         />
       )}
 
