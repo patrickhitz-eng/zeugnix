@@ -107,6 +107,10 @@ export async function POST(
       confirmed_at: null,
       confirmed_ip: null,
       confirmed_user_agent: null,
+      // M3 (041): Bindung an Text und Person gehört zur alten Bestätigung.
+      confirmed_text_hash: null,
+      confirmed_name: null,
+      confirmed_role: null,
       expires_at: expiresAt.toISOString(),
       created_by_user_id: user.id,
     },

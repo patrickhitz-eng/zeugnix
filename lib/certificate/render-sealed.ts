@@ -14,6 +14,12 @@ import { renderCertificateDocx, type DocxLogo } from "@/lib/docx/certificate";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import { docxImageType, loadCompanyLogo, toDataUrl, type LoadedLogo } from "@/lib/uploads/load-logo";
 import { encodeMetaBlock, encodeSignatureBlock, toMetaFields } from "@/lib/hash/canonicalize";
+import {
+  SIGNOFF_BINDING_COLS,
+  certificateTextHash,
+  signoffBindingState,
+  slotSignatory,
+} from "@/lib/certificate/signoff-binding";
 
 export type SealedFormat = "pdf" | "docx";
 
@@ -49,16 +55,27 @@ export async function renderSealedCertificate(
   const presentation = resolveCertificatePresentation(cert, company);
   const signatories = presentation.signatories;
 
-  // Bestätigte Unterzeichner-Freigaben pro Slot (E-Mail und Zeitpunkt).
+  // Bestätigte Unterzeichner-Freigaben pro Slot (E-Mail und Zeitpunkt). Nur
+  // solche, die zum versiegelten Text und zum Namen im Unterschriftsfeld passen
+  // (M3, lib/certificate/signoff-binding.ts). Eine veraltete Freigabe erscheint
+  // nicht auf dem Dokument.
   const signoffBySlot: Record<number, { email: string; confirmedAt: string }> = {};
   {
+    const textHash = await certificateTextHash(cert);
     const { data: signoffs } = await supabase
       .from("certificate_signoffs")
-      .select("slot, email, confirmed_at, status")
+      .select(`email, ${SIGNOFF_BINDING_COLS}`)
       .eq("certificate_id", cert.id)
       .eq("status", "confirmed");
     for (const so of signoffs ?? []) {
-      if (so.confirmed_at && (so.slot === 1 || so.slot === 2)) {
+      const slotNow = slotSignatory(signatories, so.slot);
+      const state = signoffBindingState(so, {
+        textHash,
+        slotName: slotNow.name,
+        slotRole: slotNow.role,
+        finalizedAt: cert.finalized_at,
+      });
+      if (state === "bound" && so.confirmed_at && (so.slot === 1 || so.slot === 2)) {
         signoffBySlot[so.slot] = { email: so.email, confirmedAt: so.confirmed_at };
       }
     }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { SignoffBindingState } from "@/lib/certificate/signoff-binding";
 
 export interface SignoffSlot {
   slot: 1 | 2;
@@ -16,6 +17,11 @@ export interface SignoffRow {
   status: string;
   confirmed_at: string | null;
   sent_at: string | null;
+  /**
+   * M3: Passt eine Bestätigung noch zum Text und zur Person im
+   * Unterschriftsfeld? Siehe lib/certificate/signoff-binding.ts.
+   */
+  binding?: SignoffBindingState;
 }
 
 interface Props {
@@ -126,7 +132,14 @@ export function CertificateSignoffControls({
         {slots.map((s) => {
           const row = signoffs.find((r) => r.slot === s.slot);
           const slotUi = ui[s.slot] ?? { email: "", url: null, emailSent: null };
-          const confirmed = row?.status === "confirmed";
+          // M3: Bestätigt, aber zu einem anderen Text oder einer anderen
+          // Person im Unterschriftsfeld. Zählt nicht und lässt sich neu anfordern.
+          const stale =
+            row?.status === "confirmed" &&
+            !!row.binding &&
+            row.binding !== "bound" &&
+            row.binding !== "open";
+          const confirmed = row?.status === "confirmed" && !stale;
           const declined = row?.status === "declined";
           const pending = row && (row.status === "pending" || row.status === "viewed");
 
@@ -150,6 +163,11 @@ export function CertificateSignoffControls({
                     Freigegeben
                   </span>
                 )}
+                {stale && (
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10.5px] font-medium text-amber-800">
+                    Veraltet
+                  </span>
+                )}
                 {declined && (
                   <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10.5px] font-medium text-red-800">
                     Abgelehnt
@@ -169,6 +187,18 @@ export function CertificateSignoffControls({
                 </p>
               ) : (
                 <div className="mt-3">
+                  {stale && (
+                    <p className="mb-2 text-[11.5px] leading-relaxed text-amber-800">
+                      Freigegeben am {formatDate(row!.confirmed_at)}, aber{" "}
+                      {row!.binding === "stale_name"
+                        ? "Name oder Rolle im Unterschriftsfeld wurden danach geändert"
+                        : row!.binding === "stale_text"
+                          ? "der Zeugnistext wurde danach geändert"
+                          : "die Freigabe stammt von vor der Textbindung und lässt sich keinem Text zuordnen"}
+                      . Sie erscheint nicht auf dem Zeugnis und nicht in der
+                      Prüfung. Bitte neu anfordern.
+                    </p>
+                  )}
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input
                       type="email"
@@ -185,7 +215,7 @@ export function CertificateSignoffControls({
                     >
                       {busySlot === s.slot
                         ? "Wird gesendet…"
-                        : pending
+                        : pending || stale
                           ? "Erneut anfordern"
                           : "Freigabe anfordern"}
                     </button>
