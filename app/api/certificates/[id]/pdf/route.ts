@@ -22,7 +22,7 @@ export const maxDuration = 30;
  *  - Hash-Block + QR-Code (abschaltbar in der Mastervorlage)
  *
  * Der Zusammenbau steht in lib/certificate/render-sealed.ts (gemeinsam mit
- * Word-Download und ZIP-Export).
+ * dem ZIP-Export).
  */
 export async function GET(
   _req: NextRequest,
@@ -61,7 +61,7 @@ export async function GET(
   }
 
   try {
-    const rendered = await renderSealedCertificate(supabase, cert, "pdf");
+    const rendered = await renderSealedCertificate(supabase, cert);
     return new NextResponse(new Uint8Array(rendered.buffer), {
       headers: {
         "Content-Type": rendered.contentType,

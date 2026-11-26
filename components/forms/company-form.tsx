@@ -584,8 +584,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
           </label>
           <p className="mt-2 text-[12px] text-ink-500">
             Ausgeschaltet bleibt das PDF über den Upload auf zeugnio.ch/verify
-            prüfbar, Empfänger sehen aber keinen Hinweis darauf. Das
-            Word-Dokument trägt dann den Vermerk «Arbeitskopie, nicht prüfbar».
+            prüfbar, Empfänger sehen aber keinen Hinweis darauf.
           </p>
         </div>
       )}

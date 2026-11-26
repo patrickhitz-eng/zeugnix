@@ -34,8 +34,8 @@
  * Wer sie mit ins Siegel nehmen will, braucht eine neue Hash-Version.
  *
  * EINZIGE Quelle dieser Auflösung – genutzt von PDF (app/api/certificates/[id]/pdf),
- * Word-Export (…/docx), A4-Vorschau (Detailseite) und der Prüfung
- * (app/api/verify). Vier Ausgaben, ein Ergebnis.
+ * A4-Vorschau (Detailseite) und der Prüfung (app/api/verify). Drei Ausgaben,
+ * ein Ergebnis.
  */
 
 import {
@@ -108,8 +108,8 @@ export function resolveLiveFields(
  * gebildet. Ein Rückfall würde die Entsprechung wieder aufbrechen, die hier der
  * ganze Zweck ist. (Leer können sie bei einem darstellbaren Zeugnis nicht sein:
  * `certificateTypeLabel` liefert immer mindestens „Arbeitszeugnis", und der
- * Arbeitgeber stammt aus derselben Firmen-Verknüpfung, ohne die PDF- und
- * Word-Route mit 400 abbrechen.)
+ * Arbeitgeber stammt aus derselben Firmen-Verknüpfung, ohne die die PDF-Route
+ * mit 400 abbricht.)
  *
  * Sonst der bisherige lebende Pfad.
  */

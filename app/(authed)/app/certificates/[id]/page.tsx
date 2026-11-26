@@ -114,7 +114,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
 
   // Arbeitgeber, Titel und Unterzeichnende für die Darstellung: bei einem
   // finalisierten v2-Zeugnis aus dem eingefrorenen Siegel, sonst Zeugnis-
-  // Override ⟶ Firmenvorgabe. Dieselbe Auflösung wie PDF und Word-Export, damit
+  // Override ⟶ Firmenvorgabe. Dieselbe Auflösung wie das PDF, damit
   // die Vorschau nicht etwas anderes zeigt als das ausgelieferte Dokument.
   const presentation = resolveCertificatePresentation(cert, company);
   const effectiveSignatories = presentation.signatories;
@@ -223,18 +223,6 @@ export default async function CertificateDetailPage({ params }: PageProps) {
         </div>
         {isLocked && cert.hash && (
           <div className="flex shrink-0 items-center gap-2">
-            <a
-              href={`/api/certificates/${cert.id}/docx`}
-              rel="noopener"
-              className="flex items-center gap-2 rounded-md border border-ink-200 bg-white px-4 py-2 text-[13px] font-medium text-ink-800 hover:bg-ink-50"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-              Word (.docx)
-            </a>
             <a
               href={`/api/certificates/${cert.id}/pdf`}
               target="_blank"

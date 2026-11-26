@@ -142,7 +142,7 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
   });
   eq("signatures", s.signatures, { flexDirection: "row", marginTop: 2 });
   // Freiraum zum Unterschreiben von Hand – vorher Inline-Literale in
-  // lib/pdf/certificate.tsx, die der Word-Export nicht kannte.
+  // lib/pdf/certificate.tsx, die ein früherer Word-Export nicht kannte.
   eq("signatureHandwrittenSpace", s.signatureHandwrittenSpace, {
     marginTop: 6,
     minHeight: 48,
