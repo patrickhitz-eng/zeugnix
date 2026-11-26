@@ -182,12 +182,14 @@ Im Kit-README, Abschnitt «Ernstfall». Kurz:
 2. Mit deiner Kopie von `backup.key` entschlüsseln. Unter Windows reicht Node: `decrypt.mjs --out`.
 3. Einspielen: zuerst `900_nine_bootstrap.sql`, dann den Auszug.
 
-## 7. Entwurf: Frage an nine (senden tust du)
+## 7. Antwort von nine (SVC-119656, 25.11.)
 
-> Guten Tag. Wir legen in es34 einen Bucket mit Versionierung für verschlüsselte Datenbanksicherungen an. Der Bucket-Benutzer auf dem Server hat die Rolle `writer`. Kann ein `writer` einzelne Objektversionen endgültig löschen (DeleteObject mit versionId), oder entsteht nur eine Löschmarke? Ist Object Lock bzw. eine Rolle «schreiben ohne löschen» geplant? Danke und Gruss, Silvan Schück
+- Ein `writer` darf einzelne Objektversionen endgültig löschen. Die Versionierung schützt also nur vor versehentlichem Löschen, nicht vor jemandem mit dem Schlüssel auf dem Server.
+- Object Lock oder eine Rolle «schreiben ohne löschen» ist nicht geplant (Feature-Request aufgenommen).
+- **Entscheid Silvan 26.11.:** Restrisiko für den Pilotstart akzeptiert. Letzte Linie ausserhalb der Reichweite von `www-zeugnio` ist nines Tagessicherung (10 Tage). Nach den Piloten neu prüfen: zweiter Anbieter mit Schlüssel ohne Löschrecht (Exoscale Zürich), als zusätzliches Upload-Ziel im Kit.
 
 ## Offen danach
 
 - **Datenschutzerklärung:** nachgezogen am 25.11.: Rümlang beim Empfänger nine, Abschnitt 6 (Sicherungen höchstens rund zehn Wochen), Abschnitt 9 und FAQ.
 - **Löschkonzept:** In Sicherungen bleiben gelöschte Daten höchstens etwa 70 Tage (siehe 3).
-- **Schlüsselabgleich:** Fingerabdruck deiner Kopie von `backup.key` mit `ef3fe2bf0a70` vergleichen. Ohne passende Kopie ist die Zweitkopie im Ernstfall wertlos.
+- **Schlüsselabgleich:** erledigt 26.11. Silvans Kopie liegt als Datei auf dem Laptop, Fingerabdruck `ef3fe2bf0a70` wie auf dem Server.
