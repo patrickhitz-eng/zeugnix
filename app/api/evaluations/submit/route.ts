@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email/send";
 import { buildEvaluationSubmittedEmail } from "@/lib/email/templates";
 import { evaluationMailRecipients } from "@/lib/team/notify-recipients";
 import { isCertificateLocked } from "@/lib/certificate/status";
+import { lookupHash } from "@/lib/link-token";
 
 // Öffentlicher (token-basierter) Endpunkt → Rate-Limit gegen Token-Bruteforce
 // und Spam. Doppel-Submit ist zusätzlich DB-seitig abgesichert.
@@ -26,15 +27,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
     }
 
+    // Gesucht wird über den SHA-256 des Tokens (Sicherheitstest 24.11.2026, M4).
+    // Was kein Token sein kann, gilt als nicht gefunden.
+    const tokenHash = lookupHash(token);
+    if (!tokenHash) {
+      return NextResponse.json({ error: "Einladung nicht gefunden" }, { status: 404 });
+    }
+
     const supabase = createServiceClient();
 
     // Invitation per Token validieren – mit allen verbundenen Daten für Mail
     const { data: inv } = await supabase
       .from("manager_invitations")
       .select(
-        "*, certificates(id, status, company_id, created_by_user_id, employees(first_name, last_name), companies(name))",
+        "id, certificate_id, manager_email, manager_name, status, expires_at, certificates(id, status, company_id, created_by_user_id, employees(first_name, last_name), companies(name))",
       )
-      .eq("token", token)
+      .eq("token_hash", tokenHash)
       .single();
 
     if (!inv) {
