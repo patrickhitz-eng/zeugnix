@@ -22,11 +22,18 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { NextResponse } from "next/server";
 
-import { ANFORDERN_OK, ANFORDERN_ZU_VIELE, handleAnfordern, type AnfordernDeps } from "../lib/auth/anfordern";
+import {
+  ANFORDERN_AUSGELASTET,
+  ANFORDERN_OK,
+  ANFORDERN_ZU_VIELE,
+  handleAnfordern,
+  type AnfordernDeps,
+} from "../lib/auth/anfordern";
 import {
   authSecret,
   LOGIN_MAX_TRIES,
   LOGIN_TTL_MINUTES,
+  RATE_LIMITS,
   SESSION_COOKIE,
   SESSION_TTL_SECONDS,
   siteOrigin,
@@ -151,6 +158,7 @@ async function main() {
       siteOrigin: "https://zeugnio.ch",
       clientIp: "203.0.113.7",
       rateLimit: async () => true,
+      onGlobalLimit: () => {},
       // Wie auth_request_login: bei geschlossener Registrierung nur bekannte Adressen.
       storeRequest: async (input) => {
         if (!input.signupOpen && input.email !== KNOWN) return false;
@@ -206,7 +214,7 @@ async function main() {
   ok("Ratenbegrenzung: nichts gespeichert, keine Mail", limited.stored.length === 0 && limited.scheduled.length === 0);
   const keys: string[] = [];
   await handleAnfordern({ email: KNOWN, next: "" }, deps({ rateLimit: async (key) => (keys.push(key), true) }).d);
-  ok("Zähler-Schlüssel ohne Adresse im Klartext", keys.length === 2 && keys.every((k) => !k.includes("firma.ch")), keys.join(" | "));
+  ok("Zähler-Schlüssel ohne Adresse im Klartext", keys.length === 4 && keys.every((k) => !k.includes("firma.ch")), keys.join(" | "));
   ok("Zähler-Schlüssel pro IP nutzt die übergebene IP", keys.some((k) => k === "auth:anfordern:ip:203.0.113.7"));
   eq("ungültige Adresse: 400", (await handleAnfordern({ email: "kein-at", next: "" }, deps().d)).status, 400);
 
@@ -220,6 +228,73 @@ async function main() {
   ok("Ratenbegrenzung pro IP: nichts gespeichert, keine Mail", ipLimited.stored.length === 0 && ipLimited.scheduled.length === 0);
   eq("429-Text gleich für IP und Adresse (verrät nichts)", [rIp.body, rLimited.body], [{ error: ANFORDERN_ZU_VIELE }, { error: ANFORDERN_ZU_VIELE }]);
   ok("429-Text sagt, dass erhaltene Mails gültig bleiben", ANFORDERN_ZU_VIELE.includes(`${LOGIN_TTL_MINUTES} Minuten gültig`));
+
+  // ------------------------------------------------------------------------
+  console.log("\nAnfordern: IPv6 zählt pro /64 (M5)");
+  const v6Keys: string[] = [];
+  const v6 = (ip: string) =>
+    handleAnfordern(
+      { email: KNOWN, next: "" },
+      deps({ clientIp: ip, rateLimit: async (key, kind) => (kind === "ip" && v6Keys.push(key), true) }).d,
+    );
+  await v6("2001:db8:1:2::1");
+  await v6("2001:db8:1:2:ffff:eeee:dddd:cccc");
+  await v6("::ffff:203.0.113.7");
+  eq("zwei Adressen im selben /64: ein Zähler", v6Keys[0], v6Keys[1]);
+  eq("Zähler-Schlüssel für IPv6 ist das /64", v6Keys[0], "auth:anfordern:ip:2001:db8:1:2::/64");
+  eq("IPv4 in IPv6-Form zählt wie die IPv4-Adresse", v6Keys[2], "auth:anfordern:ip:203.0.113.7");
+
+  // ------------------------------------------------------------------------
+  console.log("\nAnfordern: globale Obergrenze für Anmelde-Mails (M5)");
+  function globalVoll(voll: "global-stunde" | "global-tag" | "keiner") {
+    const kinds: string[] = [];
+    const warnungen: string[] = [];
+    const dd = deps({
+      signupOpen: true,
+      rateLimit: async (_key, kind) => (kinds.push(kind), kind !== voll),
+      onGlobalLimit: (fenster) => warnungen.push(fenster),
+    });
+    return { ...dd, kinds, warnungen };
+  }
+  const stundeVoll = globalVoll("global-stunde");
+  const rStunde = await handleAnfordern({ email: KNOWN, next: "" }, stundeVoll.d);
+  eq("Stunde voll: 503", rStunde.status, 503);
+  eq("Stunde voll: neutraler Text", rStunde.body, { error: ANFORDERN_AUSGELASTET });
+  ok("Stunde voll: nichts gespeichert, keine Mail", stundeVoll.stored.length === 0 && stundeVoll.scheduled.length === 0);
+  eq("Stunde voll: Tageszähler unberührt", stundeVoll.kinds, ["ip", "adresse", "global-stunde"]);
+  eq("Stunde voll: Warnung fürs Log", stundeVoll.warnungen, ["stunde"]);
+
+  const tagVoll = globalVoll("global-tag");
+  const rTag = await handleAnfordern({ email: "neu@firma.ch", next: "" }, tagVoll.d);
+  eq("Tag voll: 503", rTag.status, 503);
+  ok("Tag voll: nichts gespeichert, keine Mail", tagVoll.stored.length === 0 && tagVoll.scheduled.length === 0);
+  eq("Tag voll: Warnung fürs Log", tagVoll.warnungen, ["tag"]);
+
+  const vollKnown = globalVoll("global-stunde");
+  const vollUnknown = globalVoll("global-stunde");
+  vollKnown.d.signupOpen = false;
+  vollUnknown.d.signupOpen = false;
+  const gK = await handleAnfordern({ email: KNOWN, next: "" }, vollKnown.d);
+  const gU = await handleAnfordern({ email: "unbekannt@firma.ch", next: "" }, vollUnknown.d);
+  eq("Obergrenze: Antwort gleich für bekannte und unbekannte Adresse", [gK.status, gK.body], [gU.status, gU.body]);
+  eq(
+    "Obergrenze: auch der Zählweg ist gleich (keine Zeitdifferenz)",
+    vollKnown.kinds,
+    vollUnknown.kinds,
+  );
+  ok("Obergrenze: Text sagt, dass erhaltene Mails gültig bleiben", ANFORDERN_AUSGELASTET.includes(`${LOGIN_TTL_MINUTES} Minuten gültig`));
+
+  const unterGrenze = globalVoll("keiner");
+  await handleAnfordern({ email: KNOWN, next: "" }, unterGrenze.d);
+  eq("unter der Grenze: alle vier Zähler in fester Reihenfolge", unterGrenze.kinds, ["ip", "adresse", "global-stunde", "global-tag"]);
+  ok("unter der Grenze: Mail geplant, keine Warnung", unterGrenze.scheduled.length === 1 && unterGrenze.warnungen.length === 0);
+  ok(
+    "Pilotbetrieb stösst nicht an (mind. 30/h und 80/Tag, Tag > Stunde)",
+    RATE_LIMITS.anfordernGlobalProStunde.limit >= 30 &&
+      RATE_LIMITS.anfordernGlobalProTag.limit >= 80 &&
+      RATE_LIMITS.anfordernGlobalProTag.limit > RATE_LIMITS.anfordernGlobalProStunde.limit &&
+      RATE_LIMITS.anfordernGlobalProTag.windowMs === 24 * 60 * 60 * 1000,
+  );
 
   // ------------------------------------------------------------------------
   console.log("\nAdresse auf /auth/link (Login-CSRF)");

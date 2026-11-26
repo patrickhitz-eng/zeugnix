@@ -18,8 +18,11 @@ import { logWarn } from "@/lib/log";
  * verteilter Schutz, aber besser als kein Limit.
  */
 
-/** Zeitstempel (ms) der jüngsten Treffer eines Schlüssels. */
-type Bucket = number[];
+/** Zeitstempel (ms) der jüngsten Treffer eines Schlüssels und die Fensterlänge. */
+interface Bucket {
+  hits: number[];
+  windowMs: number;
+}
 
 const store = new Map<string, Bucket>();
 
@@ -27,14 +30,16 @@ const store = new Map<string, Bucket>();
 // gelegentlich tote Buckets aufräumen.
 let lastSweep = Date.now();
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
-const MAX_BUCKET_AGE_MS = 60 * 60 * 1000;
 
 function maybeSweep(now: number) {
   if (now - lastSweep < SWEEP_INTERVAL_MS) return;
   lastSweep = now;
-  for (const [key, hits] of store) {
-    const last = hits[hits.length - 1];
-    if (last === undefined || now - last > MAX_BUCKET_AGE_MS) {
+  // Tot ist ein Bucket, wenn sein jüngster Treffer älter ist als sein eigenes
+  // Fenster. Eine feste Stunde wäre falsch: Sie würfe das Tagesfenster der
+  // globalen Obergrenze für Anmelde-Mails (M5) zu früh weg.
+  for (const [key, bucket] of store) {
+    const last = bucket.hits[bucket.hits.length - 1];
+    if (last === undefined || now - last > bucket.windowMs) {
       store.delete(key);
     }
   }
@@ -61,17 +66,17 @@ function rateLimitInMemory(
   maybeSweep(now);
 
   const cutoff = now - windowMs;
-  const hits = (store.get(key) ?? []).filter((t) => t > cutoff);
+  const hits = (store.get(key)?.hits ?? []).filter((t) => t > cutoff);
 
   if (hits.length >= limit) {
     // gefilterte (gealterte) Liste zurückschreiben, ohne neuen Treffer
-    store.set(key, hits);
+    store.set(key, { hits, windowMs });
     const retryAfter = Math.ceil((hits[0] + windowMs - now) / 1000);
     return { ok: false, retryAfter: Math.max(retryAfter, 1) };
   }
 
   hits.push(now);
-  store.set(key, hits);
+  store.set(key, { hits, windowMs });
   return { ok: true };
 }
 
@@ -135,7 +140,7 @@ export async function rateLimit(
 }
 
 /** Client-IP aus den Proxy-Headern; Begründung in `lib/client-ip.ts`. */
-export { getClientIp } from "@/lib/client-ip";
+export { clientIpKey, getClientIp } from "@/lib/client-ip";
 
 /** Einheitliche 429-Antwort inkl. `Retry-After`-Header. */
 export function tooManyRequests(retryAfter?: number): NextResponse {

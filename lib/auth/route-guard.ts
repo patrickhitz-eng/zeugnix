@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { RATE_LIMITS, siteOrigin } from "./config";
 import { allowedOrigins, isAllowedOrigin } from "./origin";
-import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIpKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
  * Gemeinsame Vorprüfungen der Anmelde-Routen unter /api/auth/*.
@@ -23,6 +23,6 @@ export function rejectForeignOrigin(req: NextRequest): NextResponse | null {
 /** Ratenbegrenzung für das Einlösen von Code und Link, pro IP. */
 export async function rejectTooManyRedeems(req: NextRequest): Promise<NextResponse | null> {
   const { limit, windowMs } = RATE_LIMITS.einloesenProIp;
-  const result = await rateLimit(`auth:einloesen:ip:${getClientIp(req)}`, limit, windowMs);
+  const result = await rateLimit(`auth:einloesen:ip:${clientIpKey(req)}`, limit, windowMs);
   return result.ok ? null : tooManyRequests(result.retryAfter);
 }

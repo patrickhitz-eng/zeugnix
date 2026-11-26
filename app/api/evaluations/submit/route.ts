@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
-import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIpKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email/send";
 import { buildEvaluationSubmittedEmail } from "@/lib/email/templates";
 import { evaluationMailRecipients } from "@/lib/team/notify-recipients";
@@ -14,7 +14,7 @@ const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 export async function POST(req: NextRequest) {
   try {
     const limited = await rateLimit(
-      `eval-submit:${getClientIp(req)}`,
+      `eval-submit:${clientIpKey(req)}`,
       SUBMIT_LIMIT,
       SUBMIT_WINDOW_MS,
     );
