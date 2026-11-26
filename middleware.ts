@@ -179,7 +179,13 @@ export async function middleware(request: NextRequest) {
     // die Adresse kennt.
     path.startsWith("/api/logos/") ||
     path.startsWith("/api/health") ||
-    path.startsWith("/app/invitations"); // Token-basiert, kein Login nötig
+    // Token-Links für Personen ohne Konto: Einladung an die vorgesetzte Person
+    // und Freigabe der unterzeichnenden Person. Die Seiten prüfen den Token
+    // selbst (über seinen Hash, lib/link-token.ts). /app/signoffs fehlte hier
+    // seit der Einführung der Freigabe (25.8.2026): Ohne Konto landete man auf
+    // der Anmeldung statt beim Zeugnistext.
+    path.startsWith("/app/invitations") ||
+    path.startsWith("/app/signoffs/");
 
   return sealed(await eigeneSitzung());
 
@@ -190,7 +196,10 @@ export async function middleware(request: NextRequest) {
    * das Cookie wieder 30 Tage; ist sie ungültig, wird das Cookie gelöscht.
    */
   async function eigeneSitzung(): Promise<NextResponse> {
-    const appPath = path.startsWith("/app") && !path.startsWith("/app/invitations");
+    const appPath =
+      path.startsWith("/app") &&
+      !path.startsWith("/app/invitations") &&
+      !path.startsWith("/app/signoffs/");
     if (isPublic) return NextResponse.next({ request: { headers: forwardedHeaders() } });
 
     const raw = request.cookies.get(SESSION_COOKIE)?.value;
