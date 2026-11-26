@@ -151,7 +151,7 @@ export default async function InvitationPage({ params }: PageProps) {
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-ink-50/40">
+    <div className="min-h-screen bg-canvas">
       <header className="border-b border-ink-200 bg-white">
         <div className="container-zx flex h-14 items-center">
           <Link href="/" className="flex items-center gap-2">

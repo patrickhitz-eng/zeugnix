@@ -69,7 +69,7 @@ export function SolutionSection() {
               <h3 className="mt-6 text-[15.5px] font-medium tracking-tight text-white">
                 {p.title}
               </h3>
-              <p className="mt-2 text-[13.5px] leading-relaxed text-ink-400">
+              <p className="mt-2 text-[13.5px] leading-relaxed text-ink-500">
                 {p.body}
               </p>
             </div>

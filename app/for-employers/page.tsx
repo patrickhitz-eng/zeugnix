@@ -68,7 +68,7 @@ export default function Page() {
       </section>
 
       {/* Für wen */}
-      <section className="border-b border-ink-200 bg-ink-50/50 py-24">
+      <section className="border-b border-ink-200 bg-canvas py-24">
         <div className="container-zx">
           <div className="eyebrow">Für wen</div>
           <h2 className="headline-display mt-3 text-[32px] leading-[1.15] sm:text-[40px]">

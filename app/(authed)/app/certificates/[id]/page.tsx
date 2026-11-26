@@ -427,7 +427,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0 whitespace-nowrap text-[11px] text-ink-400">
+                  <div className="shrink-0 whitespace-nowrap text-[11px] text-ink-500">
                     {new Date(entry.created_at).toLocaleString("de-CH", {
                       day: "2-digit",
                       month: "2-digit",

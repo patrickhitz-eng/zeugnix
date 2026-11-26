@@ -106,7 +106,7 @@ export function CertificateSignoffControls({
   return (
     <div className="card p-5">
       <div className="mb-1 text-[13px] font-medium tracking-tight">
-        Unterschriften-Freigabe <span className="text-ink-400">(optional)</span>
+        Unterschriften-Freigabe <span className="text-ink-500">(optional)</span>
       </div>
       <p className="mb-4 text-[12px] text-ink-500">
         Lassen Sie die unterzeichnenden Personen das Zeugnis per E-Mail

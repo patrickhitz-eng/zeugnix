@@ -202,13 +202,13 @@ function StatusBadge({ status }: { status: string }) {
     draft: { label: "Entwurf", className: "bg-ink-100 text-ink-700" },
     pending_manager: {
       label: "Wartet auf Führungskraft",
-      className: "bg-amber-50 text-amber-800",
+      className: "bg-navy-50 text-navy-700",
     },
     manager_submitted: {
       label: "Bewertung erhalten",
       className: "bg-petrol-50 text-petrol-700",
     },
-    final: { label: "Final", className: "bg-petrol-700 text-white" },
+    final: { label: "Final", className: "border border-seal-400 bg-seal-50 text-seal-700" },
   };
   const c = config[status] ?? { label: status, className: "bg-ink-100 text-ink-700" };
   return (

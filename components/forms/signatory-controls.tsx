@@ -218,7 +218,7 @@ export function SignatoryControls({
 
 function SaveIndicator({ state, error }: { state: SaveState; error: string }) {
   if (state === "saving")
-    return <span className="text-[11px] text-ink-400">Speichert…</span>;
+    return <span className="text-[11px] text-ink-500">Speichert…</span>;
   if (state === "saved")
     return <span className="text-[11px] text-petrol-600">Gespeichert ✓</span>;
   if (state === "error")

@@ -36,7 +36,7 @@ const groups = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-ink-200 bg-ink-50/50">
+    <footer className="border-t border-ink-200 bg-canvas">
       <div className="container-zx py-16">
         <div className="grid gap-12 md:grid-cols-12">
           <div className="md:col-span-4">
