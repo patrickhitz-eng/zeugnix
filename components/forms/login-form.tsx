@@ -155,7 +155,7 @@ export function LoginForm({ next }: { next?: string }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="ihre@firma.ch"
-                className="w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-[14px] text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-petrol-500 focus:ring-2 focus:ring-petrol-100"
+                className="w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-[14px] text-ink-900 outline-none transition-colors placeholder:text-ink-500 focus:border-petrol-500 focus:ring-2 focus:ring-petrol-100"
               />
             </div>
           )}
@@ -180,7 +180,7 @@ export function LoginForm({ next }: { next?: string }) {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\s/g, ""))}
             placeholder="123456"
-            className="w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-center text-[18px] tracking-[0.3em] text-ink-900 outline-none transition-colors placeholder:tracking-[0.3em] placeholder:text-ink-400 focus:border-petrol-500 focus:ring-2 focus:ring-petrol-100"
+            className="w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-center text-[18px] tracking-[0.3em] text-ink-900 outline-none transition-colors placeholder:tracking-[0.3em] placeholder:text-ink-500 focus:border-petrol-500 focus:ring-2 focus:ring-petrol-100"
           />
 
           {errorMsg && (
@@ -237,7 +237,7 @@ export function LoginForm({ next }: { next?: string }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="ihre@firma.ch"
-          className="w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-[14px] text-ink-900 outline-none transition-colors placeholder:text-ink-400 focus:border-petrol-500 focus:ring-2 focus:ring-petrol-100"
+          className="w-full rounded-md border border-ink-200 bg-white px-4 py-3 text-[14px] text-ink-900 outline-none transition-colors placeholder:text-ink-500 focus:border-petrol-500 focus:ring-2 focus:ring-petrol-100"
         />
       </div>
 

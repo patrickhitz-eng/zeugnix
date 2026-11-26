@@ -38,7 +38,7 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-ink-50/30">
+    <div className="min-h-screen bg-canvas">
       {/* Top Bar */}
       <header className="border-b border-ink-200 bg-white">
         <div className="mx-auto flex h-14 w-full max-w-[1500px] items-center justify-between px-6 sm:px-8 lg:px-12">

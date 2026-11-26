@@ -149,7 +149,7 @@ export function PricingSection() {
               note="Während der Beta kostenlos"
               beta
             />
-            <div className="grid flex-1 gap-3 rounded-2xl bg-ink-50/70 p-2 ring-1 ring-inset ring-ink-200 md:grid-cols-3">
+            <div className="grid flex-1 gap-3 rounded-2xl bg-canvas p-2 ring-1 ring-inset ring-ink-200 md:grid-cols-3">
               {pruefen.map((tier) => (
                 <TierCard key={tier.name} tier={tier} />
               ))}
@@ -234,7 +234,7 @@ function TierCard({
         <p className="mt-0.5 text-[12px] text-ink-500">{tier.sub}</p>
         {tier.comingSoon ? (
           <>
-            <div className="mt-4 font-display text-[24px] font-light leading-none tracking-tight text-ink-400">
+            <div className="mt-4 font-display text-[24px] font-light leading-none tracking-tight text-ink-500">
               Kommt bald
             </div>
             <p className="mt-1.5 text-[12px] text-ink-500">
@@ -300,7 +300,7 @@ function TierCard({
           tier.featured
             ? "bg-petrol-700 text-white hover:bg-petrol-800"
             : !tier.beta && !tier.comingSoon
-              ? "bg-ink-900 text-white hover:bg-petrol-700"
+              ? "bg-petrol-600 text-white hover:bg-petrol-700"
               : tier.comingSoon
                 ? "border border-ink-200 bg-white text-ink-500 hover:border-ink-300 hover:bg-ink-50"
                 : "border border-ink-200 bg-white text-ink-800 hover:border-ink-300 hover:bg-ink-50",

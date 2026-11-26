@@ -280,7 +280,7 @@ export function SchlusssatzControls({
           <p className="mt-1.5 text-[13px] leading-relaxed text-ink-700">
             {vorschau}
           </p>
-          <p className="mt-2 text-[11px] leading-relaxed text-ink-400">
+          <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
             Änderungen werden gespeichert und sofort in den Zeugnistext
             übernommen.
           </p>
@@ -318,7 +318,7 @@ export function SchlusssatzControls({
 
 function SaveIndicator({ state, error }: { state: SaveState; error: string }) {
   if (state === "saving")
-    return <span className="text-[11px] text-ink-400">Speichert…</span>;
+    return <span className="text-[11px] text-ink-500">Speichert…</span>;
   if (state === "saved")
     return <span className="text-[11px] text-petrol-600">Gespeichert ✓</span>;
   if (state === "error")

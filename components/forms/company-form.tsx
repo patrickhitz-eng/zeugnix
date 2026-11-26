@@ -239,7 +239,7 @@ export function CompanyForm({ company, compact = false, existingNames = [] }: Pr
                   className="h-full w-full object-contain"
                 />
               ) : (
-                <span className="text-[10px] text-ink-400">Kein Logo</span>
+                <span className="text-[10px] text-ink-500">Kein Logo</span>
               )}
             </div>
             <div className="flex flex-col gap-2">

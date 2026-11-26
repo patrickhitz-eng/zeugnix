@@ -21,11 +21,11 @@ export function CertificateMockup({ className }: CertificateMockupProps) {
               Muster AG
             </span>
           </div>
-          <p className="mt-1 text-[8px] text-ink-400">
+          <p className="mt-1 text-[8px] text-ink-500">
             Bahnhofstrasse 1 · 8001 Zürich
           </p>
         </div>
-        <div className="text-right text-[8px] leading-tight text-ink-400">
+        <div className="text-right text-[8px] leading-tight text-ink-500">
           Zürich,
           <br />
           15. Oktober 2025
@@ -66,12 +66,12 @@ export function CertificateMockup({ className }: CertificateMockupProps) {
         <div className="flex-1">
           <div className="h-5" />
           <div className="border-t border-ink-200" />
-          <p className="mt-1 text-[7px] text-ink-400">P. Meier · CEO</p>
+          <p className="mt-1 text-[7px] text-ink-500">P. Meier · CEO</p>
         </div>
         <div className="flex-1">
           <div className="h-5" />
           <div className="border-t border-ink-200" />
-          <p className="mt-1 text-[7px] text-ink-400">L. Weber · HR</p>
+          <p className="mt-1 text-[7px] text-ink-500">L. Weber · HR</p>
         </div>
       </div>
 
@@ -85,7 +85,7 @@ export function CertificateMockup({ className }: CertificateMockupProps) {
           <div className="mt-0.5 truncate font-mono text-[9px] text-ink-600">
             a3f5b9c2e7d18f4a2c9e1b7d0f6c4d8e
           </div>
-          <div className="mt-1 text-[8px] text-ink-400">
+          <div className="mt-1 text-[8px] text-ink-500">
             zeugnio.ch/verify
           </div>
         </div>

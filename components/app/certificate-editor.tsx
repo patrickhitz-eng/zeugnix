@@ -137,7 +137,7 @@ export function CertificateEditor({
               Automatisch generiert
             </span>
           )}
-          {status === "typing" && <span className="text-ink-400">Tippt…</span>}
+          {status === "typing" && <span className="text-ink-500">Tippt…</span>}
           {status === "saving" && (
             <span className="text-ink-500">Wird gespeichert…</span>
           )}

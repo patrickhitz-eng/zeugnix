@@ -311,7 +311,7 @@ export function TeamManager({ organization, companies, members, invitations, mod
             </thead>
             <tbody>
               {members.map((m) => (
-                <tr key={m.userId} className={`border-b border-ink-50 align-middle ${m.active ? "" : "text-ink-400"}`}>
+                <tr key={m.userId} className={`border-b border-ink-50 align-middle ${m.active ? "" : "text-ink-500"}`}>
                   <td className="py-3 pr-4">
                     <div className="font-medium text-ink-800">{m.name || m.email}</div>
                     {m.name && <div className="text-[11.5px] text-ink-500">{m.email}</div>}

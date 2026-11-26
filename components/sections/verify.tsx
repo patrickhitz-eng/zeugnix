@@ -78,7 +78,7 @@ function CheckIcon({
 
 export function VerifySection() {
   return (
-    <section className="border-b border-ink-200 bg-ink-50/40 py-24">
+    <section className="border-b border-ink-200 bg-canvas py-24">
       <div className="container-zx">
         <div className="grid items-start gap-14 lg:grid-cols-12">
           {/* Der Bildschirm rechts ist deutlich höher als der Text: der Text

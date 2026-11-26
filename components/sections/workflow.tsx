@@ -210,7 +210,7 @@ export function WorkflowSection({
           role="tabpanel"
           id="workflow-panel"
           aria-labelledby={`workflow-tab-${active}`}
-          className="mt-8 grid gap-8 rounded-2xl border border-ink-200 bg-ink-50/50 p-4 sm:p-8 lg:grid-cols-12 lg:gap-10"
+          className="mt-8 grid gap-8 rounded-2xl border border-ink-200 bg-canvas p-4 sm:p-8 lg:grid-cols-12 lg:gap-10"
         >
           <div className="lg:col-span-4 lg:pt-4">
             <div className="text-[11px] font-medium uppercase tracking-wider text-ink-500">
@@ -377,7 +377,7 @@ function ScreenProjekt() {
           </span>
           Firmenlogo Muster AG hinterlegt
         </div>
-        <span className="rounded-md bg-ink-900 px-3 py-1.5 text-[12px] font-medium text-white">
+        <span className="rounded-md bg-petrol-600 px-3 py-1.5 text-[12px] font-medium text-white">
           Weiter
         </span>
       </div>
@@ -423,7 +423,7 @@ function ScreenEinladen() {
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
           Wartet auf Beurteilung
         </span>
-        <span className="rounded-md bg-ink-900 px-3 py-1.5 text-[12px] font-medium text-white">
+        <span className="rounded-md bg-petrol-600 px-3 py-1.5 text-[12px] font-medium text-white">
           Einladung senden
         </span>
       </div>

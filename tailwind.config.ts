@@ -8,14 +8,24 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Neutral Schweizer Palette
+        // Hintergrund der App und der grauen Website-Abschnitte. Getönt,
+        // damit weisse Karten sich abheben (vorher ink-50/30 = 1.02 : 1).
+        canvas: "#ECEFF2",
+        // Neutral Schweizer Palette.
+        // Kontrast-Kur 26.11.2026: 200 und 300 sind dunkler als zuvor
+        // (#E4E6EA / #C9CDD3). ink-200 ist die Standard-Linie (border-ink-200
+        // an über 100 Stellen) und hatte gegen Weiss nur 1.25 : 1, Kartenränder
+        // verschwanden. Jetzt 1.52 : 1. ink-500 ist etwas dunkler (vorher
+        // #6B7280), damit Hilfstext auch auf canvas über 4.5 : 1 bleibt
+        // (6.0 auf Weiss, 5.2 auf canvas). Für Text nie heller als ink-500;
+        // ink-400 erreicht nur 2.6 : 1.
         ink: {
           50: "#F8F9FA",
           100: "#F1F2F4",
-          200: "#E4E6EA",
-          300: "#C9CDD3",
+          200: "#CDD2D9",
+          300: "#AEB5BF",
           400: "#9AA0A8",
-          500: "#6B7280",
+          500: "#5C6470",
           600: "#4B5563",
           700: "#2C2F36",
           800: "#1A1D23",
