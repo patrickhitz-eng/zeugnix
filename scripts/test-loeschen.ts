@@ -119,7 +119,11 @@ async function main() {
     check("normale Treffer behalten ihre ID", matchedCertificateIdForLog({ id: "x" }) === "x");
 
     const fields = await buildCertificateFields(client, match);
-    check("Arbeitgeber, Titel und Domain aus dem Register", fields.employer === "Muster AG" && fields.documentType === "Arbeitszeugnis" && fields.verifiedDomain === "muster.ch");
+    // 039: Einträge ohne Methode (bzw. 'email') zählen als Mail-Stufe, nicht als «Domain geprüft».
+    check("Arbeitgeber, Titel und Domain aus dem Register", fields.employer === "Muster AG" && fields.documentType === "Arbeitszeugnis" && fields.emailConfirmedDomain === "muster.ch" && fields.verifiedDomain === null);
+    const dnsClient = fakeClient({ certificates: [], certificate_register: [{ ...entry, verified_domain_method: "dns" }] });
+    const dnsFields = await buildCertificateFields(dnsClient, await findCertificateByHash(dnsClient, "a".repeat(64)));
+    check("Register mit DNS-Methode gilt als «Domain geprüft»", dnsFields.verifiedDomain === "muster.ch" && dnsFields.emailConfirmedDomain === null);
     check("kein Name, keine Unterzeichnenden", fields.employeeName === "" && fields.signatory1Name === null && fields.signatory2Name === null);
     check("Register-Hinweis gesetzt", fields.fromRegister === true && fields.sealVersion === 2);
 
