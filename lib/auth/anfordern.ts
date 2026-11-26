@@ -60,7 +60,7 @@ export const ANFORDERN_ZU_VIELE =
  */
 export const ANFORDERN_AUSGELASTET =
   `Die Anmeldung ist gerade ausgelastet. Eine bereits erhaltene Anmelde-Mail bleibt ${LOGIN_TTL_MINUTES} Minuten gültig. ` +
-  "Sonst bitte in einer Stunde erneut versuchen.";
+  "Sonst bitte später erneut versuchen.";
 
 export async function handleAnfordern(
   input: { email: unknown; next: unknown },
