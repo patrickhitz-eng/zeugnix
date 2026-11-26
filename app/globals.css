@@ -170,6 +170,19 @@
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 rounded-md border border-ink-300 bg-white px-5 py-3 text-sm font-medium text-ink-800 transition-all hover:border-ink-400 hover:bg-ink-50 active:scale-[0.985];
   }
+  /* Knöpfe auf dunklem Petrol (Kopfzeile, Hero, Schluss-Abschnitt) */
+  .btn-deep {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-petrol-200 px-5 py-3 text-sm font-semibold text-petrol-900 transition-all hover:bg-petrol-100 active:scale-[0.985];
+  }
+  .btn-deep-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-petrol-200/60 bg-transparent px-5 py-3 text-sm font-medium text-petrol-50 transition-all hover:border-petrol-100 hover:bg-white/5 active:scale-[0.985];
+  }
+
+  /* Siegel: nur für Versiegeltes und Verifiziertes */
+  .seal-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-seal-400 bg-seal-50 font-medium text-seal-700;
+  }
+
   .btn-ghost {
     @apply inline-flex items-center gap-1.5 text-sm font-medium text-ink-700 transition-colors hover:text-petrol-700;
   }

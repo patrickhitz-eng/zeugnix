@@ -40,20 +40,21 @@ export default async function AppLayout({
   return (
     <div className="min-h-screen bg-canvas">
       {/* Top Bar */}
-      <header className="border-b border-ink-200 bg-white">
+      {/* Kopfzeile in Petrol tief: rahmt den hellen Arbeitsbereich. */}
+      <header className="border-b border-petrol-900 bg-petrol-800 text-petrol-50">
         <div className="mx-auto flex h-14 w-full max-w-[1500px] items-center justify-between px-6 sm:px-8 lg:px-12">
           <Link href="/app/dashboard" className="flex items-center gap-2">
-            <Logo className="h-6 w-6" />
+            <Logo className="h-6 w-6 text-petrol-500" />
             <span className="text-[15px] font-medium tracking-tight">
               zeugnio
-              <span className="text-petrol-600">.ch</span>
+              <span className="text-petrol-200">.ch</span>
             </span>
           </Link>
           <div className="flex items-center gap-4">
-            <span className="hidden text-[12px] text-ink-500 sm:inline">
+            <span className="hidden text-[12px] text-petrol-100 sm:inline">
               {user.email}
             </span>
-            <SignOutButton />
+            <SignOutButton className="text-petrol-50 hover:text-white" />
           </div>
         </div>
       </header>
