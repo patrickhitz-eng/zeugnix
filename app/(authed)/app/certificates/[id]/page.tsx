@@ -33,7 +33,7 @@ export default async function CertificateDetailPage({ params }: PageProps) {
       *,
       employees (*),
       companies (*),
-      manager_invitations (*),
+      manager_invitations (id),
       evaluations (*)
     `,
     )

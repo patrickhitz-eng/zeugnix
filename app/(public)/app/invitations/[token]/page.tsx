@@ -6,6 +6,7 @@ import type { EmployeeData, PhraseBlock } from "@/lib/phrases/engine";
 import { Logo } from "@/components/ui/logo";
 import Link from "next/link";
 import { isCertificateLocked } from "@/lib/certificate/status";
+import { lookupHash } from "@/lib/link-token";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -13,6 +14,10 @@ interface PageProps {
 
 export default async function InvitationPage({ params }: PageProps) {
   const { token } = await params;
+  // Nachgeschlagen wird über den SHA-256 des Tokens, nie über den Token selbst
+  // (Sicherheitstest 24.11.2026, M4).
+  const tokenHash = lookupHash(token);
+  if (!tokenHash) notFound();
 
   // Mit Service Client laden, weil dies eine öffentliche (token-basierte) Seite ist
   const supabase = createServiceClient();
@@ -20,9 +25,9 @@ export default async function InvitationPage({ params }: PageProps) {
   const { data: inv } = await supabase
     .from("manager_invitations")
     .select(
-      "*, certificates(*, employees(*), companies(*))",
+      "id, certificate_id, status, expires_at, certificates(*, employees(*), companies(*))",
     )
-    .eq("token", token)
+    .eq("token_hash", tokenHash)
     .single();
 
   if (!inv) notFound();

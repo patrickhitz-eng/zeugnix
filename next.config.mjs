@@ -71,6 +71,19 @@ const nextConfig = {
         headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
       {
+        // Dasselbe für die Token-Links ohne Konto: Einladung an die vorgesetzte
+        // Person und Freigabe der unterzeichnenden Person. Der Token steht im
+        // Pfad; mit «strict-origin-when-cross-origin» ginge der volle Pfad bei
+        // jeder Anfrage innerhalb der Seite als Referer mit (Sicherheitstest
+        // 24.11.2026, M4).
+        source: "/app/invitations/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
+        source: "/app/signoffs/:path*",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
+      {
         // Schriftdateien ändern sich faktisch nie. Wird doch einmal eine
         // ersetzt, braucht sie einen neuen Dateinamen – sonst sehen Bestands-
         // Browser ein Jahr lang die alte.

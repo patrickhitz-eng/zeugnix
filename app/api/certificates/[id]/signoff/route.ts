@@ -4,7 +4,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
-import { randomBytes } from "crypto";
+import { LINK_TOKEN_DAYS, newLinkToken } from "@/lib/link-token";
 import { sendEmail } from "@/lib/email/send";
 import { buildSignoffRequestEmail } from "@/lib/email/templates";
 
@@ -85,8 +85,11 @@ export async function POST(
     );
   }
 
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000); // 14 Tage
+  // Nur der SHA-256 kommt in die Datenbank, der Token steht im Link der Mail
+  // (Sicherheitstest 24.11.2026, M4; lib/link-token.ts). Erneutes Anfordern
+  // ersetzt den Hash im selben Slot, der alte Link wird damit ungültig.
+  const { token, tokenHash } = newLinkToken();
+  const expiresAt = new Date(Date.now() + LINK_TOKEN_DAYS * 24 * 60 * 60 * 1000);
 
   const svc = createServiceClient();
   const { error: upErr } = await svc.from("certificate_signoffs").upsert(
@@ -96,7 +99,7 @@ export async function POST(
       email,
       name: slotName,
       role: slotRole,
-      token,
+      token_hash: tokenHash,
       status: "pending",
       sent_at: new Date().toISOString(),
       // Bei erneutem Anfordern eine evtl. alte Bestätigung zurücksetzen.
@@ -153,7 +156,7 @@ export async function POST(
     email,
     email_sent: sendResult.sent,
     email_error: sendResult.error,
-    signoff_url: signoffUrl, // Fallback zum manuellen Weitergeben.
+    signoff_url: signoffUrl, // Einmalig, als Fallback zum manuellen Weitergeben.
     expires_at: expiresAt.toISOString(),
   });
 }
