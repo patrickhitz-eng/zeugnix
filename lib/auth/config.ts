@@ -40,6 +40,26 @@ export const RATE_LIMITS = {
   anfordernProAdresse: { limit: 5, windowMs: 60 * 60 * 1000 },
   anfordernProIp: { limit: 20, windowMs: 60 * 60 * 1000 },
   einloesenProIp: { limit: 20, windowMs: 60 * 60 * 1000 },
+  /**
+   * Globale Obergrenze für Anmelde-Mails über alle Adressen (Sicherheitstest
+   * 24.11.2026, M5). Die Limits oben bremsen eine einzelne Adresse und einen
+   * einzelnen Anschluss. Wer viele Anschlüsse hat, verschickt trotzdem Mails an
+   * beliebig viele fremde Adressen: Das schadet dem Ruf der Absenderdomain und
+   * leert das Resend-Kontingent, danach bekommt niemand mehr einen Code.
+   *
+   * Die Werte sind so gewählt, dass der Pilotbetrieb nie anstösst: Eine Sitzung
+   * hält 30 Tage, eine Person braucht also selten eine Anmelde-Mail. Auch ein
+   * Einführungstermin mit einer ganzen Personalabteilung bleibt unter 30 in der
+   * Stunde. 80 am Tag lassen auch im kleinsten Resend-Tarif (100 Mails am Tag)
+   * Platz für Einladungen und Freigabe-Mails. Das Tagesfenster beginnt um
+   * Mitternacht UTC (01:00 bzw. 02:00 Schweizer Zeit).
+   *
+   * Der Zähler liegt in der Datenbank (rate_limit_counters), hält also über
+   * Neustarts und mehrere Prozesse hinweg. Für das Tagesfenster braucht es
+   * Migration 042, sonst räumt check_rate_limit den Zähler nach einer Stunde weg.
+   */
+  anfordernGlobalProStunde: { limit: 30, windowMs: 60 * 60 * 1000 },
+  anfordernGlobalProTag: { limit: 80, windowMs: 24 * 60 * 60 * 1000 },
 } as const;
 
 /** Mindestlänge des Geheimnisses: 32 Zeichen (Plan § 5, check-env prüft mit). */

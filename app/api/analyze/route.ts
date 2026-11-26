@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
-import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIpKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { analyzeText } from "@/lib/phrases/analyze";
 import { logError } from "@/lib/log";
 
@@ -24,7 +24,7 @@ const ANALYZE_WINDOW_MS = 60 * 1000;
 export async function POST(req: NextRequest) {
   try {
     const limited = await rateLimit(
-      `analyze:${getClientIp(req)}`,
+      `analyze:${clientIpKey(req)}`,
       ANALYZE_LIMIT,
       ANALYZE_WINDOW_MS,
     );

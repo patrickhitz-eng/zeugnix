@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
-import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIpKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import {
   canonicalizeForHash,
   extractBodyBetweenSentinels,
@@ -48,7 +48,7 @@ const VERIFY_WINDOW_MS = 60 * 1000;
 export async function POST(req: NextRequest) {
   try {
     const limited = await rateLimit(
-      `verify:${getClientIp(req)}`,
+      `verify:${clientIpKey(req)}`,
       VERIFY_LIMIT,
       VERIFY_WINDOW_MS,
     );

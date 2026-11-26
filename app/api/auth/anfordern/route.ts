@@ -1,13 +1,13 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 
-import { handleAnfordern } from "@/lib/auth/anfordern";
+import { handleAnfordern, type AnfordernLimit } from "@/lib/auth/anfordern";
 import { authSecret, LOGIN_TTL_MINUTES, RATE_LIMITS, siteOrigin } from "@/lib/auth/config";
 import { rejectForeignOrigin } from "@/lib/auth/route-guard";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
 import { storeLoginRequest } from "@/lib/auth/store";
 import { sendEmail } from "@/lib/email/send";
 import { buildLoginEmail } from "@/lib/email/templates";
-import { logError } from "@/lib/log";
+import { logError, logWarn } from "@/lib/log";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site-config";
 
@@ -23,6 +23,31 @@ import { siteConfig } from "@/lib/site-config";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const LIMIT_REGELN: Record<AnfordernLimit, { limit: number; windowMs: number }> = {
+  ip: RATE_LIMITS.anfordernProIp,
+  adresse: RATE_LIMITS.anfordernProAdresse,
+  "global-stunde": RATE_LIMITS.anfordernGlobalProStunde,
+  "global-tag": RATE_LIMITS.anfordernGlobalProTag,
+};
+
+/**
+ * Warnung im Log, wenn die globale Obergrenze greift. Höchstens alle 15 Minuten
+ * pro Fenster, sonst schreibt eine Flut von Anfragen auch das Log voll.
+ */
+const WARN_INTERVAL_MS = 15 * 60 * 1000;
+const lastWarned: Record<"stunde" | "tag", number> = { stunde: 0, tag: 0 };
+
+function warnGlobalLimit(fenster: "stunde" | "tag") {
+  const now = Date.now();
+  if (now - lastWarned[fenster] < WARN_INTERVAL_MS) return;
+  lastWarned[fenster] = now;
+  const rule = fenster === "stunde" ? RATE_LIMITS.anfordernGlobalProStunde : RATE_LIMITS.anfordernGlobalProTag;
+  logWarn(
+    `[auth] Globale Obergrenze für Anmelde-Mails erreicht (${rule.limit} pro ${fenster === "stunde" ? "Stunde" : "Tag"}). ` +
+      "Bis das Fenster abläuft, geht keine Anmelde-Mail mehr hinaus (Antwort 503). Möglicher Missbrauch der Registrierung.",
+  );
+}
 
 export async function POST(req: NextRequest) {
   const blocked = rejectForeignOrigin(req);
@@ -42,9 +67,10 @@ export async function POST(req: NextRequest) {
         siteOrigin: siteOrigin(),
         clientIp: getClientIp(req),
         rateLimit: async (key, kind) => {
-          const rule = kind === "ip" ? RATE_LIMITS.anfordernProIp : RATE_LIMITS.anfordernProAdresse;
+          const rule = LIMIT_REGELN[kind];
           return (await rateLimit(key, rule.limit, rule.windowMs)).ok;
         },
+        onGlobalLimit: warnGlobalLimit,
         storeRequest: storeLoginRequest,
         sendLoginMail: async ({ to, linkUrl, code }) => {
           const mail = buildLoginEmail({ linkUrl, code, validMinutes: LOGIN_TTL_MINUTES });

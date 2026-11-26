@@ -1,3 +1,4 @@
+import { rateLimitIp } from "../client-ip";
 import { LOGIN_TTL_MINUTES } from "./config";
 import { codeHmac, hmac, isPlausibleEmail, newCode, newToken, normalizeEmail } from "./tokens";
 
@@ -22,15 +23,20 @@ export interface AnfordernDeps {
   signupOpen: boolean;
   /** Basis für den Link in der Mail, fest aus NEXT_PUBLIC_SITE_URL. */
   siteOrigin: string;
+  /** Volle Client-IP; für den Zähler gruppiert handleAnfordern sie selbst (IPv6 auf /64). */
   clientIp: string;
   /** true = erlaubt. */
-  rateLimit: (key: string, kind: "adresse" | "ip") => Promise<boolean>;
+  rateLimit: (key: string, kind: AnfordernLimit) => Promise<boolean>;
+  /** Meldet, dass die globale Obergrenze erreicht ist (für die Warnung im Log). */
+  onGlobalLimit: (fenster: "stunde" | "tag") => void;
   /** true = Mail schicken (Konto vorhanden oder Registrierung offen). */
   storeRequest: (input: { email: string; linkHmac: string; codeHmac: string; signupOpen: boolean }) => Promise<boolean>;
   sendLoginMail: (input: { to: string; linkUrl: string; code: string }) => Promise<void>;
   /** Führt die Arbeit nach der Antwort aus. */
   schedule: (task: () => Promise<void>) => void;
 }
+
+export type AnfordernLimit = "adresse" | "ip" | "global-stunde" | "global-tag";
 
 export interface AnfordernResult {
   status: number;
@@ -47,6 +53,14 @@ export const ANFORDERN_OK: AnfordernResult = Object.freeze({
 export const ANFORDERN_ZU_VIELE =
   `Zu viele Anfragen in kurzer Zeit. Eine bereits erhaltene Anmelde-Mail bleibt ${LOGIN_TTL_MINUTES} Minuten gültig. ` +
   "Sonst bitte etwas später erneut versuchen.";
+
+/**
+ * Antwort, wenn die globale Obergrenze für Anmelde-Mails erreicht ist. Gleich
+ * für jede Adresse, verrät also nichts über Konten.
+ */
+export const ANFORDERN_AUSGELASTET =
+  `Die Anmeldung ist gerade ausgelastet. Eine bereits erhaltene Anmelde-Mail bleibt ${LOGIN_TTL_MINUTES} Minuten gültig. ` +
+  "Sonst bitte später erneut versuchen.";
 
 export async function handleAnfordern(
   input: { email: unknown; next: unknown },
@@ -73,12 +87,28 @@ export async function handleAnfordern(
   // Anforderung der letzten Viertelstunde hat eine gültige Mail in das
   // Postfach gelegt, und ältere Mails verfallen nicht mehr durch neue
   // (906, auth_request_login).
-  const ipOk = await deps.rateLimit(`auth:anfordern:ip:${deps.clientIp}`, "ip");
+  const ipOk = await deps.rateLimit(`auth:anfordern:ip:${rateLimitIp(deps.clientIp)}`, "ip");
   const mailOk =
     ipOk &&
     (await deps.rateLimit(`auth:anfordern:mail:${hmac(deps.secret, "ratelimit", email).slice(0, 32)}`, "adresse"));
   if (!ipOk || !mailOk) {
     return { status: 429, body: { error: ANFORDERN_ZU_VIELE } };
+  }
+
+  // Globale Obergrenze über alle Adressen (M5). Sie zählt jede Anforderung, die
+  // an den Limits oben vorbeikommt, ob es zur Adresse ein Konto gibt oder
+  // nicht. Das ist Absicht: Fragte sie erst nach storeRequest (also nur bei
+  // einer Mail), wäre die Antwort für bekannte Adressen um einen
+  // Datenbankaufruf langsamer, und das liesse sich messen. Bei offener
+  // Registrierung geht ohnehin für jede gültige Adresse eine Mail hinaus.
+  //
+  // Erst die Stunde, dann der Tag: Wer an der Stunde scheitert, verbraucht den
+  // Tag nicht mehr.
+  const stundeOk = await deps.rateLimit("auth:anfordern:global:stunde", "global-stunde");
+  const tagOk = stundeOk && (await deps.rateLimit("auth:anfordern:global:tag", "global-tag"));
+  if (!stundeOk || !tagOk) {
+    deps.onGlobalLimit(stundeOk ? "tag" : "stunde");
+    return { status: 503, body: { error: ANFORDERN_AUSGELASTET } };
   }
 
   const token = newToken();

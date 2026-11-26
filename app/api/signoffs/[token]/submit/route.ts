@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
-import { getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { clientIpKey, getClientIp, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { lookupHash } from "@/lib/link-token";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
 import {
@@ -40,7 +40,7 @@ export async function POST(
 ) {
   const { token } = await params;
 
-  const limited = await rateLimit(`signoff-submit:${getClientIp(req)}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS);
+  const limited = await rateLimit(`signoff-submit:${clientIpKey(req)}`, SUBMIT_LIMIT, SUBMIT_WINDOW_MS);
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
   const body = await req.json().catch(() => ({}));
