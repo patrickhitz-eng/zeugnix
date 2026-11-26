@@ -19,6 +19,7 @@
     "test:signing": "tsx scripts/test-signing.ts",
     "test:domain": "tsx scripts/test-domain.ts",
     "test:client-ip": "tsx scripts/test-client-ip.ts",
+    "test:link-token": "tsx scripts/test-link-token.ts",
     "test:loeschen-confirm": "tsx scripts/test-loeschen-confirm.ts",
     "test:public-origin": "tsx scripts/test-public-origin.ts",
     "test:mastervorlage": "tsx scripts/test-mastervorlage.ts",
