@@ -9,7 +9,7 @@
  *   041 123 45 67 · info@beispiel.ch
  *   www.beispiel.ch
  *
- * Eine Stelle für PDF, Word-Export und HTML-Vorschau, damit die drei nicht
+ * Eine Stelle für PDF und HTML-Vorschau, damit die beiden nicht
  * auseinanderlaufen. Client-tauglich (keine Server-Imports).
  *
  * Der Briefkopf liegt ausserhalb der Body-/Meta-Sentinels und geht nicht in den

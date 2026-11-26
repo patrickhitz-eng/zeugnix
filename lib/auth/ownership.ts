@@ -16,7 +16,7 @@ import type { DataClient } from "@/lib/db/supabase-server";
 export type CompanyRole = "admin" | "hr_leitung" | "hr" | "lesen";
 
 /**
- * read     ansehen, PDF und Word laden
+ * read     ansehen, PDF laden
  * edit     Mitarbeitende und Zeugnisse anlegen und bearbeiten, Vorgesetzte einladen
  * seal     finalisieren (versiegeln) und widerrufen
  * team     in diese Firma einladen, dort HR und Lesen vergeben (Migration 035)

@@ -156,7 +156,7 @@ export function DataManager({ companies, organizations, userEmail }: Props) {
           </div>
           {company.canSeal && (
             <p className="mt-2 text-[12px] text-ink-500">
-              Enthält alle ausgestellten Zeugnisse als PDF und Word sowie Listen der
+              Enthält alle ausgestellten Zeugnisse als PDF sowie Listen der
               Mitarbeitenden und Zeugnisse (CSV, öffnet in Excel).
             </p>
           )}

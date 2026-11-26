@@ -85,14 +85,3 @@ export async function loadCompanyLogo(
 export function toDataUrl(logo: LoadedLogo): string {
   return `data:${logo.contentType};base64,${logo.bytes.toString("base64")}`;
 }
-
-/**
- * Bildart für den Word-Export. docx' ImageRun verlangt sie explizit (das PDF
- * liest sie aus der Data-URL). Nicht unterstützte Arten => null, Logo entfällt.
- */
-export function docxImageType(logo: LoadedLogo): "png" | "jpg" | null {
-  const t = logo.contentType.toLowerCase();
-  if (t.includes("png")) return "png";
-  if (t.includes("jpeg") || t.includes("jpg")) return "jpg";
-  return null;
-}

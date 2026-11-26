@@ -1,21 +1,21 @@
 /**
- * Ein ausgestelltes Zeugnis als PDF oder Word erzeugen – an EINER Stelle.
+ * Ein ausgestelltes Zeugnis als PDF erzeugen – an EINER Stelle.
  *
- * Genutzt von den Einzel-Downloads (app/api/certificates/[id]/pdf und /docx)
- * und vom ZIP-Export einer Firma (app/api/companies/[id]/export). Vorher
- * standen dieselben 80 Zeilen in beiden Routen; ein dritter Aufrufer hätte sie
- * ein drittes Mal kopiert, und die Ausgaben wären auseinandergelaufen.
+ * Genutzt vom Einzel-Download (app/api/certificates/[id]/pdf) und vom
+ * ZIP-Export einer Firma (app/api/companies/[id]/export), damit beide genau
+ * dasselbe Dokument ausliefern.
+ *
+ * Einen Word-Export gibt es seit November 2026 nicht mehr: Eine bearbeitbare
+ * Kopie eines versiegelten Zeugnisses passt nach jeder Änderung nicht mehr
+ * zum Hash und untergräbt so die Prüfbarkeit.
  *
  * Rechte und Status prüft der Aufrufer. Erwartet eine Zeile aus
  * `certificates` mit `employees(*)` und `companies(*)`.
  */
 import { renderCertificatePdf } from "@/lib/pdf/certificate";
-import { renderCertificateDocx, type DocxLogo } from "@/lib/docx/certificate";
 import { resolveCertificatePresentation } from "@/lib/certificate/presentation";
-import { docxImageType, loadCompanyLogo, toDataUrl, type LoadedLogo } from "@/lib/uploads/load-logo";
+import { loadCompanyLogo, toDataUrl, type LoadedLogo } from "@/lib/uploads/load-logo";
 import { encodeMetaBlock, encodeSignatureBlock, toMetaFields } from "@/lib/hash/canonicalize";
-
-export type SealedFormat = "pdf" | "docx";
 
 export interface RenderedCertificate {
   buffer: Buffer;
@@ -34,7 +34,6 @@ export async function loadLogoForCompany(company: { logo_url?: string | null }):
 export async function renderSealedCertificate(
   supabase: any,
   cert: any,
-  format: SealedFormat,
   preloadedLogo?: LoadedLogo | null,
 ): Promise<RenderedCertificate> {
   const company = cert.companies;
@@ -107,37 +106,22 @@ export async function renderSealedCertificate(
 
   const baseName = `${certificateTitle}_${employee.last_name}_${employee.first_name}`;
 
-  if (format === "pdf") {
-    // S1b: unsichtbarer Meta-Block nur für v2-Zeugnisse, aus dem eingefrorenen
-    // Snapshot. S2: Signatur-Block aus dem gespeicherten Wert (nie neu signieren).
-    const metaBlockEncoded =
-      cert.hash_version === 2 && cert.meta_snapshot
-        ? encodeMetaBlock(toMetaFields(cert.meta_snapshot))
-        : undefined;
-    const signatureBlockEncoded =
-      cert.signature && cert.signing_key_id
-        ? encodeSignatureBlock({ keyId: cert.signing_key_id, signature: cert.signature })
-        : undefined;
+  // S1b: unsichtbarer Meta-Block nur für v2-Zeugnisse, aus dem eingefrorenen
+  // Snapshot. S2: Signatur-Block aus dem gespeicherten Wert (nie neu signieren).
+  const metaBlockEncoded =
+    cert.hash_version === 2 && cert.meta_snapshot
+      ? encodeMetaBlock(toMetaFields(cert.meta_snapshot))
+      : undefined;
+  const signatureBlockEncoded =
+    cert.signature && cert.signing_key_id
+      ? encodeSignatureBlock({ keyId: cert.signing_key_id, signature: cert.signature })
+      : undefined;
 
-    const buffer = await renderCertificatePdf({
-      ...common,
-      companyLogoDataUrl: logo ? toDataUrl(logo) : undefined,
-      metaBlockEncoded,
-      signatureBlockEncoded,
-    });
-    return { buffer, fileName: `${baseName}.pdf`, contentType: "application/pdf" };
-  }
-
-  let companyLogo: DocxLogo | null = null;
-  if (logo) {
-    const type = docxImageType(logo);
-    if (type) companyLogo = { data: logo.bytes, type };
-    else console.warn("Logo-Art für Word nicht unterstützt, wird übersprungen:", logo.contentType);
-  }
-  const buffer = await renderCertificateDocx({ ...common, companyLogo });
-  return {
-    buffer,
-    fileName: `${baseName}.docx`,
-    contentType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  };
+  const buffer = await renderCertificatePdf({
+    ...common,
+    companyLogoDataUrl: logo ? toDataUrl(logo) : undefined,
+    metaBlockEncoded,
+    signatureBlockEncoded,
+  });
+  return { buffer, fileName: `${baseName}.pdf`, contentType: "application/pdf" };
 }

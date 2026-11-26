@@ -178,8 +178,8 @@ const faqs: Faq[] = [
     a: (
       <>
         Ja, auf der Seite «Daten» in der App. Je nach Rolle laden Sie dort alle
-        ausgestellten Zeugnisse einer Firma als ZIP herunter (als PDF und als
-        Word-Datei, dazu Stammdaten als CSV) und löschen Mitarbeitende, Firmen
+        ausgestellten Zeugnisse einer Firma als ZIP herunter (als PDF, dazu
+        Stammdaten als CSV) und löschen Mitarbeitende, Firmen
         oder Ihr eigenes Konto. Ausgestellte Zeugnisse bleiben danach{" "}
         {RETENTION.registerYears} Jahre prüfbar: zeugnio behält dafür nur
         Prüfwert, Status, Arbeitgeber und Datum, keine Namen und keinen Text.

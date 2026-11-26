@@ -16,10 +16,6 @@ import { pickCompanyFields } from "../lib/company/payload";
 import { resolveTheme, isReadableAccent, DEFAULT_THEME } from "../lib/design/document-tokens";
 import { generateCertificate } from "../lib/phrases/engine";
 import { renderCertificatePdf } from "../lib/pdf/certificate";
-import { renderCertificateDocx } from "../lib/docx/certificate";
-// jszip kommt mit dem Paket «docx» (Word-Dateien sind ZIP-Archive); nur der
-// Test liest damit word/document.xml.
-import JSZip from "jszip";
 import { extractBodyBetweenSentinels, hashBodyV1 } from "../lib/hash/canonicalize";
 
 let passed = 0;
@@ -178,17 +174,6 @@ async function main() {
     if (body !== null) {
       check("ausgeschaltet: Hash aus dem PDF == Hash aus dem Quelltext", (await hashBodyV1(body)) === (await hashBodyV1(BODY)));
     }
-
-    console.log("\nWord mit ausgeschaltetem Echtheitsnachweis:");
-    const wordXml = async (show: boolean) => {
-      const zip = await JSZip.loadAsync(await renderCertificateDocx({ ...input, showVerificationBlock: show }));
-      return (await zip.file("word/document.xml")?.async("string")) ?? "";
-    };
-    const wordMit = await wordXml(true);
-    check("Standard: Hash im Word", wordMit.includes("a".repeat(64)) && !wordMit.includes("Arbeitskopie"));
-    const wordOhne = await wordXml(false);
-    check("ausgeschaltet: kein Hash, Vermerk «Arbeitskopie»", !wordOhne.includes("a".repeat(64)) && wordOhne.includes("Arbeitskopie, nicht prüfbar"));
-    check("Akzentfarbe im Word-Titel", wordOhne.includes('w:val="1A4D8F"') || wordOhne.toLowerCase().includes('w:val="1a4d8f"'));
   }
 
   console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen.`);

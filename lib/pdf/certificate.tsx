@@ -317,7 +317,7 @@ function CertificateDocument(props: DocProps) {
               // Leerraum als handschriftliche Unterschriftsfläche ÜBER der
               // Unterschriftslinie. marginTop ersetzt den entfallenden
               // „Digital ausgestellt durch"-Kopf, minHeight ist der Platz zum
-              // Unterschreiben. Masse aus den Tokens, damit der Word-Export
+              // Unterschreiben. Masse aus den Tokens, damit die Vorschau
               // dieselbe Fläche aufzieht.
               //
               // Die unsichtbaren Prüfblöcke (weiss auf weiss) liegen OBEN in

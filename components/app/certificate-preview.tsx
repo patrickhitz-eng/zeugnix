@@ -43,7 +43,7 @@ interface Props {
    * Fertiger Dokumenttitel. Kommt von der Detailseite aus
    * lib/certificate/presentation.ts – bei einem finalisierten v2-Zeugnis aus
    * dem eingefrorenen Siegel, sonst aus dem Zeugnistyp. So zeigt die Vorschau
-   * denselben Titel wie PDF und Word-Export, statt ihn hier aus `type` ein
+   * denselben Titel wie das PDF, statt ihn hier aus `type` ein
    * zweites Mal selbst abzuleiten.
    */
   title: string;

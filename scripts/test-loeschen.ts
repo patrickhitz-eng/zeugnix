@@ -13,7 +13,7 @@
  *      ID, die es in certificates nicht mehr gibt.
  *   4. Fehlercodes der Löschfunktionen werden zu den richtigen HTTP-Status.
  */
-import JSZip from "jszip"; // kommt mit dem Paket «docx»; nur der Test liest damit
+import JSZip from "jszip"; // Entwicklungs-Abhängigkeit; nur der Test liest damit
 import { buildZip, crc32 } from "../lib/export/zip";
 import { buildCsv } from "../lib/export/csv";
 import {

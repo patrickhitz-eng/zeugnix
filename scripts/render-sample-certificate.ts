@@ -1,9 +1,9 @@
 /**
  * zeugnix.ch – Beleg-Harnisch für das Zeugnis-Layout
  * ----------------------------------------------------------------------------
- * Erzeugt ein typisches Arbeitszeugnis als PDF **und** als Word-Datei, ohne
- * Datenbank, Anmeldung oder laufenden Server – beide Renderer sind reine
- * Funktionen über ihrem Eingabe-Objekt. Danach liest das Skript mit pdfjs aus,
+ * Erzeugt ein typisches Arbeitszeugnis als PDF, ohne Datenbank, Anmeldung
+ * oder laufenden Server – der Renderer ist eine reine Funktion über seinem
+ * Eingabe-Objekt. Danach liest das Skript mit pdfjs aus,
  * wie viele Seiten dabei entstanden sind.
  *
  * Wozu: „passt auf eine Seite" ist eine Behauptung, bis sie gemessen ist.
@@ -34,7 +34,6 @@ import { deflateSync } from "node:zlib";
 import path from "node:path";
 
 import { renderCertificatePdf } from "../lib/pdf/certificate";
-import { renderCertificateDocx, type DocxLogo } from "../lib/docx/certificate";
 import { encodeMetaBlock, toMetaFields } from "../lib/hash/canonicalize";
 
 // ---------------------------------------------------------------------------
@@ -308,16 +307,11 @@ async function main() {
   const { sentences, tasks } = UMFANG[umfang];
   const bodyText = buildBody(sentences, tasks);
 
-  const docxLogo: DocxLogo | null = noLogo ? null : { data: LOGO_PNG, type: "png" };
   const pdfLogo = noLogo ? undefined : `data:image/png;base64,${LOGO_PNG.toString("base64")}`;
 
   const pdf = await renderCertificatePdf({ ...SHARED, bodyText, companyLogoDataUrl: pdfLogo });
   const pdfPath = path.join(outDir, "zeugnis.pdf");
   await writeFile(pdfPath, pdf);
-
-  const docx = await renderCertificateDocx({ ...SHARED, bodyText, companyLogo: docxLogo });
-  const docxPath = path.join(outDir, "zeugnis.docx");
-  await writeFile(docxPath, docx);
 
   const pages = await pdfPageCount(pdf);
   const fill = await lastPageFill(pdf);
@@ -338,7 +332,6 @@ async function main() {
   }
   console.log("");
   console.log(`  ${pdfPath}`);
-  console.log(`  ${docxPath}`);
   console.log("");
 
   await writeFile(
