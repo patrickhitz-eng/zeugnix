@@ -60,6 +60,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     }
   }
 
+  // Nur Personen, die in der Organisation eingetragen sind (aktiv oder
+  // deaktiviert). Fremde Konten bekommen keine Zeile, auch keine
+  // wirkungslose; sonst erschienen ihr Name und ihre Adresse auf der
+  // Teamseite. Dieselbe Grenze ziehen Trigger und Zeilenregel aus 044.
+  const { data: inOrg, error: inOrgErr } = await supabase.rpc("zeugnio_org_has_user", {
+    p_org_id: input.organizationId,
+    p_user_id: userId,
+  });
+  if (inOrgErr) {
+    logError("[team/members] Mitgliedschaft nicht prüfbar:", inOrgErr);
+    return NextResponse.json({ error: "Die Änderung liess sich nicht speichern." }, { status: 500 });
+  }
+  if (!inOrg) {
+    return NextResponse.json({ error: "Diese Person gehört nicht zur Organisation." }, { status: 404 });
+  }
+
   if (input.orgRole !== undefined || input.active !== undefined) {
     const patch: Record<string, unknown> = {};
     if (input.orgRole !== undefined) patch.role = input.orgRole;

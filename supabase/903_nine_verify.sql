@@ -127,6 +127,24 @@ select c.relname,
  order by 1;
 
 \echo
+\echo '=== 6a  Rechte von anon/authenticated auf Tabellen nur für den Server  (MUSS LEER SEIN) ==='
+\echo '    certificate_register und deletion_log liest nur service_role (036, 044).'
+select c.relname, r.rolname,
+       has_table_privilege(r.rolname, c.oid, 'SELECT') as select,
+       has_table_privilege(r.rolname, c.oid, 'INSERT') as insert,
+       has_table_privilege(r.rolname, c.oid, 'UPDATE') as update,
+       has_table_privilege(r.rolname, c.oid, 'DELETE') as delete
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+ cross join (values ('anon'), ('authenticated')) as r(rolname)
+ where n.nspname = 'public'
+   and c.relname in ('certificate_register', 'deletion_log')
+   and (has_table_privilege(r.rolname, c.oid, 'SELECT')
+     or has_table_privilege(r.rolname, c.oid, 'INSERT')
+     or has_table_privilege(r.rolname, c.oid, 'UPDATE')
+     or has_table_privilege(r.rolname, c.oid, 'DELETE'))
+ order by 1, 2;
+
+\echo
 \echo '=== 7  Views, die nicht security_invoker sind  (MUSS LEER SEIN) ==='
 \echo '    Eine solche View liest mit den Rechten ihrer Eigentümerin, und das ist'
 \echo '    die Eigentümerin der Tabellen. Sie umgeht damit die Zeilensicherheit, auch'

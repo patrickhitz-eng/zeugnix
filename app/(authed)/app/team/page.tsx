@@ -202,7 +202,8 @@ function accessOf(rows: any[], userId: string) {
  * Gelesen wird mit der Sitzung: die Zeilenregeln aus 035 zeigen die Zugänge
  * der verwalteten Firmen und die eigenen Einladungen. Name, Adresse und Status
  * der Personen holt der Service-Client, und nur für Personen, die die Sitzung
- * in diesen Firmen schon sehen darf.
+ * in diesen Firmen schon sehen darf und die in der Organisation eingetragen
+ * sind (Härtung 044).
  */
 async function buildManagerView(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -241,20 +242,25 @@ async function buildManagerView(
       .limit(50),
   ]);
 
-  const userIds = Array.from(new Set((accessRows ?? []).map((a: any) => a.user_id as string)));
+  // Erst die Mitgliedschaft in DIESER Organisation, dann Name und Adresse nur
+  // für Personen, die dort eingetragen sind. Ein Firmenzugang allein reicht
+  // nicht: Name und Adresse eines Kontos ausserhalb der Organisation verlässt
+  // die Datenbank nie, auch wenn eine solche Zeile (vor 044) entstanden wäre.
+  const candidateIds = Array.from(new Set((accessRows ?? []).map((a: any) => a.user_id as string)));
   const service = createServiceClient();
-  const [{ data: profiles }, { data: orgMembers }] = userIds.length
-    ? await Promise.all([
-        service.from("profiles").select("id, email, full_name").in("id", userIds),
-        service
-          .from("organization_members")
-          .select("user_id, role, deactivated_at")
-          .eq("organization_id", orgId)
-          .in("user_id", userIds),
-      ])
-    : [{ data: [] as any[] }, { data: [] as any[] }];
+  const { data: orgMembers } = candidateIds.length
+    ? await service
+        .from("organization_members")
+        .select("user_id, role, deactivated_at")
+        .eq("organization_id", orgId)
+        .in("user_id", candidateIds)
+    : { data: [] as any[] };
+  const memberById = new Map((orgMembers ?? []).map((m: any) => [m.user_id as string, m]));
+  const userIds = candidateIds.filter((id) => memberById.has(id));
+  const { data: profiles } = userIds.length
+    ? await service.from("profiles").select("id, email, full_name").in("id", userIds)
+    : { data: [] as any[] };
   const profileById = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-  const memberById = new Map((orgMembers ?? []).map((m: any) => [m.user_id, m]));
 
   const members: TeamMember[] = userIds
     .map((userId) => {
