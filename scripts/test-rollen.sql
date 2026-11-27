@@ -188,6 +188,32 @@ begin
   update public.company_members set access_role = 'lesen' where user_id = '00000000-0000-0000-0000-0000000000b2';
   get diagnostics n = row_count;
   if n <> 1 then raise exception 'FEHLER: Admin darf Rollen ändern'; end if;
+  -- 044: Firmenzugang nur für Personen der Organisation.
+  begin
+    insert into public.company_members (company_id, user_id, access_role)
+    values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000ff', 'lesen');
+    raise exception 'FEHLER: Admin darf keinem fremden Konto einen Firmenzugang geben';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.company_members set user_id = '00000000-0000-0000-0000-0000000000ff'
+    where company_id = '00000000-0000-0000-0000-0000000000c1' and user_id = '00000000-0000-0000-0000-0000000000b3';
+    raise exception 'FEHLER: Admin darf einen Firmenzugang nicht auf ein fremdes Konto umschreiben';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.organization_members set user_id = '00000000-0000-0000-0000-0000000000ff'
+    where user_id = '00000000-0000-0000-0000-0000000000b3';
+    raise exception 'FEHLER: Admin darf eine Mitgliedschaft nicht auf ein fremdes Konto umschreiben';
+  exception when insufficient_privilege then null;
+  end;
+  if public.zeugnio_org_has_user(org, '00000000-0000-0000-0000-0000000000ff') then
+    raise exception 'FEHLER: fremdes Konto gilt als Mitglied'; end if;
+  if not public.zeugnio_org_has_user(org, '00000000-0000-0000-0000-0000000000b4') then
+    raise exception 'FEHLER: deaktivierte Person muss als eingetragen gelten'; end if;
+  -- Zweite Firma für eine Person der Organisation: geht weiter.
+  insert into public.company_members (company_id, user_id, access_role)
+  values ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000b3', 'lesen');
   begin
     update public.organization_members set deactivated_at = now() where user_id = '00000000-0000-0000-0000-00000000000a';
     raise exception 'FEHLER: letzte Admin-Person darf sich nicht deaktivieren';
@@ -230,6 +256,21 @@ do $$ begin
   end;
 end $$;
 reset role;
+
+-- 044: Der Trigger gilt auch ohne Zeilenregeln (Server, Einladungsannahme;
+-- hier als Eigentümerin der Tabellen): Ein Konto einer anderen Organisation
+-- bekommt keinen Firmenzugang.
+select set_config('request.jwt.claims', '', true);
+do $$ begin
+  begin
+    insert into public.company_members (company_id, user_id, access_role)
+    values ('00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000ff', 'hr');
+    raise exception 'FEHLER: auch der Server darf keinem fremden Konto einen Firmenzugang geben';
+  exception when insufficient_privilege then
+    -- Nur der Trigger zählt, nicht ein fehlendes Tabellenrecht der Testrolle.
+    if sqlerrm not like '%gehört nicht zur Organisation%' then raise; end if;
+  end;
+end $$;
 
 \echo 'ALLE ROLLENTESTS BESTANDEN'
 rollback;

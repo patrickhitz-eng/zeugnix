@@ -186,6 +186,17 @@ begin
     raise exception 'FEHLER: Team-Verwaltung darf keine fremden Konten aufnehmen';
   exception when insufficient_privilege then null;
   end;
+  -- 044: auch nicht, indem sie eine bestehende Zeile umschreibt.
+  begin
+    update public.company_members set user_id = '10000000-0000-0000-0000-0000000000ff'
+    where company_id = c1 and user_id = '10000000-0000-0000-0000-0000000000b6';
+    raise exception 'FEHLER: Team-Verwaltung darf einen Zugang nicht auf ein fremdes Konto umschreiben';
+  exception when insufficient_privilege then
+    if sqlerrm not like '%gehört nicht zur Organisation%' then raise; end if;
+  end;
+  -- Die Mitgliedschaft fremder Konten lässt sich nicht erfragen.
+  if public.zeugnio_company_org_has_user('10000000-0000-0000-0000-0000000000c9', '10000000-0000-0000-0000-0000000000ff') then
+    raise exception 'FEHLER: Mitgliedschaft in einer fremden Organisation darf nicht erkennbar sein'; end if;
   -- HR-Leitung vergeben: nein.
   begin
     update public.company_members set access_role = 'hr_leitung'

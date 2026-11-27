@@ -72,6 +72,15 @@
 -- sonst bekommt sie in Abschnitt 2 Rechte und wird in Abschnitt 4 nicht
 -- verschlossen. 903_nine_verify.sql prüft das Ergebnis und würde die
 -- Abweichung melden.
+--
+-- Tabellen NUR FÜR DEN SERVER (Liste «nur_server», seit 27.11.2026)
+--
+-- certificate_register und deletion_log liest und schreibt nur service_role
+-- (036). anon und authenticated bekommen dort kein Recht, auch kein SELECT.
+-- Die Zeilensicherheit ohne Regel für diese Rollen liefert zwar ohnehin
+-- nichts, aber bis zu diesem Stand nahm die Schleife in Abschnitt 2 den
+-- Entzug aus 036 bei jedem Lauf zurück. 044 hat ihn wiederhergestellt.
+-- Auch dieses Literal steht an ZWEI Stellen (Abschnitt 2 und Abschnitt 4).
 
 -- ----------------------------------------------------------------------------
 -- 1) Regel für service_role auf jeder Tabelle mit Zeilensicherheit
@@ -136,8 +145,11 @@ begin
        and c.relname <> all (array['schema_migrations']::text[])
   loop
     execute format('grant select, insert, update, delete on public.%I to service_role', r.relname);
-    execute format('grant select, insert, update, delete on public.%I to authenticated', r.relname);
-    execute format('grant select on public.%I to anon', r.relname);
+    -- Liste «nur_server» siehe Kopf dieser Datei. Zweite Stelle: Abschnitt 4.
+    if r.relname <> all (array['certificate_register', 'deletion_log']::text[]) then
+      execute format('grant select, insert, update, delete on public.%I to authenticated', r.relname);
+      execute format('grant select on public.%I to anon', r.relname);
+    end if;
   end loop;
 end
 $$;
@@ -189,6 +201,14 @@ begin
   for r in select unnest(array['schema_migrations']::text[]) as tablename loop
     if exists (select 1 from pg_tables where schemaname = 'public' and tablename = r.tablename) then
       execute format('revoke all on public.%I from anon, authenticated, service_role', r.tablename);
+    end if;
+  end loop;
+
+  -- Liste «nur_server» siehe Kopf dieser Datei. Erste Stelle: Abschnitt 2.
+  -- Nur anon und authenticated; service_role braucht die Tabellen.
+  for r in select unnest(array['certificate_register', 'deletion_log']::text[]) as tablename loop
+    if exists (select 1 from pg_tables where schemaname = 'public' and tablename = r.tablename) then
+      execute format('revoke all on public.%I from anon, authenticated', r.tablename);
     end if;
   end loop;
 end
