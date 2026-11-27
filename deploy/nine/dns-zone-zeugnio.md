@@ -3,6 +3,22 @@
 > Stand: **17.11.2026**, direkt bei Vercels Nameservern `ns1/ns2.vercel-dns.com` gemessen
 > (autoritativ, nicht über einen Resolver). Ergänzt `cutover-reihenfolge.md` 0.1a–0.1d.
 > Prüfskript daneben: `zone-vergleich.ps1`.
+>
+> **Nachtrag 27.11.2026: Die Zone liegt jetzt auf `nsany1/nsany2.infomaniak.com`.** Der
+> Infomaniak-Manager bearbeitet die Zone auf `nsany`, nicht die auf `ns11/ns12`. Die
+> Registry führte `nsany`, und die .ch-Zone delegiert seit 13:37 dorthin. Vorher waren beide
+> Zonen bis auf die drei Änderungen dieses Tages gleich (A, MX, SPF, `send`, `_vercel`, DKIM
+> über die vollen Werte verglichen), es gab also keinen Ausfall wie am 20.11. Seither gilt:
+> - CAA nur noch `0 issue "letsencrypt.org"` und `0 issuewild ";"` (Schritt 6.1).
+> - `_dmarc` = `v=DMARC1; p=quarantine; adkim=r; aspf=r`.
+> - Der A-Eintrag `test` ist gelöscht, `test.zeugnio.ch` gibt es nicht mehr.
+> - Die Zone auf `ns11/ns12` ist verwaist. Gemessen wird bei den Servern, an die `.ch`
+>   delegiert: `nslookup -type=NS zeugnio.ch a.nic.ch`. `zone-vergleich.ps1` ist mit dem
+>   Umzug von Vercel zu Infomaniak erledigt; sein Vorgabewert `-Neu ns11.infomaniak.ch`
+>   stimmt nicht mehr.
+>
+> Die Tabellen unten zeigen Vercels Zone vom 17.11., also den Stand vor dem Umzug zu
+> Infomaniak am 20.11.
 
 ## Kurz erklärt
 
@@ -142,7 +158,7 @@ niemand etwas davon. Erst Teil C schaltet auf die neue Zone um.
 > **Gelernt am 20.11. (so ist es passiert):**
 > - **Der Transfer setzt die Nameserver selbst.** Infomaniak hat ungefragt `nsany1/nsany2.infomaniak.com` eingetragen. Diese Server liefern nur eine Parkzone aus: kein A, kein MX, `v=spf1 -all` und `_dmarc` `p=reject`. Das heisst: Seite weg, und jede Mail von `zeugnio.ch` wird abgewiesen. Gleich nach dem Transfer im Manager unter **Domain → DNS-Server bearbeiten** prüfen und auf `ns1/ns2.vercel-dns.com` zurückstellen.
 > - **Die Registry veröffentlicht verzögert.** RDAP zeigt die Datenbank, also jede Änderung sofort. Die Zone, die `a.nic.ch` ausliefert, kommt erst eine Weile später. Am 20.11. zeigte RDAP um 11:01 wieder Vercel, `a.nic.ch` veröffentlichte gegen 11:20 trotzdem noch `nsany`. Zurückstellen kann einen Ausfall also verkürzen, aber nicht sicher verhindern. Ob es geklappt hat, zeigt nur `nslookup -norecurse -type=NS zeugnio.ch a.nic.ch`, nicht RDAP.
-> - **Die Zone liegt auf `ns11/ns12.infomaniak.ch`,** nicht auf `nsany`. Für B3 also `-Neu ns11.infomaniak.ch`, und für C1 genau diese zwei Namen eintragen.
+> - **Die Zone liegt auf `ns11/ns12.infomaniak.ch`,** nicht auf `nsany`. Für B3 also `-Neu ns11.infomaniak.ch`, und für C1 genau diese zwei Namen eintragen. **Überholt seit 27.11.:** Der Infomaniak-Manager bearbeitet die Zone auf `nsany1/nsany2.infomaniak.com`, und die .ch-Zone delegiert seit 13:37 dorthin; `ns11/ns12` ist verwaist (Nachtrag oben).
 > - **Eingabe bei Infomaniak:** Der DKIM-Eintrag geht nur über den Typ «DKIM», nicht über TXT; Ergebnis ist derselbe TXT-Wert. Die Vorgabe-TTL ist 3600, die 300 also bei jedem Eintrag von Hand setzen.
 
 Nicht geprüft ist, was Vercel nach dem Transfer mit der Zone macht. Erwartet ist, dass
@@ -228,6 +244,6 @@ Das sind die Rückweg-Werte für 4.2. Ausgedruckt gehören sie neben den Laptop.
 
 `zeugnix.ch` hat eine eigene Zone bei der **Metanet AG**, die auch Registrar ist (RDAP und
 SOA, 18.11.). Dieselben Nameserver haben Patricks andere Domains, das Konto liegt also
-vermutlich bei ihm. In Vercel ist `zeugnix.ch` darum nur als externe Domain geführt. Die
-Domain muss vor 6.4 auf advisori01 zeigen, siehe `cutover-reihenfolge.md`, «Entscheid zur
-DNS-Zone».
+vermutlich bei ihm. In Vercel war `zeugnix.ch` darum nur als externe Domain geführt (Projekt am
+25.11. gelöscht). **Überholt 21.11.:** `zeugnix.ch` wird nicht umgeleitet, sondern aufgegeben
+(`cutover-reihenfolge.md`, 6.4).

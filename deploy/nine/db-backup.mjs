@@ -1,6 +1,6 @@
 // Eigene, verschluesselte Sicherung von zeugnio - zusaetzlich zur taeglichen Sicherung von nine.
 //
-// WARUM ZUSAETZLICH: nine sichert einmal taeglich zwischen 02 und 03 Uhr und haelt zehn Tage.
+// WARUM ZUSAETZLICH: nine sichert nur einmal taeglich zwischen 02 und 03 Uhr.
 // Point-in-Time-Recovery gibt es nicht. Ein Zeugnis, das um 14 Uhr ausgestellt wird, ist nach
 // einem Rueckspielen auf den Stand von 02 Uhr nicht mehr in der Datenbank - und weil
 // app/api/verify/route.ts am Treffer in der Datenbank entscheidet, meldet die Echtheitspruefung

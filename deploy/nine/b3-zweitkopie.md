@@ -187,6 +187,7 @@ Im Kit-README, Abschnitt «Ernstfall». Kurz:
 - Ein `writer` darf einzelne Objektversionen endgültig löschen. Die Versionierung schützt also nur vor versehentlichem Löschen, nicht vor jemandem mit dem Schlüssel auf dem Server.
 - Object Lock oder eine Rolle «schreiben ohne löschen» ist nicht geplant (Feature-Request aufgenommen).
 - **Entscheid Silvan 26.11.:** Restrisiko für den Pilotstart akzeptiert. Letzte Linie ausserhalb der Reichweite von `www-zeugnio` ist nines Tagessicherung (10 Tage). Nach den Piloten neu prüfen: zweiter Anbieter mit Schlüssel ohne Löschrecht (Exoscale Zürich), als zusätzliches Upload-Ziel im Kit.
+- **Nachtrag 27.11. (Sophie Kwass):** Kein Benutzer auf dem Server kann nines Tagessicherung löschen, die letzte Linie hält also. `www-data` kann sie lesen, andere Benutzer haben keinen Zugriff. Nach nines Doku «Datensicherungen und Wiederherstellung» hängt `sudo nine-backup mount-repository` alle Stände schreibgeschützt unter `/mnt/restore.…` ein (`sudo nine-backup snapshots` listet sie); zurückgespielt wird mit `cp` oder `rsync` aus einer zweiten Sitzung. **Folge:** Wer `www-data` übernimmt, liest die Sicherungen aller Apps samt `shared/.env` und `backup.key`. Den Zugang zu `www-data` darum schützen wie Root. **Aufbewahrung:** Die Doku nennt 7 Tage als Standard, hier stehen 10; Nachfrage im Ticket.
 
 ## Offen danach
 

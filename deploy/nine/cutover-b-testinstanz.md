@@ -14,6 +14,12 @@
 > **Überholt seit B2.** Cutover B lief am 23.11. ohne Testinstanz (Entscheid Silvan). Seit B2 gibt
 > es den Schalter `ZEUGNIO_AUTH` und die Supabase-Variablen im Code nicht mehr: `schalter`, T15 und
 > die Supabase-Attrappen unten bewirken nichts mehr. Für eine spätere Testinstanz zuerst anpassen.
+>
+> **Seit 27.11.2026 gibt es `test.zeugnio.ch` nicht mehr** (DNS-Eintrag gelöscht, vhost und
+> Zertifikat auf advisori01 entfernt). Die `update`-Befehle in Schritt 8 und 10 greifen damit ins
+> Leere. Für eine spätere Testinstanz zuerst den A-Eintrag `test` → `5.148.171.221` im
+> Infomaniak-Manager setzen, dann den vhost neu anlegen und das Zertifikat ausstellen (Ablauf wie am
+> 11.11., Journal).
 
 ---
 

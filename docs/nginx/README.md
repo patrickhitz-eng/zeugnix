@@ -1,14 +1,15 @@
 # nginx-vhosts auf advisori01 (Kopie)
 
-Kopie der beiden vhosts, die nine auf advisori01 für zeugnio ausliefert. Stand 26.11.2026, Byte für
+Kopie des vhosts, den nine auf advisori01 für zeugnio ausliefert. Stand 26.11.2026, Byte für
 Byte mit `scp` vom Server geholt.
 
 | Datei hier | Auf dem Server | Namen |
 |---|---|---|
 | `zeugnio.ch.conf` | `/etc/nginx/user-vhosts/zeugnio.ch.conf` | `zeugnio.ch`, `www.zeugnio.ch`, `zeugnio.ch.advisori01.nine.ch` |
-| `test.zeugnio.ch.conf` | `/etc/nginx/user-vhosts/test.zeugnio.ch.conf` | `test.zeugnio.ch`, `test.zeugnio.ch.advisori01.nine.ch` |
 
-Bis auf die Namen sind beide gleich, und beide leiten auf dieselbe App (`localhost:3010`).
+Der zweite vhost `test.zeugnio.ch` (gleiche App auf `localhost:3010`, nur ein anderer Name) ist seit
+27.11.2026 mit Zertifikat und DNS-Eintrag entfernt (Journal `deploy/nine/kommunikation.md`). Seine
+Kopie liegt in der Git-Historie.
 
 ## Wozu die Kopie
 
@@ -35,11 +36,10 @@ oder Variablen) oder per Ticket bei nine.
 ## Vergleichen
 
 Nach jedem Wartungsfenster von nine (Runbook `docs/setup-zeugnio-nine.html`, Abschnitt «Was ab jetzt
-unsere Aufgabe ist»). In PowerShell aus dem Repo-Ordner, mit zweimal der Passphrase:
+unsere Aufgabe ist»). In PowerShell aus dem Repo-Ordner, mit der Passphrase:
 
 ```powershell
 scp www-zeugnio@advisori01.nine.ch:/etc/nginx/user-vhosts/zeugnio.ch.conf docs/nginx/zeugnio.ch.conf
-scp www-zeugnio@advisori01.nine.ch:/etc/nginx/user-vhosts/test.zeugnio.ch.conf docs/nginx/test.zeugnio.ch.conf
 git diff -- docs/nginx
 ```
 

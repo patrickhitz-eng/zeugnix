@@ -4,6 +4,13 @@
 > DNS und Microsoft 365, kein Code. Ausnahme: die Datenschutzseite (Schritt 8).
 > Stand der Messung: **13.11.2026** (`Resolve-DnsName` gegen 1.1.1.1). Ersetzt die
 > Fassung vom 25.09.2026.
+>
+> **Nachtrag 27.11.2026:** Die Zone liegt nicht mehr bei Vercel, sondern bei Infomaniak
+> (seit 27.11. auf `nsany1/nsany2.infomaniak.com`). Gesetzt sind seit 23.11. SPF
+> `v=spf1 -all` und DMARC, seit 27.11. mit `p=quarantine; adkim=r; aspf=r`, noch ohne `rua`.
+> M365 (Schritte 2–5) ist nicht eingerichtet, der MX zeigt weiter auf den Resend-Empfang.
+> Mit `quarantine` heisst das: Bevor Outlook als `@zeugnio.ch` sendet, müssen Schritt 4 (SPF
+> mit `include:spf.protection.outlook.com`) und Schritt 5 (DKIM) stehen.
 
 ## Kurz erklärt: vier Einträge, vier Aufgaben
 
@@ -77,20 +84,20 @@ im Exchange-Admin-Center oder per PowerShell mit `Set-OrganizationConfig -SendFr
 Sonst geht jede Outreach-Mail als `…@advisori.ch` raus.
 
 `noreply@zeugnio.ch` bekommt **kein** Postfach. Wer darauf antwortet, erhält eine
-Unzustellbarkeitsmeldung. Damit Antworten trotzdem ankommen, setzt Schritt 7 in Vercel
+Unzustellbarkeitsmeldung. Damit Antworten trotzdem ankommen, setzt Schritt 7 auf advisori01
 `EMAIL_REPLY_TO=support@zeugnio.ch`.
 
 ## Wer was tut
 
-Alle Schritte laufen über Silvans Konten (Vercel-Dashboard, M365-Admin). Nötig ist im
+Alle Schritte laufen über Silvans Konten (Infomaniak-Manager, M365-Admin). Nötig ist im
 M365-Mandanten die Rolle **Globaler Administrator** oder **Domänennamenadministrator**.
 Hat Silvan sie nicht, macht Patrick bzw. die advisori-IT die Schritte 2, 3 und 5.
 
-**Wo die DNS-Einträge hinkommen:** Solange die Nameserver auf Vercel zeigen, ins
-Vercel-Dashboard (Domains → zeugnio.ch → DNS Records; Name leer lassen = Apex). Beim
-Zonenumzug (Cutover 0.1a) werden sie mit abgeschrieben. Steht der Umzug in den nächsten
-zwei, drei Tagen an, zuerst umziehen und F1 gleich bei Infomaniak eintragen; sonst F1 jetzt
-bei Vercel. Die Einträge laufen bei beiden Anbietern gleich.
+**Wo die DNS-Einträge hinkommen:** in die DNS-Zone von `zeugnio.ch` im Infomaniak-Manager
+(Name leer lassen = Apex). Die Zone liegt seit 27.11.2026 auf `nsany1/nsany2.infomaniak.com`;
+prüfen mit `nslookup -type=NS zeugnio.ch a.nic.ch`. Einen bestehenden Eintrag ersetzen,
+nicht einen zweiten daneben anlegen: Zwei `v=spf1`- oder zwei `v=DMARC1`-Einträge machen
+beide ungültig.
 
 ## Ablauf
 
@@ -99,18 +106,18 @@ Die Reihenfolge verhindert, dass Mails verloren gehen: erst die Postfächer, dan
 | # | Schritt | Wo | Prüfung danach |
 |---|---|---|---|
 | 1 | **Resend-Empfang ansehen.** Resend-Dashboard → Receiving (bzw. Inbound): Gibt es empfangene Mails, eine Weiterleitung oder einen Webhook? Echte Kundenmails von Hand an `support@` weiterleiten, sobald es existiert | Resend | Liste ist leer oder gesichtet |
-| 2 | **Domain in M365 hinzufügen:** admin.microsoft.com → Einstellungen → Domänen → Domäne hinzufügen → `zeugnio.ch`. Prüfart «TXT-Eintrag». **«Ich füge die DNS-Einträge selbst hinzu»** wählen, Vercel ist kein automatisch verbundener Anbieter. Als Dienst nur «Exchange und Exchange Online Protection» ankreuzen | M365 + Vercel: TXT `MS=ms…` am Apex | M365 meldet «Domäne bestätigt». Der TXT bleibt stehen |
+| 2 | **Domain in M365 hinzufügen:** admin.microsoft.com → Einstellungen → Domänen → Domäne hinzufügen → `zeugnio.ch`. Prüfart «TXT-Eintrag». **«Ich füge die DNS-Einträge selbst hinzu»** wählen. Als Dienst nur «Exchange und Exchange Online Protection» ankreuzen | M365 + Infomaniak: TXT `MS=ms…` am Apex | M365 meldet «Domäne bestätigt». Der TXT bleibt stehen |
 | 3 | **Adressen anlegen** wie in der Tabelle oben. «Senden von Aliasen» prüfen | M365 / Exchange-Admin-Center | Postfächer erscheinen in der Liste |
-| 4 | **MX umstellen, Autodiscover und SPF setzen.** Die Werte zeigt M365 im Assistenten. **MX aus dem Assistenten abschreiben, nicht raten:** Neue Domänen bekommen oft die Form `zeugnio-ch.<kürzel>.mx.microsoft` statt `zeugnio-ch.mail.protection.outlook.com`. Dann den alten MX `inbound-smtp.eu-west-1.amazonaws.com` **löschen** (zwei MX mit gleicher Priorität verteilen die Mails auf beide Systeme). Dazu CNAME `autodiscover` → `autodiscover.outlook.com` und TXT am Apex `v=spf1 include:spf.protection.outlook.com ~all` | Vercel | `Resolve-DnsName zeugnio.ch -Type MX` zeigt nur Microsoft. Testmail von einer privaten Adresse an `silvan@zeugnio.ch` kommt in Outlook an |
-| 5 | **DKIM bei Microsoft einschalten:** security.microsoft.com → E-Mail und Zusammenarbeit → Richtlinien → E-Mail-Authentifizierung → DKIM → `zeugnio.ch`. Microsoft zeigt zwei CNAME (`selector1._domainkey`, `selector2._domainkey`) mit Zielen im Mandanten. **Beide genau so** in Vercel eintragen, warten, bis sie auflösen (Minuten bis eine Stunde), dann «Aktivieren» | Defender + Vercel | Status «Gültig, signiert DKIM-Signaturen für diese Domäne» |
-| 6 | **DMARC setzen:** TXT `_dmarc` = `v=DMARC1; p=none; rua=mailto:dmarc@zeugnio.ch; fo=1` | Vercel | `Resolve-DnsName _dmarc.zeugnio.ch -Type TXT` liefert den Wert |
-| 7 | **Antwortadresse der App:** In Vercel (Project → Settings → Environment Variables, Production) `EMAIL_REPLY_TO=support@zeugnio.ch` setzen und neu deployen. Auf advisori01 dieselbe Variable in die `.env` | Vercel, advisori01 | Antwort auf eine Einladungsmail landet in `support@` |
+| 4 | **MX umstellen, Autodiscover und SPF setzen.** Die Werte zeigt M365 im Assistenten. **MX aus dem Assistenten abschreiben, nicht raten:** Neue Domänen bekommen oft die Form `zeugnio-ch.<kürzel>.mx.microsoft` statt `zeugnio-ch.mail.protection.outlook.com`. Dann den alten MX `inbound-smtp.eu-west-1.amazonaws.com` **löschen** (zwei MX mit gleicher Priorität verteilen die Mails auf beide Systeme). Dazu CNAME `autodiscover` → `autodiscover.outlook.com`, und den bestehenden Apex-TXT `v=spf1 -all` **ersetzen** durch `v=spf1 include:spf.protection.outlook.com -all` (mit `-all`, nicht `~all`) | Infomaniak | `Resolve-DnsName zeugnio.ch -Type MX` zeigt nur Microsoft. Testmail von einer privaten Adresse an `silvan@zeugnio.ch` kommt in Outlook an |
+| 5 | **DKIM bei Microsoft einschalten:** security.microsoft.com → E-Mail und Zusammenarbeit → Richtlinien → E-Mail-Authentifizierung → DKIM → `zeugnio.ch`. Microsoft zeigt zwei CNAME (`selector1._domainkey`, `selector2._domainkey`) mit Zielen im Mandanten. **Beide genau so** bei Infomaniak eintragen, warten, bis sie auflösen (Minuten bis eine Stunde), dann «Aktivieren» | Defender + Infomaniak | Status «Gültig, signiert DKIM-Signaturen für diese Domäne» |
+| 6 | **DMARC-Berichte ergänzen:** DMARC steht seit 27.11. auf `quarantine`. Den bestehenden TXT `_dmarc` ersetzen durch `v=DMARC1; p=quarantine; adkim=r; aspf=r; rua=mailto:dmarc@zeugnio.ch; fo=1`, erst wenn der Alias `dmarc@` aus Schritt 3 existiert. Nicht auf `p=none` zurück | Infomaniak | `Resolve-DnsName _dmarc.zeugnio.ch -Type TXT` liefert den Wert |
+| 7 | **Antwortadresse der App:** Auf advisori01 als `www-zeugnio` in `~/zeugnio/shared/.env` `EMAIL_REPLY_TO=support@zeugnio.ch` setzen, danach `~/kit/deploy.sh zeugnio main` | advisori01 | Antwort auf eine Einladungsmail landet in `support@` |
 | 8 | **Datenschutzseite nachziehen** (siehe unten). Erst committen, wenn Schritt 4 gelaufen ist | Repo, PR | Seite nennt Microsoft für den Empfang |
 | 9 | **Gegenprobe**, siehe «Prüfen» | Gmail, Outlook.com, Bluewin | alles `pass` |
 
-**Verschärfen, nicht jetzt:** Nach zwei bis vier Wochen DMARC-Berichte ohne fremde
-Absender `~all` auf `-all` und `p=none` auf `p=quarantine` stellen, später auf `p=reject`.
-Vorher prüfen, ob etwas Drittes mit `@zeugnio.ch` sendet, zum Beispiel das CRM, ein
+**Verschärfen:** SPF steht seit 23.11. auf `-all`, DMARC seit 27.11. auf `p=quarantine`, beides
+noch ohne Berichte. Die nächste Stufe `p=reject` erst nach zwei bis vier Wochen Berichten über
+`rua` (Schritt 6) ohne fremde Absender. Vorher prüfen, ob etwas Drittes mit `@zeugnio.ch` sendet, zum Beispiel das CRM, ein
 Newsletter-Werkzeug oder Stripe-Belege. Die Berichte sind XML-Dateien. Lesbar werden sie
 mit einem Auswerter, zum Beispiel dem kostenlosen von dmarcian oder Postmark. Die Berichte
 enthalten nur IP-Adressen und Zählungen, keine Mailinhalte.
@@ -167,5 +174,6 @@ _dmarc.zeugnix.ch   TXT   v=DMARC1; p=reject; rua=mailto:dmarc@zeugnio.ch
 
 Für eine `rua`-Adresse auf einer anderen Domain verlangt der Standard eine Freigabe in der
 Empfängerdomain, sonst verwerfen die meisten Berichterstatter die Berichte:
-`zeugnix.ch._report._dmarc.zeugnio.ch  TXT  v=DMARC1`. Die 301-Weiterleitung von
-`zeugnix.ch/verify/…` bleibt davon unberührt und muss bestehen bleiben.
+`zeugnix.ch._report._dmarc.zeugnio.ch  TXT  v=DMARC1`. `zeugnix.ch` ist seit 21.11.2026
+aufgegeben (keine Umleitung, Vercel-Projekt am 25.11. gelöscht). Solange die Domain registriert
+ist, schützen die zwei Einträge oben vor Missbrauch als Absender.
