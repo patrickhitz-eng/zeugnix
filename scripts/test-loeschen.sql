@@ -59,8 +59,9 @@ where id = '00000000-0000-0000-0000-0000000000f3';
 -- f2: Entwurf von e1
 insert into public.certificates (id, company_id, employee_id, type, created_by_user_id) values
   ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000e1', 'schluss', '00000000-0000-0000-0000-00000000000a');
-insert into public.company_domains (company_id, domain, status, verified_at)
-values ('00000000-0000-0000-0000-0000000000c1', 'loeschtest.ch', 'verified', now());
+-- 039: «verified» gibt es nur noch mit DNS-Nachweis (company_domains_verified_needs_dns).
+insert into public.company_domains (company_id, domain, status, method, verified_at)
+values ('00000000-0000-0000-0000-0000000000c1', 'loeschtest.ch', 'verified', 'dns', now());
 
 -- Mitglieder wie nach einer Einladung.
 insert into public.organization_members (organization_id, user_id, role)
@@ -165,6 +166,10 @@ begin
   end if;
   if r.verified_domain is distinct from 'loeschtest.ch' or r.signature <> 'c2lnbmF0dXI=' then
     raise exception 'FEHLER: Domain oder Signatur fehlt im Register';
+  end if;
+  -- 039: Die Stufe der Domain geht mit ins Register.
+  if r.verified_domain_method is distinct from 'dns' then
+    raise exception 'FEHLER: Register muss die DNS-Stufe festhalten: %', r.verified_domain_method;
   end if;
   if r.delete_after <> '2036-01-15T10:00:00Z'::timestamptz then
     raise exception 'FEHLER: Frist muss 10 Jahre ab Ausstellung sein: %', r.delete_after;
