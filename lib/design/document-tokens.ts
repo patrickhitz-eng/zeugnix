@@ -149,7 +149,15 @@ export const BASE_TOKENS = {
     bulletMarginLeft: 14 as Pt,
     bulletMarginBottom: 3 as Pt,
 
-    signaturesHeaderMarginTop: 14 as Pt,
+    /**
+     * Ort/Datum → «Digital ausgestellt durch» → Linie. 20/10 statt 14/6
+     * (27.11.2026): Seit der Echtheitsnachweis fix in der Fusszeile steht,
+     * endet der Textfluss mit dem Unterschriftsblock, und der Platz, den der
+     * Hash dort belegte, gehört jetzt der Luft um die Unterschriften. Vorher
+     * stapelten sich Datum, Kopf, Namen und Hash eng übereinander
+     * (Rückmeldung Silvan: «zusammengequetscht»).
+     */
+    signaturesHeaderMarginTop: 20 as Pt,
     /**
      * Handschriftliche Unterschrift: Freiraum ÜBER der Unterschriftslinie
      * (ersetzt den entfallenden Kopf „Digital ausgestellt durch").
@@ -165,7 +173,7 @@ export const BASE_TOKENS = {
      */
     signatureHandwrittenMarginTop: 6 as Pt,
     signatureHandwrittenHeight: 48 as Pt,
-    signaturesHeaderMarginBottom: 6 as Pt,
+    signaturesHeaderMarginBottom: 10 as Pt,
     signaturesMarginTop: 2 as Pt,
     signatureCellPaddingTop: 5 as Pt,
     signatureSpacer: 20 as Pt,
@@ -173,19 +181,25 @@ export const BASE_TOKENS = {
     signatureEmailMarginTop: 1 as Pt,
     signatureConfirmedMarginTop: 3 as Pt,
 
-    hashBlockMarginTop: 12 as Pt,
+    // Echtheitsnachweis. Steht seit 27.11.2026 fix in der Fusszeile, mit
+    // fester Höhe (verification.height), statt am Ende des Textflusses. Die
+    // Abstände innen sind so knapp gewählt, dass Label, Hash, zwei Zeilen
+    // Erklärung und Prüflink in die Höhe des QR-Codes (56pt) passen:
+    // 9.8 + 2 + 10.5 + 2 + 21 + 1 + 10.5 = 56.8pt.
     hashBlockPaddingTop: 8 as Pt,
     hashTextPaddingRight: 16 as Pt,
-    hashLabelMarginBottom: 3 as Pt,
-    hashValueMarginBottom: 4 as Pt,
-    hashLinkMarginTop: 3 as Pt,
+    hashLabelMarginBottom: 2 as Pt,
+    hashValueMarginBottom: 2 as Pt,
+    hashLinkMarginTop: 1 as Pt,
 
-    // Fusszeile: Abstand vom unteren Blattrand und Innenabstand über der
-    // Trennlinie. Beides muss in den Unterrand (page.paddingBottom = 48pt)
-    // passen, damit die absolut positionierte Fusszeile nie den Fliesstext
-    // überlappt: 16 + 6 + zwei Zeilen à 7.5pt/1.4 (21pt) = 43pt < 48pt.
+    // Fussbereich: Abstand vom unteren Blattrand, Innenabstand über der
+    // Trennlinie der Firmen-Fusszeile, Abstand Echtheitsnachweis → Firmen-
+    // Fusszeile und Mindestabstand Textfluss → Fussbereich. Wie viel Unterrand
+    // die Seite daraus braucht, rechnet footerReserve() unten.
     footerBottom: 16 as Pt,
     footerPaddingTop: 6 as Pt,
+    verificationToFooterGap: 6 as Pt,
+    bodyToFooterGap: 14 as Pt,
   },
 
   border: {
@@ -199,7 +213,40 @@ export const BASE_TOKENS = {
   // gleich hoch: der Briefkopf ist so niedrig, wie das Logo es erlaubt.
   logo: { maxWidth: 140 as Pt, maxHeight: 42 as Pt },
   qr: { size: 56 as Pt },
+
+  /**
+   * Echtheitsnachweis in der Fusszeile: feste Höhe, damit er wie das Logo
+   * immer dieselbe Grösse und Lage hat (Wunsch Silvan, 27.11.2026). Trennlinie
+   * + Innenabstand (8pt) + QR-Code (56pt) + 2pt Reserve für die Textspalte.
+   */
+  verification: { height: 66 as Pt },
 } as const;
+
+/**
+ * Unterrand der Seite, damit der fixe Fussbereich (Echtheitsnachweis und
+ * Firmen-Fusszeile) nie den Textfluss überlappt. Beide Teile stehen absolut
+ * am unteren Blattrand; der Text darf nur bis zur Oberkante des Fussbereichs
+ * plus bodyToFooterGap laufen.
+ *
+ * Eine Rechnung für PDF und Vorschau, damit beide an derselben Stelle umbrechen.
+ * Nie kleiner als page.paddingBottom.
+ *
+ * Beispiel mit Hash und einer Fusszeilen-Zeile:
+ *   16 + 66 + 6 + (6 + 10.5) + 14 = 118.5pt.
+ * Früher: 48pt Unterrand + Hash-Block im Textfluss (12 + 66) = 126pt.
+ * Ein einseitiges Zeugnis hat also eher mehr Platz als vorher.
+ */
+export function footerReserve(opts: { verification: boolean; footerLines: number }): Pt {
+  const T = BASE_TOKENS;
+  const lines = Math.max(0, opts.footerLines);
+  const company = lines > 0 ? T.space.footerPaddingTop + lines * T.fontSize.footer * T.lineHeight.hash : 0;
+  const verification = opts.verification
+    ? T.verification.height + (lines > 0 ? T.space.verificationToFooterGap : 0)
+    : 0;
+  const content = company + verification;
+  if (content === 0) return T.page.paddingBottom;
+  return Math.max(T.page.paddingBottom, T.space.footerBottom + content + T.space.bodyToFooterGap);
+}
 
 // ---------------------------------------------------------------------------
 // Theme = Schriften + Farben. Sonst nichts.

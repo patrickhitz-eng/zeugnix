@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { buildVerifyUrl } from "@/lib/hash/canonicalize";
-import { resolveTheme } from "@/lib/design/document-tokens";
+import { BASE_TOKENS, cssPt, footerReserve, resolveTheme } from "@/lib/design/document-tokens";
 import { buildDocumentCss } from "@/lib/design/document-css";
 import { letterheadContactLines } from "@/lib/design/letterhead-lines";
 
@@ -140,6 +140,13 @@ export function CertificatePreview({
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
+  // Unterrand wie im PDF: Platz für den fixen Fussbereich. Reserviert wird der
+  // Echtheitsnachweis auch vor dem Finalisieren (dann als Platzhalter), damit
+  // die Vorschau schon jetzt zeigt, ob das Zeugnis auf eine Seite passt.
+  const sheetPaddingBottom = cssPt(
+    footerReserve({ verification: showVerification, footerLines: footerLines.length }),
+  );
+
   return (
     <div className="overflow-hidden rounded-md bg-ink-100 p-4 sm:p-6">
       {/* containerRef misst die verfügbare Breite OHNE das eigene Padding
@@ -160,6 +167,7 @@ export function CertificatePreview({
             className="bg-white"
             style={{
               ...css.sheet,
+              paddingBottom: sheetPaddingBottom,
               position: "absolute",
               top: 0,
               left: 0,
@@ -272,34 +280,55 @@ export function CertificatePreview({
           </div>
         )}
 
-        {/* Hash-Block (nur bei finalisierten Zeugnissen) – zweispaltig:
-            Hash-Text links, QR-Code rechts (konsistent zum PDF) */}
-        {hash && showVerification && (
-          <div style={css.hashBlock}>
-            <div style={{ flex: 1 }}>
-              <div style={css.hashLabel}>Echtheitsnachweis (SHA-256)</div>
-              <div style={css.hashValue}>{hash}</div>
-              <div>
-                Dieses Arbeitszeugnis wurde mit zeugnio.ch erstellt und mit
-                einem kryptografischen Echtheitsnachweis versehen. Jede
-                nachträgliche Veränderung führt zu einem abweichenden Hash.
-                Echtheit prüfen: zeugnio.ch/verify
+        {/* Fixer Fussbereich – Gegenstück zum PDF (lib/pdf/certificate.tsx):
+            oben der Echtheitsnachweis mit fester Höhe, darunter die Fusszeile
+            des Ausstellers. Vor dem Finalisieren gibt es noch keinen Hash; dann
+            steht an seiner Stelle ein Platzhalter in derselben Grösse. */}
+        {(showVerification || footerLines.length > 0) && (
+          <div style={css.footerArea}>
+            {showVerification && (
+              <div style={css.hashBlock}>
+                <div style={{ flex: 1 }}>
+                  <div style={css.hashLabel}>Echtheitsnachweis (SHA-256)</div>
+                  {hash ? (
+                    <>
+                      <div style={css.hashValue}>{hash}</div>
+                      <div>
+                        Dieses Arbeitszeugnis wurde mit zeugnio.ch erstellt und mit
+                        einem kryptografischen Echtheitsnachweis versehen. Jede
+                        nachträgliche Veränderung des Inhalts führt zu einem
+                        abweichenden Hash.
+                      </div>
+                      <div style={css.hashLink}>Echtheit prüfen: zeugnio.ch/verify</div>
+                    </>
+                  ) : (
+                    <div>Wird beim Finalisieren erzeugt.</div>
+                  )}
+                </div>
+                {hash && qrDataUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={qrDataUrl} alt="QR-Code zur Echtheitsprüfung" style={css.qrCode} />
+                ) : (
+                  <div
+                    aria-hidden
+                    style={{
+                      ...css.qrCode,
+                      border: `${cssPt(BASE_TOKENS.border.hairline)} dashed ${theme.colors.rule}`,
+                      boxSizing: "border-box",
+                    }}
+                  />
+                )}
               </div>
-            </div>
-            {qrDataUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={qrDataUrl} alt="QR-Code zur Echtheitsprüfung" style={css.qrCode} />
             )}
-          </div>
-        )}
-
-        {/* Ausstellerspezifische Fusszeile – absolut am unteren Blattrand,
-            Gegenstück zur fixen Fusszeile im PDF (lib/pdf/certificate.tsx). */}
-        {footerLines.length > 0 && (
-          <div style={css.footer}>
-            {footerLines.map((line, i) => (
-              <div key={i}>{line}</div>
-            ))}
+            {footerLines.length > 0 && (
+              <div
+                style={showVerification ? { ...css.footer, ...css.footerAfterVerification } : css.footer}
+              >
+                {footerLines.map((line, i) => (
+                  <div key={i}>{line}</div>
+                ))}
+              </div>
+            )}
           </div>
         )}
           </div>

@@ -105,7 +105,7 @@ const faqs: Faq[] = [
     a: (
       <>
         Nein. Der Zeugnistext entsteht aus Satzbausteinen, passend zur
-        Beurteilung der Führungskraft. Eine künstliche Intelligenz setzen wir
+        Beurteilung durch die Führungskraft. Eine künstliche Intelligenz setzen wir
         dafür nicht ein. Vor dem Finalisieren können Sie den Text noch von Hand
         anpassen.
       </>

@@ -37,6 +37,7 @@ import {
   DEFAULT_THEME,
   assertThemeReadable,
   contrastRatio,
+  footerReserve,
   resolveTheme,
   resolveThemeFromCompany,
   WCAG_AA_NORMAL_TEXT,
@@ -137,8 +138,8 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     color: "#0f7a6b",
     textTransform: "uppercase",
     letterSpacing: 0.6,
-    marginTop: 14,
-    marginBottom: 6,
+    marginTop: 20,
+    marginBottom: 10,
   });
   eq("signatures", s.signatures, { flexDirection: "row", marginTop: 2 });
   // Freiraum zum Unterschreiben von Hand – vorher Inline-Literale in
@@ -147,7 +148,6 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     marginTop: 6,
     minHeight: 48,
   });
-  eq("hashBlockAfterHandwritten", s.hashBlockAfterHandwritten, { marginTop: 8 });
   eq("signatureCell", s.signatureCell, {
     flex: 1,
     paddingTop: 5,
@@ -173,8 +173,10 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     fontSize: 7.5,
     fontFamily: "Inter-Bold",
   });
+  // Seit 27.11.2026 fix in der Fusszeile, mit fester Höhe.
+  eq("footerArea", s.footerArea, { position: "absolute", bottom: 16, left: 60, right: 60 });
   eq("hashBlock", s.hashBlock, {
-    marginTop: 12,
+    height: 66,
     paddingTop: 8,
     borderTopWidth: 0.5,
     borderTopColor: "#d4d8dd",
@@ -192,15 +194,16 @@ console.log("\nPDF-Styles: unveränderte Werte (Stand vor dem Refactor)");
     color: "#0f7a6b",
     fontSize: 7,
     letterSpacing: 0.6,
-    marginBottom: 3,
+    marginBottom: 2,
   });
   eq("hashValue", s.hashValue, {
     fontFamily: "Inter",
     color: "#1a1d22",
     fontSize: 7.5,
-    marginBottom: 4,
+    marginBottom: 2,
   });
-  eq("hashLink", s.hashLink, { marginTop: 3, color: "#0f7a6b" });
+  eq("hashLink", s.hashLink, { marginTop: 1, color: "#0f7a6b" });
+  eq("footerAfterVerification", s.footerAfterVerification, { marginTop: 6, borderTopWidth: 0 });
   eq("qrCode", s.qrCode, { width: 56, height: 56 });
 }
 
@@ -219,6 +222,24 @@ console.log("\nPDF-Styles: Body-Schrift folgt dem Theme, Titel bleibt Helvetica-
   const standard = buildPdfStyles(DEFAULT_THEME) as any;
   eq("brand: Titel-Farbe = Markenfarbe", brand.title.color, "#003867");
   eq("standard: Titel-Farbe = Petrol", standard.title.color, "#0f7a6b");
+}
+
+console.log("\nUnterrand für den fixen Fussbereich (footerReserve)");
+{
+  // Ohne Fussbereich: der normale Unterrand.
+  eq("nichts im Fuss = 48pt", footerReserve({ verification: false, footerLines: 0 }), 48);
+  // Nur Firmen-Fusszeile, eine Zeile: 16 + 6 + 10.5 + 14 = 46.5 → Mindestwert 48.
+  eq("nur Fusszeile = 48pt", footerReserve({ verification: false, footerLines: 1 }), 48);
+  // Nur Echtheitsnachweis: 16 + 66 + 14 = 96.
+  eq("nur Nachweis = 96pt", footerReserve({ verification: true, footerLines: 0 }), 96);
+  // Beides: 16 + 66 + 6 + (6 + 10.5) + 14 = 118.5.
+  eq("Nachweis + 1 Zeile = 118.5pt", footerReserve({ verification: true, footerLines: 1 }), 118.5);
+  // Jede weitere Zeile der Fusszeile schiebt die Grenze um eine Zeilenhöhe hoch.
+  eq(
+    "zweite Zeile = +10.5pt",
+    footerReserve({ verification: true, footerLines: 2 }) - footerReserve({ verification: true, footerLines: 1 }),
+    10.5,
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -48,12 +48,17 @@ export interface DocumentCss {
   signatureRule: React.CSSProperties;
   signatureName: React.CSSProperties;
   signatureRole: React.CSSProperties;
+  /** Fixer Fussbereich am unteren Blattrand: Echtheitsnachweis + Firmen-Fusszeile. */
+  footerArea: React.CSSProperties;
   hashBlock: React.CSSProperties;
   hashLabel: React.CSSProperties;
   hashValue: React.CSSProperties;
+  hashLink: React.CSSProperties;
   qrCode: React.CSSProperties;
-  /** Ausstellerspezifische Fusszeile, absolut am unteren Blattrand. */
+  /** Ausstellerspezifische Fusszeile, zuunterst im Fussbereich. */
   footer: React.CSSProperties;
+  /** Fusszeile unter dem Echtheitsnachweis: Abstand statt eigener Linie. */
+  footerAfterVerification: React.CSSProperties;
 }
 
 /** Halber Zwischenraum der Unterschriftszellen (PDF: ein 20pt-Spacer). */
@@ -196,8 +201,20 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       fontSize: cssPt(T.fontSize.signatureRole),
     },
 
+    // Gegenstück zu styles.footerArea im PDF: absolut am unteren Rand des
+    // A4-Blatts. Das Vorschau-Blatt (sheetRef) ist positioniert, daher greift
+    // bottom hier relativ zum Blatt – wie der fixe Fussbereich der PDF-Seite.
+    footerArea: {
+      position: "absolute",
+      bottom: cssPt(T.space.footerBottom),
+      left: cssPt(T.page.paddingHorizontal),
+      right: cssPt(T.page.paddingHorizontal),
+    },
+    // Feste Höhe wie im PDF. border-box, weil @react-pdf (Yoga) die Höhe
+    // ebenfalls inklusive Innenabstand und Linie rechnet.
     hashBlock: {
-      marginTop: cssPt(T.space.hashBlockMarginTop),
+      height: cssPt(T.verification.height),
+      boxSizing: "border-box",
       paddingTop: cssPt(T.space.hashBlockPaddingTop),
       borderTop: `${cssPt(T.border.hairline)} solid ${c.rule}`,
       display: "flex",
@@ -223,6 +240,13 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       wordBreak: "break-all",
       marginBottom: cssPt(T.space.hashValueMarginBottom),
     },
+    // Prüflink auf eigener Zeile und ohne Umbruch: vorher brach er nach dem
+    // Schrägstrich («zeugnio.ch/» – «verify»).
+    hashLink: {
+      marginTop: cssPt(T.space.hashLinkMarginTop),
+      color: c.brandAccent,
+      whiteSpace: "nowrap",
+    },
     qrCode: {
       width: cssPt(T.qr.size),
       height: cssPt(T.qr.size),
@@ -230,20 +254,18 @@ export function buildDocumentCss(theme: DocumentTheme): DocumentCss {
       display: "block",
     },
 
-    // Gegenstück zu styles.footer im PDF: absolut am unteren Rand des A4-Blatts.
-    // Das Vorschau-Blatt (sheetRef) ist positioniert, daher greift bottom hier
-    // relativ zum Blatt – wie die fixe Fusszeile auf der PDF-Seite.
+    // Gegenstück zu styles.footer im PDF: zuunterst im Fussbereich.
     footer: {
-      position: "absolute",
-      bottom: cssPt(T.space.footerBottom),
-      left: cssPt(T.page.paddingHorizontal),
-      right: cssPt(T.page.paddingHorizontal),
       paddingTop: cssPt(T.space.footerPaddingTop),
       borderTop: `${cssPt(T.border.hairline)} solid ${c.rule}`,
       textAlign: "center",
       fontSize: cssPt(T.fontSize.footer),
       color: c.textSecondary,
       lineHeight: cssLh(T.lineHeight.hash),
+    },
+    footerAfterVerification: {
+      marginTop: cssPt(T.space.verificationToFooterGap),
+      borderTop: "none",
     },
   };
 }
