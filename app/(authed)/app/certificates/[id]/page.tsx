@@ -24,6 +24,7 @@ import { CertificateManage } from "@/components/app/certificate-manage";
 import { isCertificateLocked } from "@/lib/certificate/status";
 import { getCompanyPermissions } from "@/lib/auth/ownership";
 import Link from "next/link";
+import { latestEvaluationSet } from "@/lib/evaluations/latest-set";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -77,7 +78,8 @@ export default async function CertificateDetailPage({ params }: PageProps) {
     );
   }
 
-  const evaluations = cert.evaluations ?? [];
+  // Gezählt wird der Satz, den der Generator nimmt (lib/evaluations/latest-set.ts).
+  const evaluations = latestEvaluationSet<any>(cert.evaluations);
   const invitations = cert.manager_invitations ?? [];
 
   const isFinal = cert.status === "final";
