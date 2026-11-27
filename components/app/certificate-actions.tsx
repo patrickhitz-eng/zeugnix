@@ -164,7 +164,7 @@ export function CertificateActions({
         {/* Schritt 1: Beurteilung erfassen – selbst oder per Einladung */}
         <ActionRow
           step="1"
-          title="Beurteilung der Führungskraft"
+          title="Beurteilung durch Führungskraft"
           desc={
             isArbeitsbestaetigung
               ? "Bei einer Arbeitsbestätigung nicht erforderlich"

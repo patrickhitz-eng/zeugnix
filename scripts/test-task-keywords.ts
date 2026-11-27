@@ -123,6 +123,48 @@ eq(
   cleanTaskKeywords("Beratung von Privat-, Firmen- und institutionellen Kunden"),
   ["Beratung von Privat-, Firmen- und institutionellen Kunden"],
 );
+
+console.log("\nR1b – reine Stichwortliste in einer Zeile wird am Komma zerlegt");
+eq(
+  "Stichworte mit Kommas -> je ein Eintrag",
+  cleanTaskKeywords("Back-Office, Kundenberatung, Kundenbetreuung, Rechnungswesen"),
+  ["Back-Office", "Kundenberatung", "Kundenbetreuung", "Rechnungswesen"],
+);
+eq(
+  "klein getippt und mit Listenzeichen",
+  cleanTaskKeywords("- lohnwesen, mwst-abrechnung, jahresabschluss"),
+  ["Lohnwesen", "Mwst-abrechnung", "Jahresabschluss"],
+);
+eq(
+  "zwei Wörter je Teil gelten noch als Stichwort",
+  cleanTaskKeywords("Debitoren buchen, Kreditoren buchen"),
+  ["Debitoren buchen", "Kreditoren buchen"],
+);
+eq(
+  "Teil mit drei Wörtern: bleibt EIN Eintrag",
+  cleanTaskKeywords("Erstellung von Offerten, Rechnungen"),
+  ["Erstellung von Offerten, Rechnungen"],
+);
+eq(
+  "«und» im Teil: bleibt EIN Eintrag",
+  cleanTaskKeywords("Offerten, Rechnungen und Mahnungen"),
+  ["Offerten, Rechnungen und Mahnungen"],
+);
+eq(
+  "Ergänzungsstrich: bleibt EIN Eintrag",
+  cleanTaskKeywords("Privat-, Firmenkunden"),
+  ["Privat-, Firmenkunden"],
+);
+eq(
+  "«insbesondere KMU» ist kein Stichwort: bleibt EIN Eintrag",
+  cleanTaskKeywords("Beratung von Kunden, insbesondere KMU"),
+  ["Beratung von Kunden, insbesondere KMU"],
+);
+eq(
+  "Komma am Ende: kein leerer Eintrag",
+  cleanTaskKeywords("Buchhaltung,"),
+  ["Buchhaltung"],
+);
 eq(
   "leere Zeilen fallen weg",
   cleanTaskKeywords("Beratung\n\n\nBuchhaltung\n   \n"),
@@ -208,6 +250,7 @@ console.log("\nIdempotenz – trägt das Säubern an ZWEI Stellen");
     "1. Erste Aufgabe\n2) Zweite Aufgabe",
     "Betreuung der Kundschaft inkl. Reporting",
     "überwachung der Fristen  ,  Mahnwesen",
+    "Back-Office, Kundenberatung, Kundenbetreuung, Rechnungswesen",
     "",
   ];
   for (const input of inputs) {

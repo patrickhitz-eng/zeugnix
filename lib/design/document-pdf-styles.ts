@@ -144,18 +144,24 @@ export function buildPdfStyles(theme: DocumentTheme) {
       fontFamily: headingBold,
     },
 
+    // Fussbereich: absolut am unteren Blattrand, auf jeder Seite wiederholt
+    // (fixed). Er trägt den Echtheitsnachweis und darunter die Firmen-
+    // Fusszeile. Der Unterrand der Seite (footerReserve) hält ihm den Platz
+    // frei, damit der Textfluss ihn nie überlappt.
+    footerArea: {
+      position: "absolute",
+      bottom: T.space.footerBottom,
+      left: T.page.paddingHorizontal,
+      right: T.page.paddingHorizontal,
+    },
+    // Feste Höhe: Der Nachweis hat wie das Logo immer dieselbe Grösse und Lage.
     hashBlock: {
-      marginTop: T.space.hashBlockMarginTop,
+      height: T.verification.height,
       paddingTop: T.space.hashBlockPaddingTop,
       borderTopWidth: T.border.hairline,
       borderTopColor: c.rule,
       flexDirection: "row",
     },
-    /**
-     * Nach einer handschriftlichen Unterschriftsfläche sitzt der Hash-Block
-     * näher: die Fläche darüber hat den Abstand schon geschaffen.
-     */
-    hashBlockAfterHandwritten: { marginTop: T.space.hashBlockPaddingTop },
 
     hashText: {
       flex: 1,
@@ -183,14 +189,8 @@ export function buildPdfStyles(theme: DocumentTheme) {
     },
     qrCode: { width: T.qr.size, height: T.qr.size },
 
-    // Ausstellerspezifische Fusszeile: absolut am unteren Blattrand, auf jeder
-    // Seite wiederholt (fixed). Steht im Unterrand (paddingBottom) und damit
-    // ausserhalb des Textflusses – kein Überlappen mit dem Fliesstext.
+    // Ausstellerspezifische Fusszeile: zuunterst im Fussbereich.
     footer: {
-      position: "absolute",
-      bottom: T.space.footerBottom,
-      left: T.page.paddingHorizontal,
-      right: T.page.paddingHorizontal,
       paddingTop: T.space.footerPaddingTop,
       borderTopWidth: T.border.hairline,
       borderTopColor: c.rule,
@@ -198,6 +198,12 @@ export function buildPdfStyles(theme: DocumentTheme) {
       fontSize: T.fontSize.footer,
       color: c.textSecondary,
       lineHeight: T.lineHeight.hash,
+    },
+    // Unter dem Echtheitsnachweis braucht die Fusszeile keine eigene Linie:
+    // die über dem Nachweis trennt den Fussbereich schon vom Text.
+    footerAfterVerification: {
+      marginTop: T.space.verificationToFooterGap,
+      borderTopWidth: 0,
     },
   });
 }

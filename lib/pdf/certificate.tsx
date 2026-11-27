@@ -29,7 +29,7 @@ import {
 } from "@/lib/hash/canonicalize";
 import type { TiptapDoc } from "@/lib/certificate/tiptap-plaintext";
 import { tiptapToPdf } from "./tiptap-to-pdf";
-import { resolveTheme, type DocumentTheme } from "@/lib/design/document-tokens";
+import { footerReserve, resolveTheme, type DocumentTheme } from "@/lib/design/document-tokens";
 import { buildPdfStyles } from "@/lib/design/document-pdf-styles";
 import { letterheadContactLines } from "@/lib/design/letterhead-lines";
 
@@ -205,10 +205,17 @@ function CertificateDocument(props: DocProps) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-  // Handunterschrift: Fläche zum Unterschreiben schaffen und die Namen bündig an
-  // die Trennlinie über dem Hash rücken (der „Digital ausgestellt durch"-Kopf
-  // entfällt in diesem Modus).
+  // Handunterschrift: Fläche zum Unterschreiben über der Linie (der „Digital
+  // ausgestellt durch"-Kopf entfällt in diesem Modus).
   const isHandwritten = props.signatureMode === "handwritten";
+
+  // Fussbereich: Echtheitsnachweis (falls eingeschaltet) und Firmen-Fusszeile.
+  // Der Unterrand der Seite hält ihm genau so viel Platz frei, wie er braucht.
+  const showVerification = props.showVerificationBlock !== false;
+  const pageStyle = [
+    styles.page,
+    { paddingBottom: footerReserve({ verification: showVerification, footerLines: footerLines.length }) },
+  ];
 
   // Gebündelte Kontaktzeilen (Adresse · Telefon/E-Mail · Website) statt einer
   // Zeile je Angabe – spart dem Briefkopf drei Zeilen.
@@ -267,7 +274,7 @@ function CertificateDocument(props: DocProps) {
 
   return (
     <Document title={docTitle}>
-      <Page size="A4" style={styles.page}>
+      <Page size="A4" style={pageStyle}>
         {/* Letterhead */}
         <View style={styles.letterhead}>
           <View style={styles.letterheadLeft}>
@@ -366,41 +373,39 @@ function CertificateDocument(props: DocProps) {
           </View>
         ) : null}
 
-        {/* Hash + QR */}
-        {/* Handunterschrift: kleinerer Abstand, damit die Namen bündig auf der
-            Trennlinie über dem Hash sitzen (der Normalwert lässt sonst eine Lücke).
-            Mastervorlage: ausgeschaltet entfällt nur dieser sichtbare Block. */}
-        {props.showVerificationBlock !== false ? (
-        // wrap={false}: Vorher brach der Block mitten durch (Label und Hash auf
-        // Seite 1, Erklärung und Prüflink auf Seite 2).
-        <View
-          wrap={false}
-          style={isHandwritten ? [styles.hashBlock, styles.hashBlockAfterHandwritten] : styles.hashBlock}
-        >
-          <View style={styles.hashText}>
-            <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
-            <Text style={styles.hashValue}>{hash}</Text>
-            <Text>
-              Dieses Arbeitszeugnis wurde mit zeugnio.ch erstellt und mit einem
-              kryptografischen Echtheitsnachweis versehen. Jede nachträgliche
-              Veränderung des Inhalts führt zu einem abweichenden Hash.
-            </Text>
-            <Text style={styles.hashLink}>{verifyLink}</Text>
-          </View>
-          {qrDataUrl.length > 0 ? (
-            <Image src={qrDataUrl} style={styles.qrCode} />
-          ) : null}
-        </View>
-        ) : null}
-
-        {/* Ausstellerspezifische Fusszeile – fix am unteren Rand JEDER Seite.
-            Ausserhalb aller Body-/Meta-Sentinels, daher ohne Einfluss auf den
-            Echtheits-Hash (reines Aussteller-Branding, wie der Briefkopf). */}
-        {footerLines.length > 0 ? (
-          <View style={styles.footer} fixed>
-            {footerLines.map((line: string, i: number) => (
-              <Text key={"footer-" + i}>{line}</Text>
-            ))}
+        {/* Fussbereich – fix am unteren Rand JEDER Seite (Wunsch Silvan,
+            27.11.2026: der Hash gehört wie das Logo an eine feste Stelle mit
+            fester Grösse, statt am Ende des Textes mitzuwandern).
+            Oben der Echtheitsnachweis (Hash + QR), darunter die Fusszeile des
+            Ausstellers. Beides liegt ausserhalb aller Body-/Meta-Sentinels und
+            ändert den Echtheits-Hash nicht. Mastervorlage: ist der Nachweis
+            ausgeschaltet, entfällt nur er; die Sentinels bleiben. */}
+        {showVerification || footerLines.length > 0 ? (
+          <View style={styles.footerArea} fixed>
+            {showVerification ? (
+              <View style={styles.hashBlock}>
+                <View style={styles.hashText}>
+                  <Text style={styles.hashLabel}>Echtheitsnachweis (SHA-256)</Text>
+                  <Text style={styles.hashValue}>{hash}</Text>
+                  <Text>
+                    Dieses Arbeitszeugnis wurde mit zeugnio.ch erstellt und mit einem
+                    kryptografischen Echtheitsnachweis versehen. Jede nachträgliche
+                    Veränderung des Inhalts führt zu einem abweichenden Hash.
+                  </Text>
+                  <Text style={styles.hashLink}>{verifyLink}</Text>
+                </View>
+                {qrDataUrl.length > 0 ? (
+                  <Image src={qrDataUrl} style={styles.qrCode} />
+                ) : null}
+              </View>
+            ) : null}
+            {footerLines.length > 0 ? (
+              <View style={showVerification ? [styles.footer, styles.footerAfterVerification] : styles.footer}>
+                {footerLines.map((line: string, i: number) => (
+                  <Text key={"footer-" + i}>{line}</Text>
+                ))}
+              </View>
+            ) : null}
           </View>
         ) : null}
       </Page>

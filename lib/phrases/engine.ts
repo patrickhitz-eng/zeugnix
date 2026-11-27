@@ -347,7 +347,11 @@ export function generateCertificate(
   } else {
     warnings.push(`Kein Einleitungs-Baustein für Typ '${certificate.type}' gefunden`);
     sections.push(
-      `${employee.firstName} ${employee.lastName} war als ${employee.functionTitle} in unserem Unternehmen tätig.`,
+      // Zeitform wie der Rest des Textes: Beim Zwischenzeugnis stand hier
+      // vorher «war … tätig» und zwei Zeilen weiter «Zu den Hauptaufgaben
+      // gehören» (gesehen 27.11.2026 mit Anrede «Neutral», für die es noch
+      // keinen Einleitungs-Baustein gibt).
+      `${employee.firstName} ${employee.lastName} ${tempus === "praesens" ? "ist" : "war"} als ${employee.functionTitle} in unserem Unternehmen tätig.`,
     );
   }
 

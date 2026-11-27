@@ -34,13 +34,52 @@ const LIST_MARKER = /^(?:[-–—•*·]|\d+[.)])(?:\s+|$)/;
 /**
  * R1 – Zerlegen. Getrennt wird an Zeilenumbrüchen UND an Semikola.
  *
- * Das Komma ist bewusst KEIN Trennzeichen: Aufgabenbeschreibungen enthalten
- * regelmässig legitime Kommas ("Beratung von Privat-, Firmen- und
+ * Das Komma ist grundsätzlich KEIN Trennzeichen: Aufgabenbeschreibungen
+ * enthalten regelmässig legitime Kommas ("Beratung von Privat-, Firmen- und
  * institutionellen Kunden"). Am Komma zu trennen würde solche Einträge
  * zerreissen, und das lässt sich nachträglich nicht mehr reparieren.
+ * Einzige Ausnahme: eine reine Stichwortliste, siehe R1b.
  */
 export function splitTaskInput(raw: string): string[] {
-  return raw.split(/[\n;]+/);
+  return raw.split(/[\n;]+/).flatMap(splitKeywordList);
+}
+
+/** Wörter, die zeigen, dass ein Kommateil zu EINER Aufgabe gehört. */
+const JOINING_WORDS = new Set(["und", "oder", "sowie", "bzw", "bzw."]);
+
+/** Längster Kommateil, der noch als einzelnes Stichwort gilt (in Wörtern). */
+const KEYWORD_MAX_WORDS = 2;
+
+/**
+ * R1b – Stichwortliste in einer Zeile ("Back-Office, Kundenberatung,
+ * Rechnungswesen") am Komma zerlegen.
+ *
+ * Wer so tippt, meint mehrere Aufgaben; im Zeugnis stand dann eine einzige,
+ * lange Aufzählungszeile (Rückmeldung Silvan, 27.11.2026). Getrennt wird nur,
+ * wenn JEDER Kommateil wie ein einzelnes Stichwort aussieht:
+ *   - höchstens zwei Wörter,
+ *   - endet nicht auf einem Ergänzungsstrich ("Privat-, Firmen- …"),
+ *   - enthält kein "und", "oder", "sowie", "bzw." (dann ist es ein Satzteil).
+ * Ein leerer Teil (Komma am Zeilenende) zählt nicht mit. Sonst bleibt die
+ * Zeile unverändert ein Eintrag: lieber einmal zu wenig trennen als eine
+ * echte Aufgabe zerreissen.
+ */
+export function splitKeywordList(line: string): string[] {
+  if (!line.includes(",")) return [line];
+  const parts = line
+    .split(",")
+    .map((p) => p.trim().replace(LIST_MARKER, "").trim())
+    .filter((p) => p.length > 0);
+  if (parts.length < 2) return [line];
+  const isKeyword = (p: string) => {
+    if (p.endsWith("-")) return false;
+    const words = p.split(/\s+/);
+    return (
+      words.length <= KEYWORD_MAX_WORDS &&
+      !words.some((w) => JOINING_WORDS.has(w.toLowerCase()))
+    );
+  };
+  return parts.every(isKeyword) ? parts : [line];
 }
 
 /**
