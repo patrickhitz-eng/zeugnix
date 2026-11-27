@@ -74,18 +74,51 @@ export function codeHmac(secret: string, email: string, code: string): string {
 
 /**
  * Adresse für die Anzeige auf /auth/link, teilweise verdeckt:
- * «anna.muster@firma.ch» → «an•••@firma.ch».
+ * «anna.muster@firma.ch» → «ann•••r@firma.ch».
  *
- * Zweck (Review PR #91, Login-CSRF): Schickt jemand einer Person den Link zum
- * EIGENEN Konto, soll diese vor dem Klick sehen, dass es nicht ihre Adresse
- * ist. Dafür reicht der Anfang und die Domain. Ganz ausgeschrieben stünde die
- * Adresse sonst auf jeder Seite, die ein Linkscanner abruft.
+ * Zweck (Login-CSRF): Schickt jemand einer Person den Link zum EIGENEN Konto,
+ * soll diese vor dem Klick sehen, dass es nicht ihre Adresse ist. Darum stehen
+ * Anfang UND Ende des lokalen Teils da und die ganze Domain: «anna.muster»
+ * und «andrea.meier» sehen mit nur zwei Zeichen gleich aus («an•••»), mit drei
+ * vorne und einem hinten nicht mehr («ann•••r», «and•••r»). Ganz ausgeschrieben stünde die Adresse
+ * sonst auf jeder Seite, die ein Linkscanner abruft, darum bleibt die Mitte
+ * verdeckt.
+ *
+ * Länge des lokalen Teils → sichtbar: 1–2 → erstes Zeichen; 3 → erstes und
+ * letztes; 4 → zwei vorne, eins hinten; ab 5 → drei vorne, eins hinten. Ab
+ * zwei Zeichen bleibt so immer mindestens eines verdeckt.
  */
 export function maskEmail(email: string): string {
   const at = email.lastIndexOf("@");
   if (at <= 0) return "•••";
   const local = email.slice(0, at);
   const domain = email.slice(at + 1);
-  const visible = local.length <= 2 ? local.slice(0, 1) : local.slice(0, 2);
-  return `${visible}•••@${domain}`;
+  if (local.length <= 2) return `${local.slice(0, 1)}•••@${domain}`;
+  const head = Math.min(3, local.length - 2);
+  return `${local.slice(0, head)}•••${local.slice(-1)}@${domain}`;
 }
+
+/**
+ * Muss /auth/link vor dem Einlösen ausdrücklich nachfragen? Ja, wenn dieser
+ * Browser schon angemeldet ist und der Link zu einem ANDEREN Konto gehört.
+ *
+ * Ein Link wechselt dann still das Konto: Die Person arbeitet danach im
+ * fremden Konto weiter und legt ihre Zeugnisse dort ab. Genau das ist der Weg
+ * eines untergeschobenen Anmeldelinks. Darum zeigt die Seite in diesem Fall
+ * beide Konten und verlangt eine Bestätigung, und POST /api/auth/link löst
+ * ohne sie nicht ein.
+ *
+ * Ist die Adresse der laufenden Sitzung unbekannt, gilt das als «anderes
+ * Konto»: lieber einmal zu viel fragen.
+ */
+export function needsSwitchConfirm(
+  current: { email?: string | null } | null | undefined,
+  linkEmail: string,
+): boolean {
+  if (!current) return false;
+  if (!current.email) return true;
+  return normalizeEmail(current.email) !== normalizeEmail(linkEmail);
+}
+
+/** Wert des Bestätigungsfelds auf /auth/link beim Kontowechsel. */
+export const SWITCH_CONFIRM_VALUE = "ja";

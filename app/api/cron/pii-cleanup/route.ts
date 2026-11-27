@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/db/supabase-server";
 import { RETENTION, cutoffIso } from "@/lib/retention";
 import { logError } from "@/lib/log";
+import { hasBearerSecret } from "@/lib/secret-compare";
 
 /**
  * GET /api/cron/pii-cleanup  (H4 – PII-Minimierung, ab Schritt 17 alle Fristen)
@@ -19,17 +20,18 @@ import { logError } from "@/lib/log";
  *
  * Schutz: Vercel Cron sendet automatisch `Authorization: Bearer $CRON_SECRET`,
  * sobald die Env-Var CRON_SECRET gesetzt ist. Ohne gesetzte Env-Var lehnt die
- * Route jeden Aufruf ab (fail closed).
+ * Route jeden Aufruf ab (fail closed). Verglichen wird zeitkonstant
+ * (lib/secret-compare.ts).
  */
 export async function GET(req: NextRequest) {
-  const secret = process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET?.trim();
   if (!secret) {
     return NextResponse.json(
       { error: "CRON_SECRET nicht konfiguriert" },
       { status: 500 },
     );
   }
-  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!hasBearerSecret(req.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

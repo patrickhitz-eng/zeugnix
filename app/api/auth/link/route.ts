@@ -4,8 +4,9 @@ import { authSecret } from "@/lib/auth/config";
 import { sessionCookie } from "@/lib/auth/cookie";
 import { rejectForeignOrigin, rejectTooManyRedeems } from "@/lib/auth/route-guard";
 import { sanitizeNext } from "@/lib/auth/sanitize-next";
-import { redeemLink } from "@/lib/auth/store";
-import { hmac, isTokenShape, newToken } from "@/lib/auth/tokens";
+import { getSessionUser } from "@/lib/auth/session";
+import { linkEmail, redeemLink } from "@/lib/auth/store";
+import { hmac, isTokenShape, needsSwitchConfirm, newToken, SWITCH_CONFIRM_VALUE } from "@/lib/auth/tokens";
 import { logError } from "@/lib/log";
 import { publicOrigin } from "@/lib/public-origin";
 import { siteConfig } from "@/lib/site-config";
@@ -25,6 +26,12 @@ import { siteConfig } from "@/lib/site-config";
  * Ein gewöhnliches HTML-Formular statt fetch: es funktioniert auch, wenn
  * JavaScript blockiert ist, und die Antwort ist eine Weiterleitung (303), mit
  * der das Cookie gleich mitkommt.
+ *
+ * Kontowechsel: Ist dieser Browser schon mit einem anderen Konto angemeldet,
+ * löst die Route nur ein, wenn das Häkchen «Ja, ich will … wechseln» von
+ * /auth/link mitkommt (Feld `bestaetigt`). Sonst geht es zurück auf die Seite,
+ * die beide Konten zeigt. So hängt der Schutz nicht allein am Formular: Auch
+ * ein selbst gebautes Formular ohne Häkchen wechselt kein Konto still.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,9 +53,22 @@ export async function POST(req: NextRequest) {
 
   try {
     const secret = authSecret();
+    const linkHmac = hmac(secret, "link", t);
+
+    if (form?.get("bestaetigt") !== SWITCH_CONFIRM_VALUE) {
+      const current = await getSessionUser();
+      if (current) {
+        const target = await linkEmail(linkHmac);
+        if (target && needsSwitchConfirm(current, target)) {
+          const back = new URLSearchParams({ t, next });
+          return redirectTo(req, `/auth/link?${back.toString()}`);
+        }
+      }
+    }
+
     const token = newToken();
     const user = await redeemLink({
-      linkHmac: hmac(secret, "link", t),
+      linkHmac,
       sessionHmac: hmac(secret, "session", token),
       signupOpen: siteConfig.signup.open,
     });

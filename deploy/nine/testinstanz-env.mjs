@@ -11,18 +11,14 @@
 //
 //   uebernommen   RESEND_API_KEY, EMAIL_FROM, EMAIL_REPLY_TO
 //                 Die Anmelde-Mails sollen wirklich ankommen. Dafuer gibt es keinen Testweg.
-//   fuer den Test NEXT_PUBLIC_SITE_URL (https://test.zeugnio.ch), ZEUGNIO_AUTH=eigen,
+//   fuer den Test NEXT_PUBLIC_SITE_URL (https://test.zeugnio.ch),
 //                 DATABASE_URL (Wegwerf-Cluster), DATA_API_URL (127.0.0.1:3014),
 //                 ZEUGNIO_UPLOAD_DIR (Kopie der Logos)
 //   neu erzeugt   ZEUGNIO_AUTH_SECRET, DATA_API_JWT_SECRET, CRON_SECRET,
 //                 ZEUGNIO_SIGNING_PRIVATE_KEY (eigener Test-Signaturschluessel)
-//   Attrappe      NEXT_PUBLIC_SUPABASE_URL=https://supabase.invalid und zwei Schluessel, die
-//                 nirgends gelten (ZEUGNIO_OWN_AUTH=1 schaltet die Supabase-Pruefung in
-//                 check-env ab). Grund: Mit dem echten Service-Schluessel loeschte «Konto
-//                 loeschen» im Schalter supabase das ECHTE Supabase-Konto der Person
-//                 (app/api/account/delete), und die Produktion meldet bis Tag B ueber Supabase an.
-//                 .invalid ist fuer Namen reserviert, die nie aufgeloest werden (RFC 2606): Ruft
-//                 die App im Schalter eigen doch noch Supabase auf, scheitert das laut im Log.
+//   entfallen     ZEUGNIO_AUTH und die Supabase-Attrappen (NEXT_PUBLIC_SUPABASE_*,
+//                 SUPABASE_SERVICE_ROLE_KEY, ZEUGNIO_OWN_AUTH): Seit B2 liest der Code sie nicht
+//                 mehr, es gibt nur noch die eigene Anmeldung. check-env meldete sie als Reste.
 //   nur oeffentlich ZEUGNIO_SIGNING_PUBLIC_KEYS: die oeffentlichen Schluessel der Produktion,
 //                 damit kopierte, echt signierte Zeugnisse auch auf der Testadresse pruefbar
 //                 bleiben. Umgekehrt kennt die Produktion den Testschluessel nicht: Ein auf der
@@ -128,7 +124,6 @@ if (dbUrl.searchParams.get("host") !== pgSocket || dbUrl.port !== pgPort) fail("
 
 // --- Werte zusammenstellen --------------------------------------------------------------
 const b64 = (bytes) => randomBytes(bytes).toString("base64");
-const hex = (bytes) => randomBytes(bytes).toString("hex");
 const keyIdOf = (publicKey) =>
   createHash("sha256").update(publicKey.export({ type: "spki", format: "der" })).digest("hex").slice(0, 16);
 const pemOf = (raw) => {
@@ -142,15 +137,10 @@ const entries = [];
 const set = (key, value, herkunft) => entries.push([key, value, herkunft]);
 
 set("NEXT_PUBLIC_SITE_URL", siteUrl, "fuer den Test");
-set("ZEUGNIO_AUTH", "eigen", "fuer den Test");
 set("ZEUGNIO_AUTH_SECRET", b64(48), "neu erzeugt");
 set("DATABASE_URL", databaseUrl, "fuer den Test (Wegwerf-Cluster, Passwort ist Fuellwert)");
 set("DATA_API_URL", dataApiUrl, "fuer den Test");
 set("DATA_API_JWT_SECRET", b64(48), "neu erzeugt (gleich in postgrest.conf der Testinstanz)");
-set("NEXT_PUBLIC_SUPABASE_URL", "https://supabase.invalid", "Attrappe (nie aufloesbar)");
-set("NEXT_PUBLIC_SUPABASE_ANON_KEY", `sb_publishable_testinstanz_${hex(16)}`, "Attrappe");
-set("SUPABASE_SERVICE_ROLE_KEY", `sb_secret_testinstanz_${hex(16)}`, "Attrappe");
-set("ZEUGNIO_OWN_AUTH", "1", "fuer den Test (check-env ohne Supabase-Adresse)");
 
 const { privateKey: testPriv, publicKey: testPub } = generateKeyPairSync("ed25519");
 const testKeyId = keyIdOf(testPub);
