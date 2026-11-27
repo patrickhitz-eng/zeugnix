@@ -7,8 +7,8 @@ import { evaluationMailRecipients } from "@/lib/team/notify-recipients";
 import { lookupHash } from "@/lib/link-token";
 import {
   GENERIC_SUBMIT_ERROR,
-  MAX_BODY_CHARS,
   parseSubmission,
+  readJsonBody,
   submitCodeResponse,
 } from "@/lib/evaluations/submission";
 
@@ -41,24 +41,14 @@ export async function POST(req: NextRequest) {
     );
     if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-    // Body begrenzt lesen: erst die angekündigte Länge, dann die tatsächliche.
-    const declared = Number(req.headers.get("content-length") ?? "0");
-    if (Number.isFinite(declared) && declared > MAX_BODY_CHARS * 4) {
-      return NextResponse.json({ error: "Anfrage zu gross" }, { status: 413 });
-    }
-    const raw = await req.text();
-    if (raw.length > MAX_BODY_CHARS) {
-      return NextResponse.json({ error: "Anfrage zu gross" }, { status: 413 });
+    const read = await readJsonBody(req);
+    if (!read.ok) {
+      return read.tooLarge
+        ? NextResponse.json({ error: "Anfrage zu gross" }, { status: 413 })
+        : NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
     }
 
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
-    }
-
-    const parsed = parseSubmission(body);
+    const parsed = parseSubmission(read.body);
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
     }

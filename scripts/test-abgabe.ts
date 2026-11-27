@@ -13,8 +13,12 @@
  *   4. als Regressionsschutz am Quelltext: keine Datenbank-Fehlertexte an den
  *      Browser, nur nötige Felder auf der Seite für Vorgesetzte.
  *
- * Die Datenbankfunktion selbst (nur eigene Einträge ersetzen, Sperre,
- * Gleichzeitigkeit) prüft scripts/test-abgabe.sql auf einer Wegwerf-Datenbank.
+ * Dazu die Selbstbeurteilung (evaluate-self): gleiches Schema, Body-Grenze,
+ * Quelltext-Wächter.
+ *
+ * Die Datenbankfunktionen selbst (nur eigene Einträge ersetzen, Sperre,
+ * Gleichzeitigkeit) prüfen scripts/test-abgabe.sql und
+ * scripts/test-selbstbeurteilung.sql auf einer Wegwerf-Datenbank.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -23,7 +27,10 @@ import {
   GENERIC_SUBMIT_ERROR,
   MAX_EVALUATIONS,
   MAX_FREE_TEXT,
+  MAX_BODY_CHARS,
+  parseSelfEvaluation,
   parseSubmission,
+  readJsonBody,
   submitCodeResponse,
 } from "../lib/evaluations/submission";
 import { latestEvaluationSet } from "../lib/evaluations/latest-set";
@@ -189,5 +196,65 @@ console.log("Quelltext:");
   check("043 nimmt EXECUTE von anon und authenticated", /from anon;/.test(sql) && /from authenticated;/.test(sql));
 }
 
-console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen`);
-if (failed > 0) process.exit(1);
+// ------------------------------------------------ 5. Selbstbeurteilung
+async function selfEvaluation() {
+  console.log("Selbstbeurteilung (evaluate-self):");
+  check("gültig", parseSelfEvaluation({ evaluations: [good] }).ok);
+  check("Body kein Objekt → abgelehnt", !parseSelfEvaluation([good]).ok && !parseSelfEvaluation(null).ok);
+  check("leere Liste → abgelehnt", !parseSelfEvaluation({ evaluations: [] }).ok);
+  check("unbekannte Kategorie → abgelehnt", !parseSelfEvaluation({ evaluations: [{ ...good, category: "x" }] }).ok);
+  check(
+    "überlange Anmerkung → abgelehnt",
+    !parseSelfEvaluation({ evaluations: [{ ...good, free_text: "x".repeat(MAX_FREE_TEXT + 1) }] }).ok,
+  );
+  {
+    const r = parseSelfEvaluation({ evaluations: [{ ...good, certificate_id: "fremd", invitation_id: "x" }] });
+    check(
+      "Zusatzfelder verworfen",
+      r.ok && !("certificate_id" in r.evaluations[0]) && !("invitation_id" in r.evaluations[0]),
+    );
+  }
+
+  const mk = (body: string, headers: Record<string, string> = {}) =>
+    new Request("http://localhost/x", { method: "POST", body, headers });
+  {
+    const r = await readJsonBody(mk(JSON.stringify({ a: 1 })));
+    check("Body-Leser: gültiges JSON", r.ok && (r.body as { a?: number }).a === 1);
+  }
+  {
+    const r = await readJsonBody(mk("{kaputt"));
+    check("Body-Leser: kaputtes JSON → 400", !r.ok && !r.tooLarge);
+  }
+  {
+    const r = await readJsonBody(mk("x".repeat(MAX_BODY_CHARS + 1)));
+    check("Body-Leser: zu gross → 413", !r.ok && r.tooLarge);
+  }
+  {
+    const r = await readJsonBody(mk("{}", { "content-length": String(MAX_BODY_CHARS * 4 + 1) }));
+    check("Body-Leser: angekündigte Länge zu gross → 413", !r.ok && r.tooLarge);
+  }
+
+  const root = process.cwd();
+  const route = readFileSync(path.join(root, "app/api/certificates/[id]/evaluate-self/route.ts"), "utf8");
+  check("Route nutzt die atomare Funktion", route.includes('"zeugnio_save_self_evaluation"'));
+  check("Route prüft das Schema", route.includes("parseSelfEvaluation("));
+  check("Route löscht nicht selbst", !/\.delete\(\)/.test(route));
+  check("Route weist versiegelte Zeugnisse ab", route.includes("isCertificateLocked("));
+  check(
+    "Route gibt keine Fehlertexte an den Browser",
+    !/NextResponse\.json\(\s*\{\s*error:\s*[^}]*\.message/.test(route) && !/error:\s*`[^`]*\$\{[^}]*\.message/.test(route),
+  );
+
+  const sql = readFileSync(path.join(root, "supabase/046_selbstbeurteilung_atomar.sql"), "utf8");
+  check(
+    "046 ersetzt nur die Selbstbeurteilung",
+    /delete from public\.evaluations\s+where certificate_id = p_certificate_id\s+and invitation_id is null;/.test(sql),
+  );
+  check("046 ohne SECURITY DEFINER", !/security definer/i.test(sql));
+  check("046 nimmt EXECUTE von anon", /from anon;/.test(sql));
+}
+
+selfEvaluation().then(() => {
+  console.log(`\n${passed} bestanden, ${failed} fehlgeschlagen`);
+  if (failed > 0) process.exit(1);
+});

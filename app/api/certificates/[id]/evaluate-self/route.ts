@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
+import { isCertificateLocked } from "@/lib/certificate/status";
+import {
+  GENERIC_SUBMIT_ERROR,
+  parseSelfEvaluation,
+  readJsonBody,
+} from "@/lib/evaluations/submission";
+
+const LOCKED_MESSAGE =
+  "Finalisierte oder widerrufene Zeugnisse können nicht mehr bearbeitet werden";
 
 /**
  * POST /api/certificates/[id]/evaluate-self
@@ -10,85 +19,90 @@ import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ow
  * Führungskraft ist), die Beurteilung direkt selbst zu erfassen,
  * ohne den Umweg über E-Mail-Einladung und Token-Link.
  *
- * Body: { evaluations: Array<{ category, rating, free_text? }> }
+ * Body: { evaluations: Array<{ category, subcategory?, rating, free_text? }> }
+ *
+ * Gehärtet wie die Abgabe über den Einladungslink (Sicherheitstest
+ * 24.11.2026, T7, Folge-PR):
+ *   - Dasselbe strikte Schema (lib/evaluations/submission.ts), Body begrenzt.
+ *   - Speichern in EINER Datenbankfunktion (Migration 046): Sperre auf dem
+ *     Zeugnis, versiegelte Zeugnisse abgewiesen, nur die Selbstbeurteilung
+ *     ersetzt (Abgaben über Einladungen bleiben), Status im selben Zug.
+ *   - Datenbankfehler nur ins Server-Log, an den Browser eine allgemeine Meldung.
  */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const { evaluations } = await req.json();
+  try {
+    const { id } = await params;
 
-  if (!Array.isArray(evaluations) || evaluations.length === 0) {
-    return NextResponse.json(
-      { error: "Keine Beurteilungen übermittelt" },
-      { status: 400 },
-    );
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const read = await readJsonBody(req);
+    if (!read.ok) {
+      return read.tooLarge
+        ? NextResponse.json({ error: "Anfrage zu gross" }, { status: 413 })
+        : NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+    }
+    const parsed = parseSelfEvaluation(read.body);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+
+    // Zeugnis laden (RLS) und Recht prüfen, damit die Antworten 404/403 wie
+    // in den übrigen Routen ausfallen. Die Funktion prüft unter der Sperre
+    // ein zweites Mal.
+    const { data: cert } = await supabase
+      .from("certificates")
+      .select("id, status, company_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!cert) {
+      return NextResponse.json(
+        { error: "Zeugnis nicht gefunden oder kein Zugriff" },
+        { status: 404 },
+      );
+    }
+    if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit"))) {
+      return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
+    }
+    if (isCertificateLocked(cert.status)) {
+      return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 409 });
+    }
+
+    const { data: code, error: rpcErr } = await supabase.rpc("zeugnio_save_self_evaluation", {
+      p_certificate_id: id,
+      p_submitted_by_email: user.email ?? "self",
+      p_evaluations: parsed.evaluations,
+    });
+    if (rpcErr) {
+      console.error("[evaluate-self] Speichern fehlgeschlagen:", rpcErr.message);
+      return NextResponse.json({ error: GENERIC_SUBMIT_ERROR }, { status: 500 });
+    }
+
+    switch (code) {
+      case "ok":
+        return NextResponse.json({ ok: true });
+      case "not_found":
+        return NextResponse.json(
+          { error: "Zeugnis nicht gefunden oder kein Zugriff" },
+          { status: 404 },
+        );
+      case "forbidden":
+        return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
+      case "locked":
+        return NextResponse.json({ error: LOCKED_MESSAGE }, { status: 409 });
+      case "invalid":
+        return NextResponse.json({ error: "Ungültige Anfrage" }, { status: 400 });
+      default:
+        console.error("[evaluate-self] Unerwartete Antwort der Speicherfunktion:", code);
+        return NextResponse.json({ error: GENERIC_SUBMIT_ERROR }, { status: 500 });
+    }
+  } catch (err) {
+    console.error("[evaluate-self] Unerwarteter Fehler:", err);
+    return NextResponse.json({ error: GENERIC_SUBMIT_ERROR }, { status: 500 });
   }
-
-  const supabase = await createClient();
-  const user = await getSessionUser();
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Verifizieren, dass User Zugriff auf das Certificate hat (RLS macht das,
-  // aber wir wollen auch sicherstellen, dass die ID gültig ist)
-  const { data: cert } = await supabase
-    .from("certificates")
-    .select("id, status, company_id")
-    .eq("id", id)
-    .single();
-  if (!cert)
-    return NextResponse.json(
-      { error: "Zeugnis nicht gefunden oder kein Zugriff" },
-      { status: 404 },
-    );
-
-  if (!(await userHasCompanyPermission(supabase, cert.company_id, user.id, "edit")))
-    return NextResponse.json({ error: permissionDeniedMessage("edit") }, { status: 403 });
-
-  // Bestehende Evaluations zu diesem Zeugnis löschen (idempotent: erneute
-  // Selbst-Beurteilung überschreibt vorherige). Fehler hier ist kritisch:
-  // sonst würden neue Beurteilungen zu den alten addiert (Duplikate).
-  const { error: delErr } = await supabase
-    .from("evaluations")
-    .delete()
-    .eq("certificate_id", id);
-  if (delErr) {
-    return NextResponse.json(
-      { error: `Vorherige Beurteilungen konnten nicht ersetzt werden: ${delErr.message}` },
-      { status: 500 },
-    );
-  }
-
-  // Neue Evaluations einfügen, mit User-E-Mail als Beurteiler
-  const userEmail = user.email ?? "self";
-  const rows = evaluations.map((e: any) => ({
-    certificate_id: id,
-    invitation_id: null, // keine Einladung, da Selbst-Beurteilung
-    submitted_by_email: userEmail,
-    category: e.category,
-    subcategory: e.subcategory ?? null,
-    rating: e.rating,
-    free_text: e.free_text ?? null,
-  }));
-
-  const { error: insErr } = await supabase.from("evaluations").insert(rows);
-  if (insErr) {
-    return NextResponse.json({ error: insErr.message }, { status: 500 });
-  }
-
-  // Status auf manager_submitted setzen, damit der Generieren-Schritt freigeschaltet ist
-  const { error: statusErr } = await supabase
-    .from("certificates")
-    .update({ status: "manager_submitted" })
-    .eq("id", id);
-  if (statusErr) {
-    return NextResponse.json(
-      { error: `Status konnte nicht aktualisiert werden: ${statusErr.message}` },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({ ok: true });
 }
