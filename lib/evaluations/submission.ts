@@ -49,6 +49,10 @@ export type ParseResult =
   | { ok: true; token: string; evaluations: ValidEvaluation[] }
   | { ok: false; error: string };
 
+export type ListParseResult =
+  | { ok: true; evaluations: ValidEvaluation[] }
+  | { ok: false; error: string };
+
 const THEME_BY_SKILL = new Map(SKILLS.map((s) => [s.key, s.theme]));
 const RATING_SET = new Set<string>(RATING_VALUES);
 
@@ -59,8 +63,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 const INVALID = "Ungültige Anfrage";
 
 /**
- * Prüft den bereits geparsten JSON-Body. Gibt nur die erlaubten Felder zurück;
- * alles andere wird verworfen. Die Fehlermeldungen nennen keine Interna.
+ * Prüft den bereits geparsten JSON-Body der Abgabe über den Einladungslink.
+ * Gibt nur die erlaubten Felder zurück; alles andere wird verworfen. Die
+ * Fehlermeldungen nennen keine Interna.
  */
 export function parseSubmission(body: unknown): ParseResult {
   if (!isPlainObject(body)) return { ok: false, error: INVALID };
@@ -69,6 +74,22 @@ export function parseSubmission(body: unknown): ParseResult {
   if (typeof token !== "string" || token.length === 0 || token.length > 200) {
     return { ok: false, error: INVALID };
   }
+  const list = parseEvaluationList(evaluations);
+  return list.ok ? { ok: true, token, evaluations: list.evaluations } : list;
+}
+
+/**
+ * Prüft den Body der Selbstbeurteilung (`{ evaluations }`, angemeldete
+ * Personalabteilung, app/api/certificates/[id]/evaluate-self). Dieselben
+ * Regeln wie beim Einladungslink, nur ohne Token.
+ */
+export function parseSelfEvaluation(body: unknown): ListParseResult {
+  if (!isPlainObject(body)) return { ok: false, error: INVALID };
+  return parseEvaluationList(body.evaluations);
+}
+
+/** Die Liste der Beurteilungen, gemeinsam für beide Wege. */
+export function parseEvaluationList(evaluations: unknown): ListParseResult {
   if (!Array.isArray(evaluations)) return { ok: false, error: INVALID };
   if (evaluations.length === 0) {
     return { ok: false, error: "Bitte mindestens eine Eigenschaft beurteilen." };
@@ -120,7 +141,28 @@ export function parseSubmission(body: unknown): ParseResult {
     });
   }
 
-  return { ok: true, token, evaluations: out };
+  return { ok: true, evaluations: out };
+}
+
+/**
+ * Liest einen JSON-Body mit Grössengrenze (`MAX_BODY_CHARS`): erst die
+ * angekündigte Länge, dann die tatsächliche. Bei `ok: false` war der Body zu
+ * gross (`tooLarge`) oder kein gültiges JSON.
+ */
+export async function readJsonBody(
+  req: Request,
+): Promise<{ ok: true; body: unknown } | { ok: false; tooLarge: boolean }> {
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > MAX_BODY_CHARS * 4) {
+    return { ok: false, tooLarge: true };
+  }
+  const raw = await req.text();
+  if (raw.length > MAX_BODY_CHARS) return { ok: false, tooLarge: true };
+  try {
+    return { ok: true, body: JSON.parse(raw) };
+  } catch {
+    return { ok: false, tooLarge: false };
+  }
 }
 
 /** Rückgabewerte von `zeugnio_submit_manager_evaluation` (Migration 043). */
