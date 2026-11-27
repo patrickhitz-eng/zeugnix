@@ -3,8 +3,9 @@ import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import {
-  canonicalizeForHash,
-  hashBodyMetaV2,
+  CURRENT_HASH_VERSION,
+  canonicalizeForHashV3,
+  hashBodyMetaV3,
   type CertificateMetaFields,
 } from "@/lib/hash/canonicalize";
 import { resolveSignatories } from "@/lib/certificate/signatories";
@@ -58,10 +59,15 @@ export async function POST(
 
   // Hash über den TATSÄCHLICH gedruckten Body bilden – exakt dieselbe Quelle
   // wie das PDF (app/api/certificates/[id]/pdf/route.ts) und dieselbe
-  // Pipeline wie die Verifikation (canonicalizeForHash). Datum/Ort sind als
-  // letzter Absatz Teil des Body, daher kein separates (flüchtiges) Datum.
+  // Pipeline wie die Verifikation. Datum/Ort sind als letzter Absatz Teil des
+  // Body, daher kein separates (flüchtiges) Datum.
+  //
+  // T9 (Sicherheitstest 24.11.2026): Neue Zeugnisse werden mit Hash-Version 3
+  // versiegelt. Deren Kanonisierung bindet jeden Strich im Text (siehe
+  // canonicalizeForHashV3). v1-/v2-Zeugnisse bleiben, wie sie sind, und werden
+  // weiter mit ihrer eigenen Kanonisierung geprüft.
   const bodyText = cert.edited_text || cert.generated_text || "";
-  const canonicalString = canonicalizeForHash(bodyText);
+  const canonicalString = canonicalizeForHashV3(bodyText);
 
   // S1b: Meta-Snapshot (Arbeitgeber / Titel / Unterzeichnende) zum
   // Finalisierungszeitpunkt EINFRIEREN. Der v2-Hash deckt Body UND Meta; das
@@ -80,9 +86,9 @@ export async function POST(
     signatory2Name: sig.signatory_2_name ?? "",
     signatory2Role: sig.signatory_2_role ?? "",
   };
-  const hash = await hashBodyMetaV2(bodyText, metaSnapshot);
+  const hash = await hashBodyMetaV3(bodyText, metaSnapshot);
 
-  // S2: v2-Hash mit dem privaten Plattform-Schlüssel (Ed25519) signieren. Die
+  // S2: Siegel-Hash (seit T9 v3) mit dem privaten Plattform-Schlüssel (Ed25519) signieren. Die
   // Signatur wird gespeichert UND (im PDF) eingebettet; die Prüfung verifiziert
   // sie offline gegen den öffentlichen Schlüssel -> „nur zeugnio konnte das
   // ausstellen". Ist KEIN Schlüssel konfiguriert (z. B. Preview ohne Env),
@@ -98,9 +104,10 @@ export async function POST(
       hash,
       // canonical_content bleibt bewusst der reine Body-Canonical: er dient dem
       // Verifier als Fallback-Lookup (Body erkannt, aber Meta getauscht -> gezielte
-      // "Feld-Mismatch"-Meldung statt "unbekannt").
+      // "Feld-Mismatch"-Meldung statt "unbekannt"). Kanonisiert nach derselben
+      // Version wie der Hash (v3); die Prüfung vergleicht versionsgerecht.
       canonical_content: canonicalString,
-      hash_version: 2,
+      hash_version: CURRENT_HASH_VERSION,
       meta_snapshot: metaSnapshot,
       // S2: null, wenn kein Schlüssel konfiguriert ist (additiv, Bestandsschutz).
       signature: signed?.signature ?? null,

@@ -74,6 +74,38 @@ export function canonicalizeForHash(text: string): string {
 }
 
 /**
+ * Kanonisierung ab Hash-Version 3 (Sicherheitstest 24.11.2026, T9).
+ *
+ * Gleich wie canonicalizeForHash, aber OHNE die Regel, die jedes «-» vor einem
+ * Leerraum entfernt. Diese Regel kam am 28.06.2026 zusammen mit dem Abschalten
+ * der PDF-Silbentrennung (lib/pdf/certificate.tsx, registerHyphenationCallback)
+ * und sollte nur PDFs retten, die vorher schon silbengetrennt heruntergeladen
+ * worden waren («Re- sultate»). Seither rendert das PDF jedes Wort ungetrennt,
+ * der extrahierte Text enthält also nur Striche, die auch im Quelltext stehen.
+ *
+ * Die alte Regel band einen Strich mit folgendem Leerraum nicht ins Siegel:
+ * «Leistung – sehr gut» und «Leistung sehr gut» ergaben denselben v1-/v2-Hash,
+ * ebenso «Firmen- und Privatkunden» und «Firmenund Privatkunden». v3 bindet
+ * jeden Strich.
+ *
+ * Aufzählungen brauchen keine eigene Regel: Sie stehen als «• » sowohl im
+ * Quelltext (tiptapToPlainText) als auch im PDF (tiptap-to-pdf.tsx) und laufen
+ * auf beiden Seiten gleich durch. Eine Regel «pro Zeile» wäre hier sogar
+ * falsch, weil der aus dem PDF extrahierte Text keine Zeilen mehr kennt und die
+ * Regel dann nur auf der Quellseite greifen würde.
+ *
+ * Gedanken- und Bindestriche werden weiterhin vereinheitlicht (– und — → -),
+ * wie Anführungszeichen. Das Siegel bindet also, DASS dort ein Strich steht,
+ * nicht welche typografische Form er hat.
+ *
+ * Bestandsschutz: v1- und v2-Zeugnisse werden weiter mit canonicalizeForHash
+ * geprüft. Diese Funktion gilt nur für Zeugnisse mit hash_version >= 3.
+ */
+export function canonicalizeForHashV3(text: string): string {
+  return normalizeSpecialChars(text).replace(/\s+/g, " ").trim();
+}
+
+/**
  * Schneidet aus rohem (z.B. aus PDF extrahiertem) Text den Body zwischen den
  * beiden Sentinels heraus – exklusiv der Marker selbst. Tolerant gegenüber
  * Whitespace innerhalb der Klammern (pdfjs kann Text-Items verkleben). Nimmt
@@ -149,7 +181,19 @@ export function toMetaFields(
  * Name) den Hash verändert.
  */
 export function canonicalizeMeta(meta: CertificateMetaFields): string {
-  const n = (v: string) => canonicalizeForHash(v ?? "");
+  return canonicalizeMetaWith(meta, canonicalizeForHash);
+}
+
+/** Meta-Kanonisierung ab v3: dieselben Felder, Kanonisierung v3. */
+export function canonicalizeMetaV3(meta: CertificateMetaFields): string {
+  return canonicalizeMetaWith(meta, canonicalizeForHashV3);
+}
+
+function canonicalizeMetaWith(
+  meta: CertificateMetaFields,
+  canon: (text: string) => string,
+): string {
+  const n = (v: string) => canon(v ?? "");
   return [
     "employer=" + n(meta.employer),
     "title=" + n(meta.documentTitle),
@@ -177,6 +221,35 @@ export async function hashBodyMetaV2(
 ): Promise<string> {
   return sha256(
     canonicalizeForHash(body) + META_HASH_SEPARATOR + canonicalizeMeta(meta),
+  );
+}
+
+/**
+ * Hash-Version, mit der neue Zeugnisse beim Finalisieren versiegelt werden.
+ * Die Prüfung kennt weiterhin alle Versionen (1, 2, 3).
+ */
+export const CURRENT_HASH_VERSION = 3;
+
+// Versions-Präfix des v3-Hash. Damit kann ein v3-Hash nie mit einem v2-Hash
+// zusammenfallen, auch nicht bei einem Text ohne Striche, wo beide
+// Kanonisierungen dasselbe liefern. Jeder Hash gehört so zu genau einer
+// Version, und die Ed25519-Signatur über ihn ebenso.
+const HASH_V3_PREFIX = "zeugnio-hash-v3\n";
+
+/**
+ * v3-Hash (T9): deckt Body UND Meta-Felder wie v2, aber mit der Kanonisierung
+ * v3, die jeden Strich im Text bindet. Aufbau:
+ *   "zeugnio-hash-v3\n" + Body (v3) + "\n[[zeugnix:meta]]\n" + Meta (v3)
+ */
+export async function hashBodyMetaV3(
+  body: string,
+  meta: CertificateMetaFields,
+): Promise<string> {
+  return sha256(
+    HASH_V3_PREFIX +
+      canonicalizeForHashV3(body) +
+      META_HASH_SEPARATOR +
+      canonicalizeMetaV3(meta),
   );
 }
 
@@ -235,7 +308,8 @@ export function decodeMetaBlock(rawBlock: string): CertificateMetaFields | null 
 // S2 – Kryptografische Signatur (Ed25519)
 // ============================================================================
 // Der SHA-256 belegt Inhalts-Identität (jeder kann ihn nachrechnen), NICHT
-// Urheberschaft. S2 signiert den v2-Hash mit einem privaten Plattform-Schlüssel;
+// Urheberschaft. S2 signiert den Siegel-Hash (v2, seit T9 v3) mit einem
+// privaten Plattform-Schlüssel;
 // die Prüfung verifiziert die Signatur gegen den öffentlichen Schlüssel –
 // offline, ohne DB. Damit gilt „nur zeugnio konnte das ausstellen".
 //
@@ -253,7 +327,7 @@ export const SIG_SENTINEL_END = "[[zeugnix:sig-end]]";
 // fremden Kontext als gültig missbraucht werden kann. Versioniert.
 const SIG_PAYLOAD_PREFIX = "zeugnio-cert-sig-v1:";
 
-/** Kanonische, zu signierende Nachricht über den v2-Hash. */
+/** Kanonische, zu signierende Nachricht über den Siegel-Hash (v2 oder v3). */
 export function buildSignaturePayload(hashV2: string): string {
   return SIG_PAYLOAD_PREFIX + hashV2;
 }
@@ -365,9 +439,10 @@ export interface VerifiedCertificateFields {
   // H2 (24.11.2026): der versiegelte Fliesstext zum Vergleich mit dem Papier.
   // Nur bei gültigen (finalen) Zeugnissen, sonst null.
   sealedText?: string | null;
-  // S1b: Siegel-Version des Treffers. 2 = Body UND Aussteller/Titel/
-  // Unterzeichnende sind vom Hash gedeckt; 1 = nur Fliesstext (Alt-Zeugnis,
-  // Bestandsschutz). Steuert das Vertrauens-Label in der Prüfung.
+  // S1b: Siegel-Version des Treffers. 3 = wie 2, zusätzlich bindet das Siegel
+  // jeden Strich im Text (T9); 2 = Body UND Aussteller/Titel/Unterzeichnende
+  // sind vom Hash gedeckt; 1 = nur Fliesstext (Alt-Zeugnis, Bestandsschutz).
+  // Steuert das Vertrauens-Label in der Prüfung (ab 2 volles Siegel).
   sealVersion: number;
   // S2: true = das PDF trägt eine GÜLTIGE kryptografische zeugnio-Signatur
   // (Ed25519) über seinen Inhalt, gegen den öffentlichen Plattform-Schlüssel

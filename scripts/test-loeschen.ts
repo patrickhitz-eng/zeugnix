@@ -131,6 +131,13 @@ async function main() {
     check("Text-Hash trifft v2-Eintrag (Kopf/Unterschrift getauscht)", viaBody?.fromRegister === true);
     const v1Client = fakeClient({ certificate_register: [{ ...entry, hash_version: 1 }] });
     check("Text-Hash zählt bei v1 nicht als Mismatch", (await findRegisterByBodyHash(v1Client, "b".repeat(64))) === null);
+    // T9: body_hash ist nach der Version des Zeugnisses kanonisiert. Ein v3-
+    // Eintrag zählt nur mit dem v3-Text-Hash, ein v2-Eintrag nur mit dem alten.
+    const v3Client = fakeClient({ certificate_register: [{ ...entry, hash_version: 3 }] });
+    check("v3-Eintrag: v3-Text-Hash trifft", (await findRegisterByBodyHash(v3Client, "b".repeat(64), 3))?.fromRegister === true);
+    check("v3-Eintrag: Text-Hash der alten Kanonisierung trifft nicht", (await findRegisterByBodyHash(v3Client, "b".repeat(64), 1)) === null);
+    check("v2-Eintrag: v3-Text-Hash trifft nicht", (await findRegisterByBodyHash(client, "b".repeat(64), 3)) === null);
+    check("v3-Eintrag über den Siegel-Hash: sealVersion 3", (await buildCertificateFields(v3Client, await findCertificateByHash(v3Client, "a".repeat(64)))).sealVersion === 3);
     check("unbekannter Hash bleibt unbekannt", (await findCertificateByHash(client, "c".repeat(64))) === null);
 
     const live = fakeClient({ certificates: [{ id: "live", hash: "a".repeat(64), status: "final" }], certificate_register: [entry] });

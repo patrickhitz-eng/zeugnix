@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     let outcome: HashLookupOutcome;
     if (match) {
       // Gespeicherte Signatur gegen den gespeicherten Hash prüfen. Signiert wird
-      // beim Finalisieren der v2-Hash, und genau der steht in `hash` und damit
+      // beim Finalisieren der Siegel-Hash (v2, seit T9 v3), und genau der steht in `hash` und damit
       // im QR-Code. Fehlt die Signatur (Alt-Zeugnis, kein Schlüssel), ist das
       // "none" und kein Fehler.
       let signatureState: HashLookupCertificateFields["signatureState"] = "none";

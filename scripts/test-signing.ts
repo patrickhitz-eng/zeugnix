@@ -17,6 +17,7 @@ import {
   decodeSignatureBlock,
   extractSignatureBetweenSentinels,
   hashBodyMetaV2,
+  hashBodyMetaV3,
   SIG_SENTINEL_START,
   SIG_SENTINEL_END,
   type CertificateMetaFields,
@@ -156,6 +157,31 @@ async function main() {
   check(
     "verifyCertificateSignature lehnt unbekannte keyId ab",
     !!envSigned && !verifyCertificateSignature(hashV2, "ffffffffffffffff", envSigned.signature),
+  );
+
+  // T9: Neue Zeugnisse signieren den v3-Hash. Die Signatur gehört zu genau
+  // dieser Version und bindet jeden Strich im Text.
+  console.log("\nT9 – Signatur über den v3-Hash");
+  const BODY_DASH = "Ihre Leistung – stets sehr gut – überzeugte uns.";
+  const hashV3 = await hashBodyMetaV3(BODY_DASH, META);
+  const v3Signed = signCertificateHash(hashV3);
+  check(
+    "v3: Signatur verifiziert gegen den v3-Hash",
+    !!v3Signed && verifyCertificateSignature(hashV3, v3Signed.keyId, v3Signed.signature),
+  );
+  check(
+    "v3: Text ohne Gedankenstrich bricht die Signatur",
+    !!v3Signed &&
+      !verifyCertificateSignature(
+        await hashBodyMetaV3(BODY_DASH.replace(/ –/g, ""), META),
+        v3Signed.keyId,
+        v3Signed.signature,
+      ),
+  );
+  check(
+    "v3-Signatur gilt nicht für den v2-Hash desselben Inhalts",
+    !!v3Signed &&
+      !verifyCertificateSignature(await hashBodyMetaV2(BODY_DASH, META), v3Signed.keyId, v3Signed.signature),
   );
 
   // Rotation: eine mit dem ZURÜCKGEZOGENEN Schlüssel B erzeugte Signatur muss
