@@ -1,36 +1,30 @@
-import { NextRequest, NextResponse } from "next/server";
-import { logInfo } from "@/lib/log";
+import { NextResponse } from "next/server";
 
 /**
- * Stripe-Webhook-Endpoint (Stub für MVP).
+ * Stripe-Webhook: stillgelegt, bis die Bezahlung wirklich eingebaut wird.
  *
- * Im Produktionsbetrieb:
- *   1. Webhook-Signatur validieren (process.env.STRIPE_WEBHOOK_SECRET)
- *   2. Event 'checkout.session.completed' abfangen
- *   3. payments-Tabelle: status = 'succeeded', stripe_payment_id eintragen
- *   4. Verknüpfte verification/analysis: paid = true
- *   5. E-Mail an Käufer mit Resultat
+ * Bisher nahm der Platzhalter jede POST-Anfrage an und antwortete 200, ohne
+ * zu prüfen, ob sie von Stripe kommt. Ausgelöst hat er nichts, aber eine
+ * Route, die «empfangen» meldet, lädt dazu ein, später Logik dahinter zu
+ * hängen und die Prüfung zu vergessen. Darum jetzt 501: Der Body wird nicht
+ * gelesen, nichts wird protokolliert oder ausgelöst.
  *
- * Aktuell: nimmt POST entgegen, loggt und antwortet 200.
+ * Die Herkunftsprüfung der Middleware (lib/api-origin.ts) nimmt diese Route
+ * aus, weil Stripe keinen Origin schickt. Die echte Umsetzung muss darum
+ * selbst prüfen, bevor sie irgendetwas tut:
+ *   1. Rohtext lesen (`await req.text()`, nicht `req.json()`: die Signatur
+ *      gilt für die Bytes, wie sie ankommen).
+ *   2. `stripe.webhooks.constructEvent(rohtext, req.headers.get("stripe-signature"),
+ *      process.env.STRIPE_WEBHOOK_SECRET)`; wirft es, mit 400 abweisen. Das
+ *      Paket `stripe` ist schon Abhängigkeit.
+ *   3. Erst dann `checkout.session.completed` verarbeiten: payments auf
+ *      «succeeded», verknüpfte verification/analysis auf paid = true.
+ *   4. Nie den Payload protokollieren: Er enthält Name, E-Mail und
+ *      Zahlungsdaten der kaufenden Person.
  */
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.text();
-    // Bewusst nur die Grösse: Ein Stripe-Payload enthält Name, E-Mail und
-    // Zahlungsdaten der kaufenden Person.
-    logInfo("[stripe] Webhook empfangen (Stub), Bytes:", body.length);
-
-    // ---- Echte Webhook-Verarbeitung (auskommentiert) ----
-    // const sig = req.headers.get('stripe-signature')!;
-    // const event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
-    // if (event.type === 'checkout.session.completed') { ... }
-
-    return NextResponse.json({ received: true });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Webhook error" },
-      { status: 400 },
-    );
-  }
+export function POST() {
+  return NextResponse.json(
+    { error: "Zahlungen sind noch nicht eingerichtet." },
+    { status: 501 },
+  );
 }

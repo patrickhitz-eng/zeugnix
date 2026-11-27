@@ -13,6 +13,8 @@ import {
   matchedCertificateIdForLog,
 } from "@/lib/verify/certificate-fields";
 import { logError } from "@/lib/log";
+import { readJsonLimited } from "@/lib/http/read-json";
+import { MAX_VERIFY_HASH_BODY_BYTES } from "@/lib/verify/limits";
 
 // node:crypto (Ed25519-Verifikation) braucht die Node-Runtime, nicht Edge.
 export const runtime = "nodejs";
@@ -52,12 +54,13 @@ export async function POST(req: NextRequest) {
     );
     if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-    let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      body = null;
+    // Der Body trägt nur den Hash; mehr als ein paar Kilobyte liest die Route
+    // gar nicht erst (lib/http/read-json.ts).
+    const read = await readJsonLimited(req, MAX_VERIFY_HASH_BODY_BYTES);
+    if (!read.ok && read.reason === "zu_gross") {
+      return NextResponse.json({ error: "Anfrage zu gross." }, { status: 413 });
     }
+    const body = read.ok ? read.value : null;
     const raw = (body as { hash?: unknown } | null)?.hash;
     const hash = normalizeVerifyHash(typeof raw === "string" ? raw : null);
     if (!hash) {

@@ -22,6 +22,8 @@
     "test:link-token": "tsx scripts/test-link-token.ts",
     "test:loeschen-confirm": "tsx scripts/test-loeschen-confirm.ts",
     "test:public-origin": "tsx scripts/test-public-origin.ts",
+    "test:api-origin": "tsx scripts/test-api-origin.ts",
+    "test:read-json": "tsx scripts/test-read-json.ts",
     "test:mastervorlage": "tsx scripts/test-mastervorlage.ts",
     "test:verify-hash": "tsx scripts/test-verify-hash.ts",
     "test:signoff-binding": "tsx scripts/test-signoff-binding.ts",

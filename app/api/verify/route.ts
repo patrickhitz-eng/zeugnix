@@ -21,6 +21,12 @@ import {
   matchedCertificateIdForLog,
 } from "@/lib/verify/certificate-fields";
 import { logError } from "@/lib/log";
+import { readJsonLimited } from "@/lib/http/read-json";
+import {
+  MAX_VERIFY_BODY_BYTES,
+  MAX_VERIFY_TEXT_CHARS,
+  VERIFY_TEXT_TOO_LONG,
+} from "@/lib/verify/limits";
 
 // S2: node:crypto (Ed25519-Verifikation) benötigt die Node-Runtime (nicht Edge).
 export const runtime = "nodejs";
@@ -44,6 +50,11 @@ const VERIFY_WINDOW_MS = 60 * 1000;
  * `userEmail` wird bewusst ignoriert.
  *
  * Antwort: { result, calculatedHash, matchedCertificateId? }
+ *
+ * Grenzen (lib/verify/limits.ts): Body höchstens 1 MB, Text höchstens
+ * 200 000 Zeichen, sonst 413. Fehler gehen nur mit allgemeinem Text an den
+ * Aufrufer (der Endpunkt ist ohne Konto erreichbar), die Einzelheiten ins
+ * Server-Log.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -54,14 +65,22 @@ export async function POST(req: NextRequest) {
     );
     if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-    const body = await req.json();
-    const { text } = body as { text?: string };
+    const body = await readJsonLimited(req, MAX_VERIFY_BODY_BYTES);
+    if (!body.ok) {
+      return body.reason === "zu_gross"
+        ? NextResponse.json({ error: VERIFY_TEXT_TOO_LONG }, { status: 413 })
+        : NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
+    }
+    const text = (body.value as { text?: unknown } | null)?.text;
 
-    if (!text || text.length < 50) {
+    if (typeof text !== "string" || text.length < 50) {
       return NextResponse.json(
         { error: "Text zu kurz oder fehlt" },
         { status: 400 },
       );
+    }
+    if (text.length > MAX_VERIFY_TEXT_CHARS) {
+      return NextResponse.json({ error: VERIFY_TEXT_TOO_LONG }, { status: 413 });
     }
 
     // 1. Body zwischen den Sentinels isolieren – schliesst Briefkopf,
@@ -200,10 +219,10 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(outcome);
-  } catch (err: any) {
+  } catch (err) {
     logError("[verify] Fehler:", err);
     return NextResponse.json(
-      { error: err.message ?? "Internal error" },
+      { error: "Die Prüfung ist fehlgeschlagen. Bitte versuchen Sie es später erneut." },
       { status: 500 },
     );
   }

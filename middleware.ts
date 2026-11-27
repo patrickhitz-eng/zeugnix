@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { authSecret, SESSION_COOKIE } from "@/lib/auth/config";
+import { judgeOrigin, needsOriginCheck } from "@/lib/api-origin";
+import { authSecret, SESSION_COOKIE, siteOrigin } from "@/lib/auth/config";
 import { clearedSessionCookie, sessionCookie } from "@/lib/auth/cookie";
+import { allowedOrigins } from "@/lib/auth/origin";
 import { lookupSession } from "@/lib/auth/store";
 import { hmac, isTokenShape } from "@/lib/auth/tokens";
-import { logError } from "@/lib/log";
+import { logError, logWarn } from "@/lib/log";
 import { legacyHostRedirect, publicOrigin } from "@/lib/public-origin";
 
 /**
@@ -99,6 +101,26 @@ export async function middleware(request: NextRequest) {
   // Altdomain zeugnix.ch → zeugnio.ch, vor allem anderen (lib/public-origin.ts).
   const legacy = legacyHostRedirect(publicOrigin(request), path + request.nextUrl.search);
   if (legacy) return NextResponse.redirect(legacy, 308);
+
+  // Herkunft jeder schreibenden API-Anfrage (lib/api-origin.ts): Nur die
+  // eigenen Seiten dürfen unter /api/* etwas ändern. Dieselbe Liste erlaubter
+  // Adressen wie bei den Anmelde-Routen (lib/auth/route-guard.ts).
+  if (needsOriginCheck(request.method, path)) {
+    const verdict = judgeOrigin({
+      origin: request.headers.get("origin"),
+      referer: request.headers.get("referer"),
+      allowed: allowedOrigins({
+        siteOrigin: siteOrigin(),
+        requestOrigin: request.nextUrl.origin,
+        production: !isDev,
+      }),
+    });
+    if (verdict !== "ok") {
+      // Nur Methode und erster Pfadteil: Der volle Pfad kann einen Token tragen.
+      logWarn("[origin] abgewiesen:", request.method, path.split("/").slice(0, 3).join("/"), verdict);
+      return NextResponse.json({ error: "Anfrage von fremder Herkunft abgelehnt." }, { status: 403 });
+    }
+  }
 
   const nonce = servesNonce(path) ? btoa(crypto.randomUUID()) : null;
   const csp = buildCsp(nonce, isDev);
@@ -238,5 +260,8 @@ export const config = {
      * - statische Bildformate
      */
     "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Jede API-Adresse, auch eine, die auf «.png» endet: Sonst liefe etwa
+    // PATCH /api/companies/x.png an der Herkunftsprüfung oben vorbei.
+    "/api/:path*",
   ],
 };
