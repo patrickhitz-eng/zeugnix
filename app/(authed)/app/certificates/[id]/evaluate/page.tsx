@@ -5,6 +5,7 @@ import { ManagerEvaluationForm } from "@/components/forms/manager-evaluation-for
 import { SKILLS } from "@/lib/phrases/skills";
 import type { EmployeeData, PhraseBlock } from "@/lib/phrases/engine";
 import Link from "next/link";
+import { latestEvaluationSet } from "@/lib/evaluations/latest-set";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,7 +34,8 @@ export default async function SelfEvaluatePage({ params }: PageProps) {
   // Bereits gespeicherte Beurteilung (falls die Person schon einmal bewertet
   // wurde) für die Vorbelegung des Formulars – so muss beim Nachbearbeiten nicht
   // alles neu gewählt werden.
-  const initialEvaluations = (cert.evaluations ?? []).map((e: any) => ({
+  // Bei mehreren Sätzen der jüngste, wie im Generator (lib/evaluations/latest-set.ts).
+  const initialEvaluations = latestEvaluationSet<any>(cert.evaluations).map((e: any) => ({
     category: e.category,
     rating: e.rating,
     free_text: e.free_text,

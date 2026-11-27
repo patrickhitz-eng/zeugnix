@@ -19,13 +19,17 @@ export default async function InvitationPage({ params }: PageProps) {
   const tokenHash = lookupHash(token);
   if (!tokenHash) notFound();
 
-  // Mit Service Client laden, weil dies eine öffentliche (token-basierte) Seite ist
+  // Mit Service Client laden, weil dies eine öffentliche (token-basierte) Seite ist.
+  // Nur die Felder, die Seite und Vorschau brauchen (Sicherheitstest 24.11.2026,
+  // T8): kein Geburtsdatum, kein Pensum, keine internen Zeugnis- oder
+  // Firmenfelder. Was nicht geladen wird, kann auch nicht versehentlich in den
+  // Props einer Client-Komponente landen.
   const supabase = createServiceClient();
 
   const { data: inv } = await supabase
     .from("manager_invitations")
     .select(
-      "id, certificate_id, status, expires_at, certificates(*, employees(*), companies(*))",
+      "id, status, expires_at, certificates(status, type, employees(first_name, last_name, gender, function_title, entry_date, exit_date, is_manager), companies(name))",
     )
     .eq("token_hash", tokenHash)
     .single();
@@ -87,26 +91,36 @@ export default async function InvitationPage({ params }: PageProps) {
     );
   }
 
-  // Status auf 'viewed' updaten (best-effort: blockiert die Anzeige nicht)
+  // Status auf 'viewed' updaten (best-effort: blockiert die Anzeige nicht).
+  // Nur aus 'pending': Lädt jemand die Seite, während dieselbe Einladung gerade
+  // abgegeben wird, darf das 'submitted' nicht wieder öffnen (T7).
   const { error: viewErr } = await supabase
     .from("manager_invitations")
     .update({ status: "viewed", viewed_at: new Date().toISOString() })
-    .eq("id", inv.id);
+    .eq("id", inv.id)
+    .eq("status", "pending");
   if (viewErr) {
     console.warn("[invitations] viewed-Update fehlgeschlagen:", viewErr.message);
   }
 
   // Skill-Bausteine für die Live-Vorschau (Service-Client umgeht RLS in diesem
   // öffentlichen Token-Flow – ein anonymer Manager ist nicht 'authenticated').
+  // Nur die Spalten, die die Vorschau braucht (lib/phrases/engine.ts,
+  // PhraseBlock); die internen Einstufungen (Signalstärke, Tonalität,
+  // Warnstufe) bleiben auf dem Server (T8).
   const { data: skillBlocks } = await supabase
     .from("phrase_blocks")
-    .select("*")
+    .select("id, category, subcategory, employee_type, gender, rating, variant, text, tempus")
     .eq("active", true)
     .in(
       "category",
       SKILLS.map((s) => s.key),
     );
 
+  // Geht als Prop an die Client-Komponente und damit in den Seiten-Payload.
+  // Die Skill-Bausteine nutzen nur Name, Geschlecht, Funktion und Daten des
+  // Arbeitsverhältnisses; Geburtsdatum und Pensum kommen nur in Einleitung und
+  // Arbeitsbestätigung vor und bleiben weg (T8).
   const employeeData: EmployeeData = {
     firstName: employee.first_name,
     lastName: employee.last_name,
@@ -114,8 +128,6 @@ export default async function InvitationPage({ params }: PageProps) {
     functionTitle: employee.function_title,
     entryDate: employee.entry_date,
     exitDate: employee.exit_date ?? undefined,
-    dateOfBirth: employee.date_of_birth ?? undefined,
-    employmentPercentage: employee.employment_percentage ?? undefined,
     isManager: employee.is_manager,
   };
   const tempus: "praesens" | "praeteritum" =
@@ -143,7 +155,6 @@ export default async function InvitationPage({ params }: PageProps) {
       <div className="mt-8">
         <ManagerEvaluationForm
           token={token}
-          certificateId={cert.id}
           isManager={employee.is_manager}
           phraseBlocks={(skillBlocks ?? []) as PhraseBlock[]}
           employee={employeeData}

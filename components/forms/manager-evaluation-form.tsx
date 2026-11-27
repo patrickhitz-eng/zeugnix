@@ -7,6 +7,7 @@ import {
   type EmployeeData,
   type PhraseBlock,
 } from "@/lib/phrases/engine";
+import { MAX_FREE_TEXT } from "@/lib/evaluations/submission";
 
 const RATINGS = [
   { value: "sehr_gut", label: "Sehr gut" },
@@ -57,11 +58,12 @@ export interface InitialEvaluation {
 }
 
 interface Props {
-  certificateId: string;
   isManager: boolean;
   // Genau eines von beiden muss gesetzt sein:
   token?: string; // Manager-Einladung über E-Mail-Link
   selfMode?: boolean; // Eingeloggter HR/Inhaber beurteilt selbst
+  /** Nur im selfMode nötig. Die Seite für Vorgesetzte gibt die ID nicht heraus. */
+  certificateId?: string;
   /** Bereits gespeicherte Beurteilung – belegt das Formular beim Nachbearbeiten vor. */
   initialEvaluations?: InitialEvaluation[];
   /**
@@ -417,6 +419,7 @@ export function ManagerEvaluationForm({
                               }))
                             }
                             rows={2}
+                            maxLength={MAX_FREE_TEXT}
                             placeholder="z.B. besonders erwähnenswerte Projekte oder Leistungen"
                             className="mt-2 w-full rounded-md border border-ink-200 px-3 py-2 text-[13px]"
                           />

@@ -26,6 +26,8 @@
     "test:verify-hash": "tsx scripts/test-verify-hash.ts",
     "test:signoff-binding": "tsx scripts/test-signoff-binding.ts",
     "test:signoff-binding-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-signoff-binding.sql",
+    "test:abgabe": "tsx scripts/test-abgabe.ts",
+    "test:abgabe-db": "psql -X -v ON_ERROR_STOP=1 -f scripts/test-abgabe.sql",
     "test:tiptap": "tsx scripts/test-tiptap.ts",
     "test:themes": "tsx scripts/test-themes.ts",
     "test:pdf-roundtrip": "tsx scripts/test-pdf-roundtrip.ts",

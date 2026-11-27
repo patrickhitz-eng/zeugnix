@@ -3,6 +3,7 @@ import { createClient } from "@/lib/db/supabase-server";
 import { getSessionUser } from "@/lib/auth/session";
 import { permissionDeniedMessage, userHasCompanyPermission } from "@/lib/auth/ownership";
 import { isCertificateLocked } from "@/lib/certificate/status";
+import { latestEvaluationSet } from "@/lib/evaluations/latest-set";
 import {
   generateCertificate,
   type EmployeeData,
@@ -46,7 +47,9 @@ export async function POST(
 
   const employee = cert.employees;
   const company = cert.companies;
-  const evals: any[] = cert.evaluations ?? [];
+  // Liegen mehrere Beurteilungssätze vor (Selbstbeurteilung, mehrere
+  // Einladungen), gilt der jüngste (lib/evaluations/latest-set.ts, T7).
+  const evals: any[] = latestEvaluationSet<any>(cert.evaluations);
 
   if (!employee || !company) {
     return NextResponse.json(
