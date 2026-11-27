@@ -15,8 +15,9 @@ import { logError } from "@/lib/log";
  *  1. zeugnio_delete_account (036, nur service_role) prüft «letzte Admin-
  *     Person», protokolliert und löscht das Profil. Firmen und Zeugnisse, die
  *     sie angelegt hat, bleiben; das Ersteller-Feld wird leer.
- *     Auf advisori01 löscht sie auch die Zeile in auth.users (sofern die
- *     Rechte es erlauben) und damit (per Fremdschlüssel) alle Sitzungen.
+ *     Danach löscht sie die Zeile in auth.users (seit 045 über
+ *     zeugnio_delete_auth_user, das service_role kein DELETE-Recht auf
+ *     auth.users braucht) und damit (per Fremdschlüssel) alle Sitzungen.
  *  2. Danach alle Sitzungen der Person ausdrücklich beenden und das Cookie
  *     dieses Browsers löschen.
  *

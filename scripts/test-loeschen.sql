@@ -59,9 +59,9 @@ where id = '00000000-0000-0000-0000-0000000000f3';
 -- f2: Entwurf von e1
 insert into public.certificates (id, company_id, employee_id, type, created_by_user_id) values
   ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000e1', 'schluss', '00000000-0000-0000-0000-00000000000a');
--- 039: «verified» gibt es nur noch mit DNS-Nachweis (company_domains_verified_needs_dns).
-insert into public.company_domains (company_id, domain, status, method, verified_at)
-values ('00000000-0000-0000-0000-0000000000c1', 'loeschtest.ch', 'verified', 'dns', now());
+-- Seit 039 heisst «verified» DNS-geprüft (Check-Regel company_domains_verified_needs_dns).
+insert into public.company_domains (company_id, domain, method, status, verified_at)
+values ('00000000-0000-0000-0000-0000000000c1', 'loeschtest.ch', 'dns', 'verified', now());
 
 -- Mitglieder wie nach einer Einladung.
 insert into public.organization_members (organization_id, user_id, role)
@@ -113,6 +113,11 @@ begin
   begin
     perform public.zeugnio_delete_account('00000000-0000-0000-0000-0000000000b2');
     raise exception 'FEHLER: zeugnio_delete_account ist für authenticated aufrufbar';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.zeugnio_delete_auth_user('00000000-0000-0000-0000-0000000000b2');
+    raise exception 'FEHLER: zeugnio_delete_auth_user ist für authenticated aufrufbar';
   exception when insufficient_privilege then null;
   end;
   -- Ein Entwurf bleibt löschbar.
@@ -230,6 +235,14 @@ where user_id = '00000000-0000-0000-0000-0000000000b1';
 
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 set local role service_role;
+-- 045: Die Löschfunktion für auth.users nimmt kein Konto, das noch ein Profil hat.
+do $$ begin
+  begin
+    perform public.zeugnio_delete_auth_user('00000000-0000-0000-0000-00000000000a');
+    raise exception 'FEHLER: zeugnio_delete_auth_user löscht ein Konto mit Profil';
+  exception when sqlstate '55000' then null;
+  end;
+end $$;
 select public.zeugnio_delete_account('00000000-0000-0000-0000-00000000000a');
 reset role;
 
