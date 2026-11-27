@@ -55,10 +55,9 @@ export async function POST(req: NextRequest) {
       mock: true,
       product: PRODUCT_PRICES[product],
     });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message ?? "Internal error" },
-      { status: 500 },
-    );
+  } catch {
+    // Allgemeiner Text statt err.message: Die Route ist ohne Konto erreichbar,
+    // und eine Parser-Meldung gibt Teile der Eingabe zurück.
+    return NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
   }
 }

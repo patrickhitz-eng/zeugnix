@@ -3,6 +3,12 @@ import { createServiceClient } from "@/lib/db/supabase-server";
 import { clientIpKey, rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { analyzeText } from "@/lib/phrases/analyze";
 import { logError } from "@/lib/log";
+import { readJsonLimited } from "@/lib/http/read-json";
+import {
+  MAX_VERIFY_BODY_BYTES,
+  MAX_VERIFY_TEXT_CHARS,
+  VERIFY_TEXT_TOO_LONG,
+} from "@/lib/verify/limits";
 
 // Öffentlicher, Service-Role-gestützter Endpunkt → Rate-Limit gegen DoS/Abuse.
 const ANALYZE_LIMIT = 10;
@@ -30,19 +36,30 @@ export async function POST(req: NextRequest) {
     );
     if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-    const { text } = await req.json();
+    // Gleiche Grenzen wie /api/verify (lib/verify/limits.ts): Die Prüfseite
+    // schickt denselben Text an beide Routen.
+    const body = await readJsonLimited(req, MAX_VERIFY_BODY_BYTES);
+    if (!body.ok) {
+      return body.reason === "zu_gross"
+        ? NextResponse.json({ error: VERIFY_TEXT_TOO_LONG }, { status: 413 })
+        : NextResponse.json({ error: "Ungültige Anfrage." }, { status: 400 });
+    }
+    const text = (body.value as { text?: unknown } | null)?.text;
 
-    if (!text || text.length < 50) {
+    if (typeof text !== "string" || text.length < 50) {
       return NextResponse.json(
         { error: "Text zu kurz oder fehlt" },
         { status: 400 },
       );
     }
+    if (text.length > MAX_VERIFY_TEXT_CHARS) {
+      return NextResponse.json({ error: VERIFY_TEXT_TOO_LONG }, { status: 413 });
+    }
 
     const result = analyzeText(text);
 
     const supabase = createServiceClient();
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("analyses")
       .insert({
         uploaded_file_path: "inline-text",
@@ -56,9 +73,7 @@ export async function POST(req: NextRequest) {
         warnings: result.warnings,
         summary: result.summary,
         paid: false,
-      })
-      .select()
-      .single();
+      });
 
     if (error) {
       // Über logError, nicht console: Der Insert-Fehler von PostgREST trägt die
@@ -66,10 +81,13 @@ export async function POST(req: NextRequest) {
       logError("[analyze] Insert fehlgeschlagen:", error);
     }
 
-    return NextResponse.json({ ok: true, analysis: result, id: data?.id });
-  } catch (err: any) {
+    // Ohne die ID der gespeicherten Zeile: Die Seite braucht sie nicht, und
+    // interne Kennungen gehen nicht an Anonyme.
+    return NextResponse.json({ ok: true, analysis: result });
+  } catch (err) {
+    logError("[analyze] Fehler:", err);
     return NextResponse.json(
-      { error: err.message ?? "Internal error" },
+      { error: "Die Analyse ist fehlgeschlagen. Bitte versuchen Sie es später erneut." },
       { status: 500 },
     );
   }
