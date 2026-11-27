@@ -90,13 +90,28 @@ function registerAsMatch(entry: any) {
  * Sonderfall «Kopf oder Unterschriften verändert» für gelöschte Zeugnisse:
  * Der Text-Hash trifft einen Registereintrag mit v2-Siegel, der Siegel-Hash
  * nicht. Gegenstück zum Abgleich über canonical_content in /api/verify.
+ *
+ * `body_hash` ist der SHA-256 über `canonical_content` und damit nach der
+ * Version des Zeugnisses kanonisiert (T9). `canonVersion` sagt, mit welcher
+ * Kanonisierung `bodyHash` gebildet wurde:
+ *   1 → trifft nur v2-Einträge (v1-Einträge haben kein Meta-Siegel),
+ *   3 → trifft nur Einträge ab v3.
+ * So gilt ein Text, dem ein Strich fehlt, bei einem v3-Zeugnis nicht über die
+ * alte Kanonisierung als «Text echt».
  */
-export async function findRegisterByBodyHash(supabase: any, bodyHash: string) {
-  const { data: entry } = await supabase
+export async function findRegisterByBodyHash(
+  supabase: any,
+  bodyHash: string,
+  canonVersion: 1 | 3 = 1,
+) {
+  const base = supabase
     .from("certificate_register")
     .select(REGISTER_SELECT_COLS)
-    .eq("body_hash", bodyHash)
-    .gte("hash_version", 2)
+    .eq("body_hash", bodyHash);
+  const { data: entry } = await (canonVersion >= 3
+    ? base.gte("hash_version", 3)
+    : base.eq("hash_version", 2)
+  )
     .limit(1)
     .maybeSingle();
   return entry ? registerAsMatch(entry) : null;

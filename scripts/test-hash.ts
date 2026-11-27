@@ -15,12 +15,16 @@ import {
   BODY_SENTINEL_END,
   META_SENTINEL_START,
   META_SENTINEL_END,
+  CURRENT_HASH_VERSION,
   canonicalizeForHash,
+  canonicalizeForHashV3,
   extractBodyBetweenSentinels,
   extractMetaBetweenSentinels,
   canonicalizeMeta,
   hashBodyV1,
   hashBodyMetaV2,
+  hashBodyMetaV3,
+  toMetaFields,
   encodeMetaBlock,
   decodeMetaBlock,
   sha256,
@@ -277,6 +281,103 @@ async function run() {
     exBody
       ? (await hashBodyV1(exBody)) === (await hashBodyV1(body))
       : false,
+  );
+
+  // ----- T9: Kanonisierung v3 -----
+  console.log("\nT9 – Kanonisierung v3 (jeder Strich zählt):");
+  assert(
+    "v3: Gedankenstrich im Satz bleibt erhalten",
+    canonicalizeForHashV3("Leistung – sehr gut") === "Leistung - sehr gut",
+  );
+  assert(
+    "v3: Ergänzungsstrich bleibt erhalten",
+    canonicalizeForHashV3("Firmen- und Privatkunden") === "Firmen- und Privatkunden",
+  );
+  assert(
+    "v3: Whitespace, Quotes, NBSP wie v1",
+    canonicalizeForHashV3("  „Gut“\n\n\tund  sehr gut  ") === '"Gut" und sehr gut',
+  );
+  assert(
+    "v3: Text ohne «- » kanonisiert gleich wie v1",
+    canonicalizeForHashV3("Cold-Outreach via Linked-In\n\n• Aufgabe") ===
+      canonicalizeForHash("Cold-Outreach via Linked-In\n\n• Aufgabe"),
+  );
+
+  const metaT9 = toMetaFields({ employer: "Muster AG", documentTitle: "Arbeitszeugnis", signatory1Name: "Max Muster", signatory1Role: "Leiter – HR" });
+  const withDash = "Ihre Leistung – stets sehr gut – überzeugte uns.";
+  const withoutDash = "Ihre Leistung stets sehr gut überzeugte uns.";
+  assert(
+    "v2 (Altbestand): Gedankenstrich ändert den Hash NICHT (Befund T9)",
+    (await hashBodyMetaV2(withDash, metaT9)) === (await hashBodyMetaV2(withoutDash, metaT9)),
+  );
+  assert(
+    "v3: Gedankenstrich im Satz ändert den Hash",
+    (await hashBodyMetaV3(withDash, metaT9)) !== (await hashBodyMetaV3(withoutDash, metaT9)),
+  );
+  assert(
+    "v3: Ergänzungsstrich ändert den Hash",
+    (await hashBodyMetaV3("Firmen- und Privatkunden", metaT9)) !==
+      (await hashBodyMetaV3("Firmenund Privatkunden", metaT9)),
+  );
+  assert(
+    "v3: Strich in einem Meta-Feld ändert den Hash",
+    (await hashBodyMetaV3(withDash, metaT9)) !==
+      (await hashBodyMetaV3(withDash, { ...metaT9, signatory1Role: "Leiter HR" })),
+  );
+
+  // Aufzählungen: «• » steht in Quelle (tiptapToPlainText) UND PDF gleich, die
+  // Zeilen gehen bei der Extraktion verloren. Der Hash muss darum über die
+  // Quelle und über das zeilenlose PDF-Extrakt gleich sein.
+  const listSource = "Aufgaben:\n\n• Beratung – Firmenkunden\n• Mitarbeit im Projekt";
+  const listPdf = `Briefkopf ${BODY_SENTINEL_START} Aufgaben: • Beratung – Firmenkunden • Mitarbeit im Projekt ${BODY_SENTINEL_END} Unterschrift`;
+  const listEx = extractBodyBetweenSentinels(listPdf);
+  assert(
+    "v3: Aufzählung am Zeilenanfang – Quelle == zeilenloses PDF-Extrakt",
+    listEx !== null && (await hashBodyMetaV3(listEx, metaT9)) === (await hashBodyMetaV3(listSource, metaT9)),
+  );
+  assert(
+    "v3: Zeilenumbrüche vor der Aufzählung ändern den Hash nicht",
+    (await hashBodyMetaV3(listSource, metaT9)) ===
+      (await hashBodyMetaV3(listSource.replace(/\n/g, "\n\n\n"), metaT9)),
+  );
+  assert(
+    "v3: Gedankenstrich am PDF-Zeilenende (Umbruch danach) == Quelle",
+    (await hashBodyMetaV3("Leistung –\nsehr gut", metaT9)) ===
+      (await hashBodyMetaV3("Leistung – sehr gut", metaT9)),
+  );
+
+  // Versionen trennen sich: Selbst bei einem Text ohne Strich, wo v1- und
+  // v3-Kanonisierung gleich sind, ist der v3-Hash ein anderer als der v2-Hash.
+  // Ein Hash gehört damit zu genau einer Version.
+  const plain = "Er arbeitete stets zu unserer vollsten Zufriedenheit.";
+  assert(
+    "v3-Hash != v2-Hash auch ohne Strich (Versions-Präfix)",
+    (await hashBodyMetaV3(plain, metaT9)) !== (await hashBodyMetaV2(plain, metaT9)),
+  );
+  assert("CURRENT_HASH_VERSION ist 3", CURRENT_HASH_VERSION === 3);
+
+  // ----- Bestandsschutz: feste Referenzwerte v1/v2 -----
+  // Berechnet am 27.11.2026 mit dem Stand VOR v3. Ändert sich einer dieser
+  // Werte, prüfen bestehende Zeugnisse nicht mehr. Nie anpassen, sondern den
+  // Code reparieren.
+  console.log("\nBestandsschutz – feste v1-/v2-Referenzwerte:");
+  const fixtureBody =
+    "Frau Muster war vom 01.02.2019 bis 31.10.2026 bei uns tätig.\n\nIhre Leistung – stets sehr gut – überzeugte. Sie arbeitete selbständig.\n\n• Beratung von Firmen- und Privatkunden\n• Mitarbeit im Projekt «Kernbanken-Ablösung»\n\nZürich, 23.10.2026";
+  const fixtureMeta = toMetaFields({
+    employer: "Beispiel Treuhand AG",
+    documentTitle: "Arbeitszeugnis",
+    signatory1Name: "Daniela Muster",
+    signatory1Role: "Leiterin – HR",
+  });
+  assert(
+    "v1-Referenzwert unverändert",
+    (await hashBodyV1(fixtureBody)) ===
+      "5584fc20a3a74a81d3d580eed48109415d1330d37f6b993bff5f68959728923f",
+  );
+  assert(
+    "v2-Referenzwert unverändert",
+    (await hashBodyMetaV2(fixtureBody, fixtureMeta)) ===
+      "3bc473a162f0ba0e71db77e9f8f812bd4d4ef7212a9b42805071ea4b398e5063",
   );
 
   // ----- Zusammenfassung -----

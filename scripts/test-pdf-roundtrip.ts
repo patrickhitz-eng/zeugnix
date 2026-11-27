@@ -24,15 +24,18 @@
 
 import {
   canonicalizeForHash,
+  canonicalizeForHashV3,
   decodeMetaBlock,
   encodeMetaBlock,
   extractBodyBetweenSentinels,
   extractMetaBetweenSentinels,
+  hashBodyMetaV3,
   hashBodyV1,
   toMetaFields,
 } from "../lib/hash/canonicalize";
 import { BASE_TOKENS } from "../lib/design/document-tokens";
 import { renderCertificatePdf } from "../lib/pdf/certificate";
+import { plainTextToTiptap } from "../lib/certificate/tiptap-plaintext";
 
 let passed = 0;
 let failed = 0;
@@ -45,6 +48,14 @@ function assert(name: string, condition: boolean, details?: string) {
     console.log(`  ✗ ${name}${details ? ` — ${details}` : ""}`);
     failed++;
   }
+}
+
+/** Zeigt die erste abweichende Stelle zweier Strings (für Fehlermeldungen). */
+function firstDiff(a: string, b: string): string {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  const from = Math.max(0, i - 40);
+  return `\n      ab Zeichen ${i}\n      PDF:    ${JSON.stringify(a.slice(from, i + 40))}\n      Quelle: ${JSON.stringify(b.slice(from, i + 40))}`;
 }
 
 /** Gesamten Text eines PDFs in Leserichtung, Seite für Seite. */
@@ -92,6 +103,40 @@ const BODY = [
   "Zürich, 23.10.2026",
 ].join("\n\n");
 
+/**
+ * T9 (Kanonisierung v3): v3 entfernt keinen Strich mehr. Hält der Rundlauf nur,
+ * wenn das PDF keinen Strich hinzufügt (Silbentrennung) und keinen verliert.
+ * Darum ein Text, der genau das provoziert: Gedankenstriche mitten im Satz und
+ * am Zeilenende, Ergänzungsstriche («Firmen- und»), viele lange Bindestrich-
+ * Wörter, die in verschiedenen Spalten auf ein Zeilenende fallen, und sehr
+ * lange Wörter ohne Strich, die eine Silbentrennung herausfordern würden.
+ */
+const COMPOUNDS = [
+  "Kundenberatungs-Prozesse",
+  "Finanzierungs-Kompetenz",
+  "Mehrwertsteuer-Abrechnung",
+  "Jahresabschluss-Vorbereitung",
+  "Lohnbuchhaltungs-Software",
+  "Vorsorge-Planung",
+  "Geschäftskunden-Betreuung",
+  "Qualitätssicherungs-Massnahmen",
+  "Projektleitungs-Erfahrung",
+  "Kernbankensystem-Einführung",
+];
+const DASH_BODY = [
+  "Ihre Leistung – stets sehr gut – überzeugte uns. Sie arbeitete selbständig, exakt und zuverlässig – auch unter Zeitdruck.",
+  // Jedes Kompositum mit wachsendem Vorlauf, damit es irgendwo am Zeilenende landet.
+  COMPOUNDS.map((w, i) => "x".repeat(i + 1) + " " + w).join(" "),
+  COMPOUNDS.map((w, i) => "Wort ".repeat(i) + w + " –").join(" "),
+  "Sie betreute Firmen- und Privatkunden, Vorsorge- sowie Steuerfragen und beherrschte die Rechnungslegungs- und Revisionsstandards.",
+  "Donaudampfschifffahrtsgesellschaftskapitänsmütze Rechtsschutzversicherungsgesellschaften Grundstücksverkehrsgenehmigungszuständigkeitsübertragungsverordnung",
+  [
+    "• Beratung – mit Schwerpunkt Firmenkunden",
+    "• Mitarbeit an der Kernbankensystem-Einführung",
+  ].join("\n"),
+  "Zürich, 23.10.2026",
+].join("\n\n");
+
 async function run() {
   console.log("\n=== PDF-Rundlauf: Hash über das echte Dokument ===\n");
   console.log(
@@ -104,14 +149,24 @@ async function run() {
   // certificate.tsx). Darum laufen beide Modi durch dieselben Prüfungen.
   for (const signatureMode of ["digital", "handwritten"] as const) {
     console.log(`\n### Unterschrift: ${signatureMode}\n`);
-    await checkMode(signatureMode);
+    await checkMode(signatureMode, BODY);
   }
+
+  // T9: v3 durch dasselbe echte PDF, mit dem Strich-Stresstext.
+  console.log(`\n### Kanonisierung v3: Striche im Text\n`);
+  await checkMode("digital", DASH_BODY);
+  console.log(`\n### Kanonisierung v3: Striche im formatierten Text (Tiptap)\n`);
+  await checkMode("digital", DASH_BODY, true);
 
   console.log(`\n--- ${passed} bestanden, ${failed} fehlgeschlagen ---\n`);
   if (failed > 0) process.exit(1);
 }
 
-async function checkMode(signatureMode: "digital" | "handwritten") {
+async function checkMode(
+  signatureMode: "digital" | "handwritten",
+  BODY: string,
+  formatted = false,
+) {
   const pdf = await renderCertificatePdf({
     companyName: "Beispiel Treuhand AG",
     companyAddress: "Bahnhofstrasse 42",
@@ -127,7 +182,7 @@ async function checkMode(signatureMode: "digital" | "handwritten") {
 
     certificateTitle: "Arbeitszeugnis",
     bodyText: BODY,
-    formattedContent: null,
+    formattedContent: formatted ? plainTextToTiptap(BODY) : null,
     themeId: "zeugnix-standard",
 
     signatory1Name: "Daniela Muster",
@@ -168,6 +223,25 @@ async function checkMode(signatureMode: "digital" | "handwritten") {
     const hashFromPdf = await hashBodyV1(extractedBody);
     const hashFromSource = await hashBodyV1(BODY);
     assert("Hash aus dem PDF == Hash aus dem Quelltext", hashFromPdf === hashFromSource);
+
+    // T9: Kanonisierung v3 (behält jeden Strich) über dasselbe PDF.
+    const v3FromPdf = canonicalizeForHashV3(extractedBody);
+    const v3FromSource = canonicalizeForHashV3(BODY);
+    assert(
+      "v3: kanonisierter Text aus dem PDF == kanonisierter Quelltext",
+      v3FromPdf === v3FromSource,
+      v3FromPdf === v3FromSource ? undefined : firstDiff(v3FromPdf, v3FromSource),
+    );
+    assert(
+      "v3: Siegel-Hash aus dem PDF == Siegel-Hash aus dem Quelltext",
+      (await hashBodyMetaV3(extractedBody, META)) === (await hashBodyMetaV3(BODY, META)),
+    );
+    const dashes = (s: string) => (s.match(/-/g) ?? []).length;
+    assert(
+      "v3: alle Striche des Quelltexts kommen im PDF-Text an",
+      dashes(v3FromPdf) === dashes(v3FromSource) && dashes(v3FromSource) > 0,
+      `PDF ${dashes(v3FromPdf)}, Quelle ${dashes(v3FromSource)}`,
+    );
 
     // Der Meta-Block steht AUSSERHALB der Body-Sentinels und darf dort nicht
     // hineingeraten – sonst würde er den Body-Hash mit verändern.

@@ -123,10 +123,12 @@ export async function renderSealedCertificate(
 
   const baseName = `${certificateTitle}_${employee.last_name}_${employee.first_name}`;
 
-  // S1b: unsichtbarer Meta-Block nur für v2-Zeugnisse, aus dem eingefrorenen
-  // Snapshot. S2: Signatur-Block aus dem gespeicherten Wert (nie neu signieren).
+  // S1b: unsichtbarer Meta-Block für Zeugnisse ab v2 (v2 und v3 decken die
+  // Meta-Felder), aus dem eingefrorenen Snapshot. Ohne ihn könnte die Prüfung
+  // den Siegel-Hash eines v3-Zeugnisses nicht nachrechnen.
+  // S2: Signatur-Block aus dem gespeicherten Wert (nie neu signieren).
   const metaBlockEncoded =
-    cert.hash_version === 2 && cert.meta_snapshot
+    (cert.hash_version ?? 1) >= 2 && cert.meta_snapshot
       ? encodeMetaBlock(toMetaFields(cert.meta_snapshot))
       : undefined;
   const signatureBlockEncoded =
