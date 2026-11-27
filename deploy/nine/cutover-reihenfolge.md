@@ -225,7 +225,7 @@ und geprüft: `grant nmd_zeugnio_rw to pgadmin with inherit true`, danach Anmeld
 - **DMARC:** `p=quarantine` (vorher `none`), weiter ohne `rua`. Vor F1 (M365) und 6.3 (mailomat) zuerst DKIM und SPF des neuen Absenders eintragen, sonst landen dessen Mails im Spam.
 - **`test.zeugnio.ch`:** DNS-Eintrag, vhost und Zertifikat entfernt.
 - **Zone:** Die Änderungen im Infomaniak-Manager landeten in der Zone auf `nsany1/nsany2.infomaniak.com`, und die .ch-Zone delegiert seit **13:37** dorthin. Vorher geprüft: Beide Zonen waren bis auf die drei gewollten Änderungen gleich, also kein Ausfall. `ns11/ns12` ist seither verwaist; gemessen wird bei den delegierten Servern (`nslookup -type=NS zeugnio.ch a.nic.ch`).
-- **`security.txt`:** PR #136, live nach Merge und Deploy.
+- **`security.txt`:** PR #136, gemergt 14:49 und deployt; seit 14:51 live (`https://zeugnio.ch/.well-known/security.txt` liefert 200, `text/plain`, Inhalt gleich der Datei in main).
 
 **Stand 25.11. abends: 6.4b Vercel-Projekt gelöscht.** Projekt `zeugnix` im Team «patrickhitz-eng's projects» von Silvan gelöscht, die übrigen acht Projekte des Teams unberührt. Damit sind auch die alten Variablen bei Vercel weg (Supabase-Schlüssel, Resend-Schlüssel, `CRON_SECRET`, alter Signaturschlüssel; mit diesem wurde nie ein Produktionszeugnis signiert). `zeugnix.vercel.app` liefert 404, `zeugnio.ch` läuft unverändert von advisori01. zeugnio braucht weder Vercel noch Supabase. Offen bei Vercel nur noch die Domain `zeugnio.com` im Team «advisori GmbH» (übertragen oder auslaufen lassen, bis 24.07.2027).
 

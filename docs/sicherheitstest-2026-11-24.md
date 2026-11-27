@@ -456,8 +456,8 @@ Hinweise aus Abschnitt 3 ohne Code-PR liegen beim Betreiber: `test.zeugnio.ch` a
 `quarantine`, CAA-Eintrag und `security.txt`, absolute Höchstdauer für Sitzungen (Produktentscheid).
 
 **Stand 27.11.:** `test.zeugnio.ch` abgebaut, DMARC `p=quarantine`, CAA auf `letsencrypt.org`
-reduziert (plus `issuewild ";"`), `security.txt` vorbereitet in PR #136 (live erst nach Merge und
-Deploy). Offen bleiben dieser Deploy und die Höchstdauer für Sitzungen. Einzelheiten im Journal `deploy/nine/kommunikation.md`, 27.11.
+reduziert (plus `issuewild ";"`), `security.txt` seit 27.11. live (PR #136, gemergt und deployt, von aussen
+geprüft). Offen bleibt die Höchstdauer für Sitzungen. Einzelheiten im Journal `deploy/nine/kommunikation.md`, 27.11.
 
 ## 7. Funde während der Fix-Arbeit
 
