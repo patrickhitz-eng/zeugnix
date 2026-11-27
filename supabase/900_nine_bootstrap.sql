@@ -241,8 +241,11 @@ grant execute on function public.debug_whoami() to anon, authenticated, service_
 
 -- auth.users ist keine Tabelle der Daten-API. Nur service_role darf hinein, und
 -- auch das nur über die Funktion in 902.
+-- DELETE braucht zeugnio_delete_account (036): Die Kontolöschung läuft als
+-- service_role und löscht die Zeile nur, wenn dieses Recht da ist. Bis zum
+-- 27.11.2026 fehlte es hier, siehe 909_konto_loeschen_auth_users.sql.
 revoke all on auth.users from public;
-grant select, insert, update on auth.users to service_role;
+grant select, insert, update, delete on auth.users to service_role;
 
 -- ----------------------------------------------------------------------------
 -- Fertig. Nächster Schritt: `node scripts/migrate.mjs` – das legt das Schema aus

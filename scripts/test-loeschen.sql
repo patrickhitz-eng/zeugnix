@@ -59,8 +59,9 @@ where id = '00000000-0000-0000-0000-0000000000f3';
 -- f2: Entwurf von e1
 insert into public.certificates (id, company_id, employee_id, type, created_by_user_id) values
   ('00000000-0000-0000-0000-0000000000f2', '00000000-0000-0000-0000-0000000000c1', '00000000-0000-0000-0000-0000000000e1', 'schluss', '00000000-0000-0000-0000-00000000000a');
-insert into public.company_domains (company_id, domain, status, verified_at)
-values ('00000000-0000-0000-0000-0000000000c1', 'loeschtest.ch', 'verified', now());
+-- Seit 039 heisst «verified» DNS-geprüft (Check-Regel company_domains_verified_needs_dns).
+insert into public.company_domains (company_id, domain, method, status, verified_at)
+values ('00000000-0000-0000-0000-0000000000c1', 'loeschtest.ch', 'dns', 'verified', now());
 
 -- Mitglieder wie nach einer Einladung.
 insert into public.organization_members (organization_id, user_id, role)
