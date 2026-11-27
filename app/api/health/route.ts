@@ -1,18 +1,27 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { createServiceClient } from "@/lib/db/supabase-server";
 import { dataApiTarget } from "@/lib/db/rest-rewrite";
+import { hasBearerSecret } from "@/lib/secret-compare";
 
 /**
  * Lebenszeichen für das Deploy-Skript auf nine.ch und für die Überwachung.
  *
  * Antwortet nur mit "ok", wenn die App läuft, die Daten erreichbar sind, das Schema
  * vorhanden ist, die Schriftdateien am erwarteten Ort liegen und die Umgebung vollständig
- * ist. Die Antwort nennt ausschliesslich Befunde, nie Werte — wer die Seite aufruft,
- * erfährt kein Geheimnis und auch nicht, welche Adresse die Daten-API hat.
+ * ist.
+ *
+ * Öffentlich steht in der Antwort nur `{ "ok": true }` oder `{ "ok": false }`, dazu der
+ * HTTP-Status 200 oder 503. Mehr braucht keiner der Aufrufer: deploy.sh (curl -f), der
+ * Watchdog und die Überwachung werten nur den Status aus. Die einzelnen Befunde (Daten,
+ * Schriften, Umgebung, Signatur, Datenquelle) beschreiben den inneren Zustand des Servers,
+ * etwa welche Variable fehlt oder ob ein Signaturschlüssel gesetzt ist. Das geht Fremde
+ * nichts an, darum gibt es sie nur mit dem Kopf `Authorization: Bearer $CRON_SECRET`
+ * (zeitkonstant verglichen, lib/secret-compare.ts). Auch dann nennt die Antwort nur
+ * Befunde, nie Werte.
  *
  * Warum die Schriften mitgeprüft werden: lib/pdf/certificate.tsx löst sie über
  * process.cwd() auf. Zeigt das Arbeitsverzeichnis von PM2 auf einen alten Release-Ordner,
@@ -90,12 +99,18 @@ function datenquelle(): string {
   return host === "127.0.0.1" || host === "localhost" || host === "[::1]" ? "eigene" : "andere Adresse";
 }
 
-export async function GET() {
+/** Öffentlich nur ok/nicht ok; die Befunde nur für den, der CRON_SECRET kennt. */
+function respond(req: NextRequest, body: Record<string, string>, ok: boolean): NextResponse {
+  const details = hasBearerSecret(req.headers.get("authorization"), process.env.CRON_SECRET);
+  return NextResponse.json(details ? { ok, ...body } : { ok }, {
+    status: ok ? 200 : 503,
+    headers: noStore,
+  });
+}
+
+export async function GET(req: NextRequest) {
   if (cached && Date.now() - cached.at < CACHE_MS) {
-    return NextResponse.json(cached.body, {
-      status: cached.ok ? 200 : 503,
-      headers: noStore,
-    });
+    return respond(req, cached.body, cached.ok);
   }
 
   const daten = await checkData();
@@ -120,5 +135,5 @@ export async function GET() {
   };
 
   cached = { at: Date.now(), body, ok };
-  return NextResponse.json(body, { status: ok ? 200 : 503, headers: noStore });
+  return respond(req, body, ok);
 }

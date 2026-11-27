@@ -31,8 +31,6 @@
 # Im Betrieb:
 #   status             was laeuft, wie alt die Datenkopie ist
 #   probe              postgrest-probe.mjs --auth-eigen gegen die Test-Daten-API
-#   schalter <supabase|eigen>
-#                      ZEUGNIO_AUTH in der Test-.env umstellen und zeugnio-test neu starten
 #   psql [psql-Optionen]
 #                      psql auf die Testdatenbank als nmd_zeugnio (z. B. -c "select ...")
 #   start | stopp      nach einem Server-Neustart starten bzw. pausieren (Daten bleiben)
@@ -802,39 +800,6 @@ cmd_probe() {
     node "$REPO_DIR/deploy/nine/postgrest-probe.mjs" --auth-eigen
 }
 
-# --- schalter ----------------------------------------------------------------------------------
-cmd_schalter() {
-  require_user
-  load_node
-  local mode="${1:-}" code
-  case "$mode" in supabase | eigen) ;; *) fail "schalter braucht supabase oder eigen." ;; esac
-  need_file "$SHARED/.env" "zuerst: env"
-  # Nur die eine Zeile, atomar (daneben schreiben, dann umbenennen). Kein Wert wird angezeigt.
-  node - "$SHARED/.env" "$mode" <<'JS'
-const { readFileSync, renameSync, writeFileSync } = require("node:fs");
-const [file, mode] = process.argv.slice(2);
-const text = readFileSync(file, "utf8");
-const line = /^ZEUGNIO_AUTH=.*$/m;
-if (!line.test(text)) { console.error("Fehler: ZEUGNIO_AUTH fehlt in der Test-.env."); process.exit(1); }
-writeFileSync(`${file}.neu`, text.replace(line, () => `ZEUGNIO_AUTH="${mode}"`), { mode: 0o600 });
-renameSync(`${file}.neu`, file);
-JS
-  info "ZEUGNIO_AUTH=$mode in $SHARED/.env"
-  pm2 describe "$TEST_APP" >/dev/null 2>&1 || fail "pm2 kennt $TEST_APP nicht (noch nicht deployt?)."
-  # ZEUGNIO_AUTH wird zur Laufzeit gelesen (kein NEXT_PUBLIC_), ein Neustart genuegt, kein Build.
-  pm2 restart "$TEST_APP" >/dev/null
-  info "pm2 restart $TEST_APP"
-  wait_http "http://127.0.0.1:$APP_PORT/api/health" 60 || fail "$TEST_APP antwortet nach dem Neustart nicht (pm2 logs $TEST_APP)."
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST -H 'Content-Type: application/json' \
-    -H "Origin: $SITE_URL" --data '{}' "http://127.0.0.1:$APP_PORT/api/auth/anfordern" || true)"
-  case "$mode:$code" in
-    supabase:404) info "Gegenprobe: /api/auth/anfordern antwortet 404 - eigene Anmeldung ist aus" ;;
-    eigen:404) fail "Gegenprobe: /api/auth/anfordern antwortet 404, obwohl eigen - steht der Wert in der .env?" ;;
-    eigen:*) info "Gegenprobe: /api/auth/anfordern antwortet $code (nicht 404) - eigene Anmeldung ist an" ;;
-    *) warn "Gegenprobe: /api/auth/anfordern antwortet $code, erwartet 404" ;;
-  esac
-}
-
 # --- psql --------------------------------------------------------------------------------------
 cmd_psql() {
   require_user
@@ -914,9 +879,6 @@ cmd_status() {
     fi
   else
     info "App: pm2 kennt $TEST_APP nicht"
-  fi
-  if [ -f "$SHARED/.env" ]; then
-    info "Schalter: ZEUGNIO_AUTH=$(sed -n 's/^ZEUGNIO_AUTH=["'\'']\{0,1\}\([a-z]*\).*/\1/p' "$SHARED/.env" | tail -1)"
   fi
   info "Produktion zum Vergleich: pm2 zeugnio und Dienst postgrest werden von diesem Skript nicht angefasst."
 }
@@ -1003,7 +965,6 @@ main() {
     anmeldung-db) cmd_anmeldung_db "$@" ;;
     vor-deploy) cmd_vor_deploy "$@" ;;
     probe) cmd_probe "$@" ;;
-    schalter) cmd_schalter "$@" ;;
     psql) cmd_psql "$@" ;;
     start) cmd_start "$@" ;;
     stopp) cmd_stopp "$@" ;;

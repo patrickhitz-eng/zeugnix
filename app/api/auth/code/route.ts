@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { authSecret } from "@/lib/auth/config";
+import { authSecret, RATE_LIMITS } from "@/lib/auth/config";
 import { sessionCookie } from "@/lib/auth/cookie";
 import { rejectForeignOrigin, rejectTooManyRedeems } from "@/lib/auth/route-guard";
 import { redeemCode } from "@/lib/auth/store";
 import { codeHmac, hmac, isCodeShape, isPlausibleEmail, newToken, normalizeEmail } from "@/lib/auth/tokens";
 import { logError } from "@/lib/log";
+import { rateLimit } from "@/lib/rate-limit";
 import { siteConfig } from "@/lib/site-config";
 
 /**
@@ -18,9 +19,16 @@ import { siteConfig } from "@/lib/site-config";
  * Für «vertippt», «abgelaufen» und «schon benutzt» gibt es absichtlich nur eine
  * Antwort: die Datenbank unterscheidet die Fälle nach aussen nicht, und die
  * richtige Handlung ist in allen dreien dieselbe.
+ *
+ * Neben dem Limit pro IP (route-guard) gilt ein Tageslimit pro Adresse
+ * (RATE_LIMITS.codeProAdresseProTag, Begründung dort). Der Schlüssel enthält
+ * die Adresse nur als HMAC, so steht keine Mailadresse in rate_limit_counters.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const TAGESLIMIT =
+  "Für diese Adresse wurden heute zu viele Codes eingegeben. Melden Sie sich über den Link in der Anmelde-Mail an oder versuchen Sie es morgen erneut.";
 
 const UNGUELTIG =
   "Dieser Code stimmt nicht oder ist nicht mehr gültig. Prüfen Sie die Eingabe oder fordern Sie einen neuen Code an.";
@@ -38,6 +46,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const secret = authSecret();
+
+    const tag = RATE_LIMITS.codeProAdresseProTag;
+    const daily = await rateLimit(
+      `auth:code:mail:${hmac(secret, "ratelimit", email).slice(0, 32)}`,
+      tag.limit,
+      tag.windowMs,
+    );
+    if (!daily.ok) {
+      return NextResponse.json(
+        { error: TAGESLIMIT },
+        { status: 429, headers: daily.retryAfter ? { "Retry-After": String(daily.retryAfter) } : {} },
+      );
+    }
+
     const token = newToken();
     const user = await redeemCode({
       email,

@@ -15,6 +15,28 @@
 // verdeckt aber die Ursache. systemd startet den Dienst ohnehin bis zu fuenfmal neu
 // (StartLimitBurst in postgrest.service); danach ist Hinsehen die richtige Reaktion.
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { parseEnv } from "node:util";
+
+// Die Befunde (welcher Teil nicht "ok" ist) nennt /api/health nur mit CRON_SECRET; ohne
+// steht im Log bloss {"ok":false}. Darum das Geheimnis aus shared/.env lesen, wenn es geht.
+// Fehlt die Datei, prueft der Watchdog trotzdem: Entscheidend ist der HTTP-Status.
+//
+// Bewusst parseEnv statt process.loadEnvFile: loadEnvFile schriebe die ganze .env in die
+// Umgebung dieses Prozesses, und "pm2 restart --update-env" unten gaebe sie an die App weiter.
+// Gelesen wird nur dieser eine Wert, ausgegeben wird er nie.
+function readCronSecret() {
+  if (process.env.CRON_SECRET?.trim()) return process.env.CRON_SECRET.trim();
+  const envFile = process.env.ENV_FILE ?? path.join(os.homedir(), "zeugnio", "shared", ".env");
+  try {
+    return parseEnv(readFileSync(envFile, "utf8")).CRON_SECRET?.trim() || "";
+  } catch {
+    return ""; // ohne Geheimnis weiter, nur mit weniger Einzelheiten im Log
+  }
+}
+const cronSecret = readCronSecret();
 
 const port = process.env.APP_PORT ?? "3010";
 const healthUrl = process.env.HEALTH_URL ?? `http://127.0.0.1:${port}/api/health`;
@@ -22,9 +44,9 @@ const dataApiUrl = process.env.DATA_API_READY_URL ?? "http://127.0.0.1:3012/read
 const appName = process.env.APP_NAME ?? "zeugnio";
 const now = () => new Date().toISOString();
 
-async function probe(url) {
+async function probe(url, headers = {}) {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+    const response = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
     return { ok: response.ok, detail: `HTTP ${response.status}`, body: await response.text() };
   } catch (error) {
     return { ok: false, detail: error.message, body: "" };
@@ -38,7 +60,9 @@ if (!dataApi.ok) {
   process.exitCode = 1;
 }
 
-let app = await probe(healthUrl);
+const healthHeaders = cronSecret ? { authorization: `Bearer ${cronSecret}` } : {};
+
+let app = await probe(healthUrl, healthHeaders);
 if (app.ok) {
   // /api/health antwortet mit 503, sobald ein Befund darin nicht "ok" lautet - ein 200 heisst
   // also nicht nur "der Prozess lebt", sondern auch "Daten, Schriften und Umgebung stimmen".
@@ -59,7 +83,7 @@ console.error(`[watchdog] ${now()} pm2 restart ${appName}: Rueckgabewert ${resta
 // Der Anwendung Zeit geben, hochzufahren, bevor nachgesehen wird.
 await new Promise((resolve) => setTimeout(resolve, 15_000));
 
-app = await probe(healthUrl);
+app = await probe(healthUrl, healthHeaders);
 if (app.ok) {
   console.error(`[watchdog] ${now()} nach dem Neustart wieder erreichbar.`);
   // Trotzdem Rueckgabewert 1: ein Neustart ist ein Vorfall, kein Normalzustand, und soll

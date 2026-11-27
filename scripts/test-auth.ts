@@ -47,10 +47,13 @@ import {
   isCodeShape,
   isTokenShape,
   maskEmail,
+  needsSwitchConfirm,
   newCode,
   newToken,
   normalizeEmail,
+  SWITCH_CONFIRM_VALUE,
 } from "../lib/auth/tokens";
+import { hasBearerSecret, secretEquals } from "../lib/secret-compare";
 
 let passed = 0;
 let failed = 0;
@@ -298,11 +301,98 @@ async function main() {
 
   // ------------------------------------------------------------------------
   console.log("\nAdresse auf /auth/link (Login-CSRF)");
-  eq("lange Adresse: zwei Zeichen und Domain", maskEmail("anna.muster@firma.ch"), "an•••@firma.ch");
-  eq("kurze Adresse: ein Zeichen", maskEmail("ab@firma.ch"), "a•••@firma.ch");
+  eq("lange Adresse: drei vorne, eins hinten, ganze Domain", maskEmail("anna.muster@firma.ch"), "ann•••r@firma.ch");
+  ok(
+    "ähnliche Adressen unterscheidbar (anna.muster / andrea.meier)",
+    maskEmail("anna.muster@firma.ch") !== maskEmail("andrea.meier@firma.ch"),
+  );
+  eq("fünf Zeichen: drei vorne, eins hinten", maskEmail("abcde@firma.ch"), "abc•••e@firma.ch");
+  eq("vier Zeichen: zwei vorne, eins hinten", maskEmail("abcd@firma.ch"), "ab•••d@firma.ch");
+  eq("drei Zeichen: erstes und letztes", maskEmail("abc@firma.ch"), "a•••c@firma.ch");
+  eq("zwei Zeichen: nur das erste", maskEmail("ab@firma.ch"), "a•••@firma.ch");
   eq("ein Zeichen vor dem @", maskEmail("a@firma.ch"), "a•••@firma.ch");
   ok("Lokalteil nie ganz sichtbar", !maskEmail("anna.muster@firma.ch").includes("anna.muster"));
+  ok(
+    "ab zwei Zeichen immer mindestens eines verdeckt",
+    ["ab", "abc", "abcd", "abcde", "abcdefghij"].every((l) => {
+      const shown = maskEmail(`${l}@x.ch`).split("@")[0].replace("•••", "");
+      return shown.length < l.length;
+    }),
+  );
   eq("ohne @: nichts sichtbar", maskEmail("kaputt"), "•••");
+
+  console.log("\nKontowechsel über einen Anmeldelink");
+  ok("nicht angemeldet: keine Rückfrage", !needsSwitchConfirm(null, "anna@firma.ch"));
+  ok("gleiches Konto: keine Rückfrage", !needsSwitchConfirm({ email: "anna@firma.ch" }, "anna@firma.ch"));
+  ok("gleiches Konto, andere Schreibweise: keine Rückfrage", !needsSwitchConfirm({ email: " Anna@Firma.CH" }, "anna@firma.ch"));
+  ok("anderes Konto: Rückfrage", needsSwitchConfirm({ email: "anna@firma.ch" }, "fremd@firma.ch"));
+  ok("Sitzung ohne Adresse: Rückfrage (lieber einmal zu viel)", needsSwitchConfirm({ email: undefined }, "anna@firma.ch"));
+  const linkRoute = readFileSync(path.join(__dirname, "..", "app", "api", "auth", "link", "route.ts"), "utf8");
+  const linkPage = readFileSync(path.join(__dirname, "..", "app", "auth", "link", "page.tsx"), "utf8");
+  ok(
+    "POST /api/auth/link prüft den Wechsel vor dem Einlösen",
+    linkRoute.includes("needsSwitchConfirm(") &&
+      linkRoute.indexOf("needsSwitchConfirm(") < linkRoute.indexOf("redeemLink({") &&
+      linkRoute.includes('form?.get("bestaetigt") !== SWITCH_CONFIRM_VALUE'),
+  );
+  ok(
+    "/auth/link zeigt beim Wechsel ein Pflicht-Häkchen mit demselben Wert",
+    linkPage.includes('name="bestaetigt"') && linkPage.includes("value={SWITCH_CONFIRM_VALUE}") && /\brequired\b/.test(linkPage),
+  );
+  eq("Bestätigungswert", SWITCH_CONFIRM_VALUE, "ja");
+  // Unter «no-referrer» schickt der Browser beim Formular-POST `Origin: null`, und
+  // rejectForeignOrigin lehnt ab: Die Anmeldung per Link wäre tot. «strict-origin»
+  // gibt nur die Adresse ohne Pfad und Token weiter.
+  const nextConfig = readFileSync(path.join(__dirname, "..", "next.config.mjs"), "utf8");
+  const linkBlock = nextConfig.slice(nextConfig.indexOf('source: "/auth/link"'), nextConfig.indexOf('source: "/auth/link"') + 200);
+  ok(
+    "/auth/link: Referrer-Policy strict-origin (Kopf und Metadaten), nie no-referrer",
+    linkBlock.includes('value: "strict-origin"') &&
+      linkPage.includes('referrer: "strict-origin"') &&
+      !linkPage.includes('referrer: "no-referrer"'),
+  );
+  ok("Formular-POST mit Origin null bleibt abgelehnt", !isAllowedOrigin("null", ["https://zeugnio.ch"]));
+
+  // ------------------------------------------------------------------------
+  console.log("\nTageslimit für eingetippte Codes (T3)");
+  ok(
+    "höchstens 10 Codes pro Adresse und Tag",
+    RATE_LIMITS.codeProAdresseProTag.limit === 10 && RATE_LIMITS.codeProAdresseProTag.windowMs === 24 * 60 * 60 * 1000,
+  );
+  ok(
+    "Tageslimit liegt unter dem, was die Stundenlimits schon in einer Stunde erlauben",
+    RATE_LIMITS.codeProAdresseProTag.limit < RATE_LIMITS.anfordernProAdresse.limit * LOGIN_MAX_TRIES,
+  );
+  const codeRoute = readFileSync(path.join(__dirname, "..", "app", "api", "auth", "code", "route.ts"), "utf8");
+  ok(
+    "POST /api/auth/code zählt vor dem Einlösen, mit der Adresse nur als HMAC",
+    codeRoute.includes("RATE_LIMITS.codeProAdresseProTag") &&
+      codeRoute.includes('hmac(secret, "ratelimit", email)') &&
+      codeRoute.indexOf("codeProAdresseProTag") < codeRoute.indexOf("redeemCode({"),
+  );
+  ok("Link-Weg zählt nicht ins Code-Tageslimit", !linkRoute.includes("codeProAdresseProTag"));
+
+  // ------------------------------------------------------------------------
+  console.log("\nGeheimnisse zeitkonstant vergleichen (CRON_SECRET, /api/health)");
+  ok("gleiche Werte passen", secretEquals("abc-123", "abc-123"));
+  ok("anderer Wert passt nicht", !secretEquals("abc-124", "abc-123"));
+  ok("Präfix passt nicht", !secretEquals("abc", "abc-123") && !secretEquals("abc-1234", "abc-123"));
+  ok("leeres Geheimnis passt nie", !secretEquals("", "") && !secretEquals("x", ""));
+  ok("fehlende Werte passen nie", !secretEquals(null, "a") && !secretEquals("a", undefined));
+  const CRON = "c".repeat(40);
+  ok("Bearer mit richtigem Geheimnis", hasBearerSecret(`Bearer ${CRON}`, CRON));
+  ok("Geheimnis mit Leerzeichen aus der .env", hasBearerSecret(`Bearer ${CRON}`, ` ${CRON} `));
+  ok("ohne Bearer-Präfix abgelehnt", !hasBearerSecret(CRON, CRON));
+  ok("falsches Geheimnis abgelehnt", !hasBearerSecret(`Bearer ${"d".repeat(40)}`, CRON));
+  ok("fehlender Kopf abgelehnt", !hasBearerSecret(null, CRON));
+  ok("nicht gesetztes Geheimnis: alles abgelehnt", !hasBearerSecret("Bearer ", "") && !hasBearerSecret("Bearer undefined", undefined) && !hasBearerSecret("Bearer ", "   "));
+  const cronRoute = readFileSync(path.join(__dirname, "..", "app", "api", "cron", "pii-cleanup", "route.ts"), "utf8");
+  const healthRoute = readFileSync(path.join(__dirname, "..", "app", "api", "health", "route.ts"), "utf8");
+  ok("Cron-Route vergleicht zeitkonstant, nicht mit !==", cronRoute.includes("hasBearerSecret(") && !/authorization"\)\s*!==/.test(cronRoute));
+  ok(
+    "/api/health: öffentlich nur { ok }, Befunde nur mit CRON_SECRET",
+    healthRoute.includes("hasBearerSecret(") && healthRoute.includes("details ? { ok, ...body } : { ok }"),
+  );
 
   // ------------------------------------------------------------------------
   console.log("\nHerkunft (Origin)");

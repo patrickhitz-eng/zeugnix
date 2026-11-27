@@ -41,6 +41,23 @@ export const RATE_LIMITS = {
   anfordernProIp: { limit: 20, windowMs: 60 * 60 * 1000 },
   einloesenProIp: { limit: 20, windowMs: 60 * 60 * 1000 },
   /**
+   * Tageslimit für eingetippte Codes pro Adresse (Sicherheitstest 24.11.2026,
+   * T3). Ein Code hat 6 Ziffern, also eine Million Möglichkeiten. Die Limits
+   * oben bremsen pro Stunde: 5 Fehlversuche pro Anforderung, 5 Anforderungen
+   * pro Adresse. Über Wochen summiert sich das trotzdem. Mit höchstens 10
+   * Codes pro Tag und Adresse sind es im Monat rund 300 Versuche, also etwa
+   * 0,03 % Trefferchance statt rund 1,8 %.
+   *
+   * Gezählt wird jeder Versuch mit einem formal gültigen Code, auch der
+   * richtige: Die Datenbank prüft Code und Sitzung in einem Zug, ein
+   * «nur nachsehen» ohne Zählen gibt check_rate_limit nicht her. Wer sich
+   * normal anmeldet, braucht einen Code alle 30 Tage und bleibt weit darunter.
+   * Ist das Limit erreicht, geht die Anmeldung über den Link in derselben Mail
+   * weiter; der Link zählt hier nicht mit. Das Fenster beginnt um Mitternacht
+   * UTC und braucht Migration 042 (siehe anfordernGlobalProTag).
+   */
+  codeProAdresseProTag: { limit: 10, windowMs: 24 * 60 * 60 * 1000 },
+  /**
    * Globale Obergrenze für Anmelde-Mails über alle Adressen (Sicherheitstest
    * 24.11.2026, M5). Die Limits oben bremsen eine einzelne Adresse und einen
    * einzelnen Anschluss. Wer viele Anschlüsse hat, verschickt trotzdem Mails an

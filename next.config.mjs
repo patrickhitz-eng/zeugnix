@@ -67,8 +67,16 @@ const nextConfig = {
         // beim nächsten Klick als Referer mit, auch an zeugnio selbst, und
         // stünde dann im Zugriffsprotokoll von nginx. Steht nach dem Block
         // "/:path*", weil bei gleichem Kopf der spätere Eintrag gilt.
+        //
+        // «strict-origin» und NICHT «no-referrer»: Als Referer geht nur
+        // https://zeugnio.ch mit, nie Pfad oder Token. «no-referrer» wäre hier
+        // falsch, weil diese Seite ein Formular per POST abschickt: Unter
+        // «no-referrer» setzt der Browser bei einem Formular-POST den Kopf
+        // `Origin: null` (Fetch-Standard, Formulare laufen nicht im Modus
+        // «cors»), und /api/auth/link lehnt «null» als fremde Herkunft ab.
+        // Die Anmeldung per Link scheiterte dann mit 403.
         source: "/auth/link",
-        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+        headers: [{ key: "Referrer-Policy", value: "strict-origin" }],
       },
       {
         // Dasselbe für die Token-Links ohne Konto: Einladung an die vorgesetzte
