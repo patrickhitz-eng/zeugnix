@@ -29,7 +29,9 @@ Schweizer Arbeitszeugnis-Plattform. HR erstellt das Zeugnis, die vorgesetzte Per
 - **Rate-Limit-IP:** Seit 6.11.2026 liest `lib/client-ip.ts` zuerst `X-Real-IP` und sonst den **letzten** `X-Forwarded-For`-Eintrag. Der erste Eintrag lässt sich hinter Nginx fälschen, darum nie auf ihn zurückgehen. Test: `npm run test:client-ip`.
 - **`NEXT_PUBLIC_SITE_URL`** wird beim Build eingefroren (QR-Codes, Einladungslinks). Auf advisori01 steht sie in `~/zeugnio/shared/.env` auf `https://zeugnio.ch`. Nach einer Änderung neu deployen.
 - **Datenschutzseite:** Seit 28.10.2026 ohne Platzhalter (PR #39), aber noch nicht juristisch geprüft. Die Empfänger stehen als `RECIPIENTS` in `app/legal/privacy/page.tsx`. Die Umzugsschalter stehen in `lib/legal/hosting-phase.ts`. `ANMELDUNG` steht seit B2 auf `nine` (Supabase-Projekt am 25.11.2026 gelöscht). Beim Mailwechsel (6.3) `MAIL` nachführen.
-- **SPF und DMARC** fehlen (`docs/dns-spf-dmarc.md`).
+- **Mail-DNS:** SPF `v=spf1 -all`, DMARC seit 27.11.2026 auf `p=quarantine` (ohne `rua`). Bevor ein neuer Absender unter `@zeugnio.ch` sendet (M365 in F1, mailomat in 6.3), zuerst dessen DKIM und SPF eintragen, sonst landen die Mails im Spam (`docs/dns-spf-dmarc.md`).
+- **DNS-Zone:** bei Infomaniak, seit 27.11.2026 auf `nsany1/nsany2.infomaniak.com` (nicht mehr `ns11/ns12`). Immer bei den delegierten Servern messen. CAA erlaubt nur Let's Encrypt.
+- **`public/.well-known/security.txt`** läuft am 1.11.2027 ab (`Expires`). Vorher erneuern.
 - **Nie Secrets ausgeben,** auch nicht per `awk` auf `.env.local`. Prüfen geht über `npm run check:env`.
 
 ## Hub

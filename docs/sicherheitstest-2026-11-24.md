@@ -285,6 +285,8 @@ Tag, mit Warnung im Log. Als Reserve, wenn die Rate steigt, eine Rechenaufgabe f
 - DMARC steht auf `p=none` (nur beobachten). Nach 2–4 Wochen sauberer Berichte `quarantine`.
   Es gibt keinen CAA-Eintrag (er würde festlegen, welche Stelle Zertifikate ausstellen darf) und
   kein `/.well-known/security.txt`.
+  **Korrektur 27.11.:** CAA gab es schon, mit drei Einträgen (`letsencrypt.org`, `pki.goog`,
+  `sectigo.com`). Die Messung hatte eine Lücke: Windows kann CAA nicht abfragen.
 - HSTS 7 Tage ohne `includeSubDomains`. Das ist bewusst so bis zur ersten Zertifikats-Erneuerung.
 - Die statische Startseite liefert `script-src 'self' 'unsafe-inline'` ohne Nonce. Das ist
   bekannt (`middleware.ts:82-88`) und vertretbar, weil sie keine Nutzereingaben zeigt. Die
@@ -452,6 +454,10 @@ dem Token auf. Erwartet: 403.
 
 Hinweise aus Abschnitt 3 ohne Code-PR liegen beim Betreiber: `test.zeugnio.ch` abbauen, DMARC auf
 `quarantine`, CAA-Eintrag und `security.txt`, absolute Höchstdauer für Sitzungen (Produktentscheid).
+
+**Stand 27.11.:** `test.zeugnio.ch` abgebaut, DMARC `p=quarantine`, CAA auf `letsencrypt.org`
+reduziert (plus `issuewild ";"`), `security.txt` vorbereitet in PR #136 (live erst nach Merge und
+Deploy). Offen bleiben dieser Deploy und die Höchstdauer für Sitzungen. Einzelheiten im Journal `deploy/nine/kommunikation.md`, 27.11.
 
 ## 7. Funde während der Fix-Arbeit
 
